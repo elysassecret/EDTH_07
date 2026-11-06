@@ -4,3 +4,4 @@ current_dir_deg = 345
 tide_flip_s = 9000         # current reverses at this sim time
 sentinel_radius_m = 300
 return_safety = 1.2
+hotel_load_permille = 100  # chosen sim input: motors-off load / total cruise load; NOT hull data

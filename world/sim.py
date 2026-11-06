@@ -57,6 +57,12 @@ class World:
                 return tomllib.load(handle)
 
         self.boat_config = config("config/boat.toml")
+        self.hotel_load_permille = config("config/energy.toml")["hotel_load_permille"]
+        if (
+            not isinstance(self.hotel_load_permille, int)
+            or not 1 <= self.hotel_load_permille <= 1000
+        ):
+            raise ValueError("hotel_load_permille must be an integer between 1 and 1000")
         radio = config("config/radio.toml")
         self.radio_config = RadioConfig(
             radio["boat_m"],
@@ -212,7 +218,7 @@ class World:
             self._apply(event)
         for boat, state in sorted(self.boats.items()):
             before = (state.x_mm, state.y_mm)
-            state.advance(self.actions[boat], dt)
+            state.advance(self.actions[boat], dt, hotel_load_permille=self.hotel_load_permille)
             dx, dy = state.x_mm - before[0], state.y_mm - before[1]
             self.telemetry[boat]["sog"] = isqrt(dx * dx + dy * dy) * 1000 // dt if dt else 0
             if dx or dy:

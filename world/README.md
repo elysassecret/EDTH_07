@@ -13,7 +13,7 @@ uv run pytest -q tests/world
 The default uses explicitly labelled fixed-route stand-ins, **not Javier's swarm**.
 `--controller core` uses the merged `agent.core.Agent` and `agent.shore.ShoreNode`.
 The merged agent now moves boats, returns on low battery and runs the slotted auction.
-Contact policy and operator decisions are later agent phases. The world does not
+Shore decision transport is merged; contact detection/response policy is a later agent phase. The world does not
 substitute exercise behaviour for missing agent features.
 Both modes print a final truth snapshot and physical-state hash; neither is an evaluation
 result. Core mode also prints public agent views and the heartbeats actually received by
@@ -34,15 +34,20 @@ shore (original creation times and hop counts), not a fabricated live fleet pict
   must be future tick boundaries. Injection `kind`/fields match the scenario event tape.
 - `reset(seed=None)` reconstructs physical state and all supplied nodes, clears injections,
   and optionally changes the seed.
-- `snapshot()` is **truth only**. C must build `/shore` from delivered shore-node data.
-  The merged core currently has `ShoreNode.boats`/`table`; `picture()` is planned but not
-  implemented yet. Do not substitute world truth while waiting for it.
+- `snapshot()` is **truth only**. For `/shore`, C uses `sim.shore.picture(sim.t_ms, speed)`
+  (the agent's contract Snapshot). `shore_view()` stays a raw delivered-report diagnostic,
+  not a second console picture. Do not substitute world truth for missing delivered data.
 - `state_hash()` covers world physical/queue state, not a complete agent-state replay hash.
 
 Physical radio checks range at send and delivery and applies directed link switches.
 It never forwards, parses, retries or deduplicates payloads: those belong to `agent/net.py`.
 Counter-keyed seeded loss/delay avoids a shared RNG consumed by unrelated transmissions;
 full baseline fairness still needs Franco's cross-system tests.
+
+Energy uses cruise-equivalent battery units. Moving under power pays total cruise load;
+stationary/motors-off boats pay `hotel_load_permille` of it (100 is a chosen simulation
+input, not measured hull data). SENTINEL correction pays cruise load, not the idle rate.
+Seven-hour cruise endurance is unchanged. Current/tide integration remains deferred.
 
 See `world/API.md` for the issue #8 console bridge handoff, units and data-age semantics.
 
