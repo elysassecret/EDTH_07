@@ -71,7 +71,10 @@ export interface SceneMsg {
   home_m?: number; // agent's "at the shore station" radius (agent/core.py HOME_M)
 }
 
-export interface Ack { type: "ack"; cmd: string | null; id: string | null; ok: boolean; error?: string }
+export interface Ack {
+  type: "ack"; cmd: string | null; id: string | null; ok: boolean; error?: string;
+  placed?: string; on?: string; offset_m?: number; // contact_start (feature 13)
+}
 
 /** Contract commands, plus console extras the mock accepts (ack, speed, pause, reset). */
 export type Command =
@@ -79,7 +82,8 @@ export type Command =
   | { cmd: "ack"; id: string }
   | { cmd: "speed"; value: number | "auto" }
   | { cmd: "pause"; on?: boolean }
-  | { cmd: "reset"; seed?: number };
+  | { cmd: "reset"; seed?: number }
+  | { cmd: "inject"; kind: "contact_start"; lat: number; lon: number; ais?: boolean };
 
 export const T0_FALLBACK = "2026-11-03T10:15:00Z"; // scenarios/fixed.toml ais_t0 (UTC, unverified)
 export const t0Of = (s: { t0_utc?: string } | null) => s?.t0_utc ?? T0_FALLBACK;

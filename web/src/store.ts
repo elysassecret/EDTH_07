@@ -26,6 +26,8 @@ interface State {
   toggleComms: () => void;
   // Evaluator view: a second socket to /truth, open only while this is on. Off by default,
   // never available in operator mode (?operator).
+  placing: { ais: boolean } | null; // exercise: next chart click places a synthetic contact
+  setPlacing: (p: { ais: boolean } | null) => void;
   evalOn: boolean;
   evalData: EvalData | null;
   toggleEval: () => void;
@@ -58,6 +60,8 @@ export const useStore = create<State>((set, get) => ({
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
+  placing: null,
+  setPlacing: (p) => set({ placing: p }),
   evalOn: false,
   evalData: null,
   toggleEval: () => {
