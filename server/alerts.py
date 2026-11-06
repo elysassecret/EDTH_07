@@ -74,9 +74,9 @@ class AlertBook:
 
         target = self.revisit_target_s
         for k, age in sorted(pic.seg_age.items()):
-            if target is None or age <= target:
+            if target is None or (age is not None and age <= target):
                 continue
-            if age >= t:  # the shore has no visit report for it in this run
+            if age is None or age >= t:  # the shore has no visit report for it in this run
                 text = f"Cable {k}: no visit reported since start (shore-reported)"
             else:
                 text = f"Cable {k} overdue: no visit since {self._hhmm(t - age)} (shore-reported)"

@@ -2,7 +2,7 @@
 // N5: if no snapshot arrives for FEED_LOST_MS, the display is marked frozen (red banner).
 // N6: the socket reconnects by itself; no page reload needed.
 import { create } from "zustand";
-import { OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Snapshot } from "./types";
+import { OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Scorecard, type Snapshot } from "./types";
 
 const FEED_LOST_MS = 2000;
 
@@ -30,6 +30,7 @@ interface State {
   setPlacing: (p: { ais: boolean } | null) => void;
   evalOn: boolean;
   evalData: EvalData | null;
+  scorecard: Scorecard | null;
   toggleEval: () => void;
   setChannel: (c: Channel) => void;
   send: (c: Command) => boolean;
@@ -69,6 +70,7 @@ export const useStore = create<State>((set, get) => ({
   setPlacing: (p) => set({ placing: p }),
   evalOn: false,
   evalData: null,
+  scorecard: null,
   toggleEval: () => {
     const on = !get().evalOn && !OPERATOR_MODE;
     set({ evalOn: on, evalData: null });
@@ -136,8 +138,10 @@ function connectEval(): void {
   const sock = new WebSocket(feedUrl("truth"));
   evalWs = sock;
   sock.onmessage = (ev) => {
-    const msg = JSON.parse(String(ev.data)) as { eval?: EvalData };
-    if (msg.eval && useStore.getState().evalOn) useStore.setState({ evalData: msg.eval });
+    const msg = JSON.parse(String(ev.data)) as { eval?: EvalData; scorecard?: Scorecard };
+    if (msg.eval && useStore.getState().evalOn) {
+      useStore.setState({ evalData: msg.eval, scorecard: msg.scorecard ?? null });
+    }
   };
   sock.onclose = () => {
     if (evalWs !== sock) return;

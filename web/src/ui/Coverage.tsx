@@ -26,9 +26,9 @@ export function CoverageBox() {
     <div className={`coverage ${gap ? "gap" : ""}`}>
       <div className="headline">
         {w.age === null ? (
-          <>Oldest cable visit: <b>none reported since start</b> ({w.id})</>
+          <>Oldest cable visit (shore-reported): <b>none since start</b> ({w.id})</>
         ) : (
-          <>Oldest cable visit <b>{hm(w.age)}</b> ({w.id})</>
+          <>Oldest cable visit (shore-reported): <b>{hm(w.age)}</b> ({w.id})</>
         )}
       </div>
       {gap && (

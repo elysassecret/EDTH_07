@@ -20,12 +20,20 @@ export function EvalBanner() {
 export function EvalPanel() {
   const on = useStore((s) => s.evalOn);
   const ev = useStore((s) => s.evalData);
+  const card = useStore((s) => s.scorecard);
   if (!on) return null;
   if (!ev) return <section className="evalpanel"><h2>Evaluator view</h2><p className="muted">Waiting for /truth…</p></section>;
   const hidden = ev.contacts.filter((c) => !c.on_shore);
   return (
     <section className="evalpanel">
       <h2>Evaluator view · not available to the operator</h2>
+      {ev.cable_overdue ? (
+        <div className="eval-headline">
+          Cable overdue (truth): <b>{ev.cable_overdue.overdue_km.toFixed(1)} km</b> past the {hm(ev.cable_overdue.target_s)} target
+          {" "}+ <b>{ev.cable_overdue.never_visited_km.toFixed(1)} km</b> never visited, of {ev.cable_overdue.total_km.toFixed(1)} km.
+          <div className="muted">Console estimate from true sample visits; the scored number comes from eval/.</div>
+        </div>
+      ) : <p className="muted">Cable km overdue: real sim only.</p>}
       <table>
         <thead><tr><th>USV</th><th>shore data age</th><th>position off by</th><th>link true / shore</th></tr></thead>
         <tbody>
@@ -47,6 +55,16 @@ export function EvalPanel() {
       {ev.links.length === 0 ? <p className="muted">None.</p> : (
         <ul>{ev.links.map((l) => <li key={`${l.a}-${l.b}`}>{end(l.a)} – {end(l.b)}: true {l.true}, shore {l.shore}</li>)}</ul>
       )}
+      <h3>Three-mode scorecard</h3>
+      {card ? (
+        <table>
+          <thead><tr><th>mode</th><th>metric</th><th>median</th><th>range</th></tr></thead>
+          <tbody>{card.rows.map((r) => (
+            <tr key={`${r.mode}-${r.metric}`}><td>{r.mode}</td><td>{r.metric}</td>
+              <td className="num">{r.median} {r.unit}</td><td className="num">{r.min}–{r.max}</td></tr>
+          ))}</tbody>
+        </table>
+      ) : <p className="muted">Waits for eval/ (Franco): nothing shown until it sends real numbers.</p>}
       <h3>Cable revisit age: shore estimate / true</h3>
       <table>
         <tbody>
