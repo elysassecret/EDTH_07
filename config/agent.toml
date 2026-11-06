@@ -1,1 +1,6 @@
+# Owner: A. Judgement values; see agent/PLAN.md section 3.
+policy = "elysa"            # elysa | off | static: the one key that differs between baseline modes
 rebalance_ratio = 1.25
+seg_lease_s = 3600          # lease for seg and pick; relay and contact use LEASE (60 s)
+role_penalty_s = 12000      # picket bidding on a cable, or sweeper bidding on a contact
+loiter_sog_mm_s = 515       # about 1 kn; slower no-AIS tracks near a cable start the dwell clock
