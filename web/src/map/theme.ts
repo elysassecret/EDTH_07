@@ -8,6 +8,9 @@ export const BOX = "#c9d3dc";
 export const CABLE_POWER = "#c85bb4"; // ECDIS cables are magenta
 export const CABLE_DATA = "#a07cc8";
 export const LANE = "#8aa0b2";
+export const COAST = "#7d7d68"; // coastline outline on the land fill
+export const DEPTH = "#4f6f88"; // depth contours: quiet, under everything else
+export const INFRA = "#d4d4c4"; // bridge, ferry route, piers
 
 const rgb = (c: RGB, a = 255): RGBA => [c[0], c[1], c[2], a];
 

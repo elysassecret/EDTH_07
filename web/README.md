@@ -58,7 +58,13 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 ## Files that come from someone else
 
 - `public/geo/land.geojson` — **placeholder, empty on purpose.** Franco's `tools/` should write
-  the clipped OSM land polygons here (credit: © OpenStreetMap contributors).
+  the clipped OSM land polygons here (issue #9). Until then the chart says "No coastline file
+  yet (issue #9)" in the bottom-right corner.
+- Optional, same rules (EPSG:4326 `[lon, lat]`, < ~1 MB): `public/geo/infra.geojson` (lines with
+  `{"kind": "bridge" | "ferry" | "pier", "name"}`) and `public/geo/depth.geojson` (lines with
+  `{"depth_m"}`). Each file is drawn as soon as it exists; nothing to change in the code.
+  A file may carry a top-level `"attribution"` string, shown in the corner; land and infra
+  default to "© OpenStreetMap contributors". Loading and checks: `src/map/geo.ts`.
 - `public/geo/s2_box.png` + `public/geo/s2_box.json` — Sentinel-2 image and
   `{"coordinates": [[lon,lat] top-left, top-right, bottom-right, bottom-left]}`. Until they exist
   the toggle reads "No satellite image yet".

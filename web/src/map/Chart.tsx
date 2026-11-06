@@ -1,6 +1,6 @@
 // Owner: C. Feature 17: offline chart. MapLibre draws the static vector layers;
 // deck.gl draws everything that moves, and all text (no online glyphs in the style).
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
 // Bundle MapLibre's worker with its imports so it loads offline in dev and in dist.
@@ -13,6 +13,7 @@ import { useStore } from "../store";
 import { dur } from "../format";
 import type { Boat, Contact } from "../types";
 import { boxBounds, boxGeo, cableLabels, cablesGeo, laneGeo, type Label } from "./scene";
+import { GEO_FILES, depthLabels, infraLabels, loadGeo, type GeoFile, type GeoName, type LineLabel } from "./geo";
 import * as T from "./theme";
 import { commsLayers } from "./comms";
 import { segAges, type Band } from "../coverage";
@@ -98,15 +99,27 @@ function square(lon: number, lat: number, half: number): [number, number][] {
 const style: StyleSpecification = {
   version: 8,
   sources: {
-    // absolute URL: the worker resolves relative URLs against its own location
-    land: { type: "geojson", data: new URL("geo/land.geojson", window.location.href).href },
+    // optional files from tools/ (src/map/geo.ts): empty until loaded and checked
+    land: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+    infra: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+    depth: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     box: { type: "geojson", data: boxGeo },
     cables: { type: "geojson", data: cablesGeo },
     lane: { type: "geojson", data: laneGeo },
   },
   layers: [
     { id: "sea", type: "background", paint: { "background-color": T.SEA } },
+    { id: "depth", type: "line", source: "depth", paint: { "line-color": T.DEPTH, "line-width": 1, "line-opacity": 0.7 } },
     { id: "land", type: "fill", source: "land", paint: { "fill-color": T.LAND } },
+    { id: "coast", type: "line", source: "land", paint: { "line-color": T.COAST, "line-width": 1 } },
+    {
+      id: "infra", type: "line", source: "infra", filter: ["!=", ["get", "kind"], "ferry"],
+      paint: { "line-color": T.INFRA, "line-width": ["match", ["get", "kind"], "bridge", 3, 1.5] },
+    },
+    {
+      id: "ferry", type: "line", source: "infra", filter: ["==", ["get", "kind"], "ferry"],
+      paint: { "line-color": T.INFRA, "line-width": 1.5, "line-dasharray": [4, 3] },
+    },
     {
       id: "lane", type: "line", source: "lane",
       paint: { "line-color": T.LANE, "line-width": 2, "line-dasharray": [6, 4], "line-opacity": 0.8 },
@@ -130,6 +143,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [geo, setGeo] = useState<Partial<Record<GeoName, GeoFile | null>>>({});
   const snap = useStore((s) => s.snap);
   const scene = useStore((s) => s.scene);
   const conn = useStore((s) => s.conn);
@@ -174,6 +188,11 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     map.on("error", (e) => console.error("map:", e.error?.message ?? e));
     map.on("load", async () => {
       setLoaded(true);
+      const files = await Promise.all(GEO_FILES.map(async (n) => [n, await loadGeo(n)] as const));
+      for (const [n, f] of files) {
+        if (f) (map.getSource(n) as maplibregl.GeoJSONSource | undefined)?.setData(f.data);
+      }
+      setGeo(Object.fromEntries(files));
       // Satellite: Franco's tools/ writes geo/s2_box.png and geo/s2_box.json
       // ({"coordinates": [[lon,lat] top-left, top-right, bottom-right, bottom-left]}).
       try {
@@ -205,11 +224,26 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     }
   }, [satellite, loaded]);
 
-  useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision) });
-  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision]);
+  const geoText = useMemo(
+    () => [...infraLabels(geo.infra?.data ?? null), ...depthLabels(geo.depth?.data ?? null)],
+    [geo],
+  );
 
-  return <div ref={el} className="chart" />;
+  useEffect(() => {
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText) });
+  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText]);
+
+  const credits = [...new Set(GEO_FILES.map((n) => geo[n]?.credit).filter((c): c is string => !!c))];
+  if (satellite) credits.push("Contains modified Copernicus Sentinel data");
+  const missing = loaded && Object.keys(geo).length ? GEO_FILES.filter((n) => !geo[n]) : [];
+  return (
+    <>
+      <div ref={el} className="chart" />
+      <div className="map-credit">
+        {[missing.includes("land") ? "No coastline file yet (issue #9)" : null, ...credits].filter(Boolean).join(" · ")}
+      </div>
+    </>
+  );
 }
 
 function buildLayers(
@@ -220,8 +254,17 @@ function buildLayers(
   selectedContact: string | null,
   showComms: boolean,
   hoverDecision: string | null,
+  geoText: LineLabel[],
 ): Layer[] {
   const layers: Layer[] = [];
+  if (geoText.length) {
+    layers.push(new TextLayer<LineLabel>({
+      id: "geo-labels", data: geoText, getPosition: (d) => d.pos, getText: (d) => d.text,
+      getSize: (d) => (d.kind === "depth" ? 10 : 12),
+      getColor: (d) => (d.kind === "depth" ? [120, 150, 175, 220] : [200, 200, 188, 230]),
+      fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
+    }));
+  }
   const labels: Label[] = cableLabels();
 
   if (scene) {
