@@ -185,7 +185,7 @@ function showScorecard(sc) {
     ['Reports queued offline', sc.reports_queued],
     ['Repair claims after T', sc.repair_claims_after_T],
     ['Radio', `${sc.radio?.sent} sent, ${sc.radio?.dropped} dropped by the tape, ${sc.radio?.delivered} delivered`],
-    ['Hashes', `warm ${sc.warm_hash} · ages T−1 ${sc.ages_T_minus_1} · final ${sc.final_hash}`],
+    ['Hashes', sc.final_hash ? `warm ${sc.warm_hash} · ages T−1 ${sc.ages_T_minus_1} · final ${sc.final_hash}` : 'live run (hashes are logged in batch runs)'],
   ];
   $('modalBody').innerHTML = '<table>' + rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('') + '</table>';
   $('evidence').textContent = '';
