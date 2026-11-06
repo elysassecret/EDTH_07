@@ -27,6 +27,12 @@ uv run python -m server --serve-web --mock   # same with the mock feed
   tick it arrived at, both snapshots every 10 sim-s and a replay hash every 60 sim-s. A full
   14 400 s run is about 8 MB. `uv run python -m server.replay runs/<file>.jsonl` rebuilds the
   run from the seed and the commands and names the first hash that differs.
+- `evaluator.py`: the evaluator comparison, added by `feed.py` to **/truth frames only** (key
+  `eval`): true vs last-known boat positions and data age, true contacts the shore picture lacks,
+  links where truth and shore belief differ, true vs shore revisit age. /shore never carries it.
+- `demo.toml` + `DEMO.md`: the video preset (`uv run python -m server --serve-web --demo`):
+  seed 1, starts paused at 6900 s, relay loss injected at 11 100 s, about 2:26 after Run.
+  Shot list, timings and narration in `DEMO.md`; `tests/server/test_demo.py` checks the beats.
 - `mock_feed.py`: deterministic fake of the whole story, for UI work without the sim.
 - `alerts.py`: alerts for the real sim (feature 23), made from the shore picture and the
   console's own exercise events, never from truth. Alarm: held decision unanswered 05:00.

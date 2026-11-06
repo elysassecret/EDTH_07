@@ -30,6 +30,11 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
    and "slowing for event", SHORE/TRUTH switch, Exercise controls, satellite toggle), then the
    banners (FEED LOST, TRUTH, EXERCISE) and the alert strip. `src/ui/`: decisions, alerts, one
    card per USV and one per contact. Click a card or a symbol on the chart to highlight it.
+6. **Evaluator view** (judges and team, off by default) — **Evaluator ON** opens a second socket
+   to `/truth` and shows, in purple, where each boat really is next to where the shore last
+   heard it, true contacts the shore doesn't have, links where truth and belief differ, and true
+   vs shore revisit age (`src/ui/EvalPanel.tsx`, `src/map/evaluator.ts`). Add `?operator` to the
+   URL for the watch officer's screen: no evaluator or truth switches.
 5. **Over the chart** — the coverage box (oldest cable visit, gap line, all segments) top left,
    the event log bottom left, the exercise injection panel top right.
 

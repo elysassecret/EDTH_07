@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { ContactList } from "./ContactList";
 import { DecisionPanel } from "./DecisionPanel";
 import { AlertPanel } from "./AlertPanel";
+import { EvalPanel } from "./EvalPanel";
 import { deg, dur, hm, hhmm } from "../format";
 import { roleText } from "../roles";
 import { t0Of, type Boat, type Snapshot } from "../types";
@@ -73,6 +74,7 @@ export function FleetPanel() {
   const staleAfter = scene?.stale_after_s ?? 60;
   return (
     <aside className="panel">
+      <EvalPanel />
       <DecisionPanel />
       <AlertPanel />
       <h2>Fleet · {snap.boats.length} USVs</h2>

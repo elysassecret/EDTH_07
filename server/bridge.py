@@ -71,8 +71,11 @@ def _event_text(e: dict) -> str:
 class SimSource:
     """World + ShoreNode adapted to the Feed source interface (see server/feed.py)."""
 
-    def __init__(self, seed: int = 1, runs_dir: Path | None = None):
+    def __init__(self, seed: int = 1, runs_dir: Path | None = None, demo: dict | None = None):
         self.seed = seed
+        # demo preset (server/demo.toml, --demo): warp, extra slow windows, scheduled
+        # injections and a fast-forward start. None = the normal console behaviour.
+        self.demo = demo or {}
         self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode)
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
         run = _toml("config/run.toml")
@@ -91,6 +94,19 @@ class SimSource:
         self.world.step()  # t = 0 processed, so every view is defined from the first frame
         self._after_tick()
         self._flush()
+        if self.demo:
+            self._start_demo()
+
+    def _start_demo(self) -> None:
+        """Scheduled injections go through command(), so the run log can replay them."""
+        for inj in self.demo.get("inject", []):
+            msg = {"cmd": "inject", "kind": inj["kind"], "a": inj["a"], "at_s": inj["t"]}
+            if "b" in inj:
+                msg["b"] = inj["b"]
+            res = self.command(msg)
+            if not res["ok"]:
+                raise ValueError(f"demo injection {inj}: {res['error']}")
+        self.step(int(self.demo.get("start_s", 0)) * 1000)
 
     # ---- Feed source interface
     @property
@@ -133,10 +149,14 @@ class SimSource:
     def near_event(self) -> bool:
         t = self.world.t_ms
         times = [*self.past_events, *self.world.upcoming_event_times()]
-        return any(abs(t - e) <= EVENT_WINDOW_MS for e in times if e > 0)
+        if any(abs(t - e) <= EVENT_WINDOW_MS for e in times if e > 0):
+            return True
+        return any(a * 1000 <= t <= b * 1000 for a, b in self.demo.get("slow", []))
 
     def speed(self) -> int:
-        return int(self.ui["warp_near_events" if self.near_event() else "warp_between_events"])
+        near = self.demo.get("warp_near", self.ui["warp_near_events"])
+        far = self.demo.get("warp_between", self.ui["warp_between_events"])
+        return int(near if self.near_event() else far)
 
     def scene_msg(self) -> dict:
         m = self.world.mission
@@ -192,7 +212,9 @@ class SimSource:
                         return {"ok": False, "error": f"no boat {event['b']}"}
                     if event["b"] == a:
                         return {"ok": False, "error": "a link needs two different ends"}
-                self.world.inject(event)
+                # console extra: "at_s" schedules it for a later tick (demo preset)
+                at = msg.get("at_s")
+                self.world.inject(event, None if at is None else int(at) * 1000)
                 return {"ok": True}
             if cmd == "ack":
                 if not isinstance(msg.get("id"), str):
@@ -324,10 +346,13 @@ class SimSource:
 
 
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
-                serve_web: bool = False, runs_dir: Path | None = None) -> None:
+                serve_web: bool = False, runs_dir: Path | None = None,
+                demo: dict | None = None) -> None:
     from server.feed import serve as feed_serve
 
     def factory(s: int) -> SimSource:
-        return SimSource(s, runs_dir=runs_dir)
+        return SimSource(s, runs_dir=runs_dir, demo=demo)
 
-    await feed_serve(factory, host, port, seed, hz, ready, serve_web, name="sim bridge")
+    await feed_serve(factory, host, port, seed, hz, ready, serve_web,
+                     name="sim bridge (demo preset)" if demo else "sim bridge",
+                     start_paused=bool(demo and demo.get("start_paused")))

@@ -166,3 +166,16 @@ button.more { width: 100%; font-size: 12px; }
 .map-credit { position: absolute; right: 8px; bottom: 6px; z-index: 2; font-size: 11px; color: var(--muted); background: rgba(15, 23, 31, 0.75); padding: 1px 6px; border-radius: 3px; pointer-events: none; }
 .map-credit:empty { display: none; }
 .map-credit .warn { font-weight: 400; }
+/* Evaluator view (truth): purple, never the operator's colours */
+.banner.evaluator { background: #3b2a5c; color: #e6d6ff; border-bottom: 1px solid #be8cff; }
+button.on.eval { border-color: #be8cff; color: #e6d6ff; }
+.evalpanel { border: 2px dashed #be8cff; border-radius: 4px; padding: 6px 8px; margin-bottom: 12px; background: #221a33; font-size: 13px; }
+.evalpanel h2 { color: #d4b8ff; }
+.evalpanel h3 { font-size: 12px; text-transform: uppercase; color: #b9a2dc; margin: 8px 0 4px; }
+.evalpanel table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.evalpanel th { text-align: left; font-weight: 400; color: var(--muted); font-size: 11px; }
+.evalpanel td { padding: 1px 3px; }
+.evalpanel .num { text-align: right; }
+.evalpanel .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+.evalpanel tr.diff td { color: #f0b060; }
+.evalpanel ul { margin: 0; padding-left: 16px; }

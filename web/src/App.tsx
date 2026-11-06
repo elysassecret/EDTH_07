@@ -7,7 +7,8 @@ import { FleetPanel } from "./ui/BoatCard";
 import { AlertStrip } from "./ui/AlertPanel";
 import { CoverageBox } from "./ui/Coverage";
 import { EventLog, ExerciseBanner, InjectPanel, WarpControl } from "./ui/Demo";
-import { t0Of } from "./types";
+import { OPERATOR_MODE, t0Of } from "./types";
+import { EvalBanner } from "./ui/EvalPanel";
 
 function TopBar({ sat, satState, onSat, inject, onInject }: {
   sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void; inject: boolean; onInject: () => void;
@@ -24,9 +25,10 @@ function TopBar({ sat, satState, onSat, inject, onInject }: {
       </div>
       <WarpControl />
       <div className="controls">
-        <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
+        {!OPERATOR_MODE && <EvalToggle />}
+        {!OPERATOR_MODE && <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
           {channel === "shore" ? "View: SHORE (delivered)" : "View: TRUTH (evaluator)"}
-        </button>
+        </button>}
         <CommsToggle />
         <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
         <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
@@ -36,6 +38,12 @@ function TopBar({ sat, satState, onSat, inject, onInject }: {
       </div>
     </header>
   );
+}
+
+function EvalToggle() {
+  const on = useStore((s) => s.evalOn);
+  const toggle = useStore((s) => s.toggleEval);
+  return <button onClick={toggle} className={on ? "on eval" : ""} title="Truth next to the shore picture, for judges">{on ? "Evaluator ON" : "Evaluator OFF"}</button>;
 }
 
 function CommsToggle() {
@@ -72,6 +80,7 @@ export function App() {
       <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} inject={inject} onInject={() => setInject((v) => !v)} />
       <FeedBanner />
       <TruthBanner />
+      <EvalBanner />
       <ExerciseBanner />
       <AlertStrip />
       <main>
