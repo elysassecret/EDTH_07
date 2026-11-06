@@ -2,7 +2,7 @@
 
 Read docs/PLAN.md and docs/ARCHITECTURE.md before writing code.
 
-- **Stay in the owner's folders.** Javier (A): agent/, contract/. Simone (B): world/, ais/, triage/, scenarios/. Alexandru (C): web/, server/, evidence/. Franco (D): eval/, tools/, deck/, tests/smoke, .github/. Ask before touching any other folder.
+- **Stay in the owner's folders.** Javier (A): agent/, contract/. Simeone (B): world/, ais/, triage/, scenarios/. Alexandru (C): web/, server/, evidence/. Franco (D): eval/, tools/, deck/, tests/smoke, .github/. Ask before touching any other folder.
 - **contract/ is frozen after Fri 21:00.** Changes need a PR approved by A, B and C.
 - **Languages:** Python 3.12 (uv, ruff, pytest) everywhere except web/, which is TypeScript strict + React + Vite + MapLibre + deck.gl + Zustand (pnpm).
 - **Determinism:** agent/ never calls time.time(), never uses the global random module, never iterates a set without sorted(). Time comes in as an argument (integer sim ms).

@@ -15,7 +15,7 @@ Decided in the team interview on 6 Nov 2026:
 | Person | Role | Languages this weekend | Main libraries |
 |---|---|---|---|
 | **Javier (A)** | Swarm brain, contract | Python | stdlib, `numpy`, `pydantic` (contract views only), `pytest`, `hypothesis` |
-| **Simone (B)** | Simulator, AIS, triage | Python | `numpy`, `shapely`, `pyproj`, `pandas`, `pytest` |
+| **Simeone (B)** | Simulator, AIS, triage | Python | `numpy`, `shapely`, `pyproj`, `pandas`, `pytest` |
 | **Alexandru (C)** | Console, bridge, evidence | **TypeScript** (web) + Python (server, evidence) | React, Vite, MapLibre GL JS, deck.gl, Zustand · `websockets`, `cryptography` |
 | **Franco (D)** | Metrics, baseline, tests, pitch | Python + YAML (CI) | `pandas`, `numpy`, `matplotlib`, `pytest` |
 
@@ -50,11 +50,11 @@ Decided in the team interview on 6 Nov 2026:
 
 | Component | Owner | Language | Uses | Inputs → outputs |
 |---|---|---|---|---|
-| `contract/` | Javier (+Simone, Alexandru review) | Python | dataclasses (`Rec`, envelope), **pydantic v2** for the snapshot and commands, exported to **JSON Schema**, then **TypeScript types** in `web/src/contract.ts` | The single source of truth for every message |
+| `contract/` | Javier (+Simeone, Alexandru review) | Python | dataclasses (`Rec`, envelope), **pydantic v2** for the snapshot and commands, exported to **JSON Schema**, then **TypeScript types** in `web/src/contract.ts` | The single source of truth for every message |
 | `agent/` | Javier | Python | stdlib, `numpy`. **No I/O, no clock, no randomness of its own** | `(t, own sensors, inbox)` → `outbox`, task records |
-| `world/` | Simone | Python | `numpy`, `shapely` (lines, buffers), `pyproj` (lat/lon ↔ metres) | Scene, event tape, seed → boat states, radio delivery, sensor views |
-| `ais/` | Simone | Python | `pandas` | `data/ais-clip-box.csv` → pings within each boat's range |
-| `triage/` (gated) | Simone | Python | `pandas`, `numpy` | AIS vessel-days → explainable score and ranked queue |
+| `world/` | Simeone | Python | `numpy`, `shapely` (lines, buffers), `pyproj` (lat/lon ↔ metres) | Scene, event tape, seed → boat states, radio delivery, sensor views |
+| `ais/` | Simeone | Python | `pandas` | `data/ais-clip-box.csv` → pings within each boat's range |
+| `triage/` (gated) | Simeone | Python | `pandas`, `numpy` | AIS vessel-days → explainable score and ranked queue |
 | `server/` | Alexandru | Python | `asyncio`, `websockets` | Runs the sim, broadcasts snapshots, applies commands, writes and replays JSONL |
 | `web/` | Alexandru | TypeScript | **Vite, React, MapLibre GL JS, deck.gl, Zustand**, Vitest | Snapshots → chart, cards, tracks, decisions, alerts, coverage |
 | `evidence/` (P1) | Alexandru | Python | `hashlib`, `cryptography` (Ed25519) | Events → per-boat hash chain, incident report |
@@ -135,7 +135,7 @@ corepack enable && cd web && pnpm install   # Alexandru's machine and the demo l
 3. `pnpm gen:contract` in `web/` turns that into `web/src/contract.ts` (json-schema-to-typescript).
 4. If either side drifts from the schema, the TypeScript build or a smoke test fails. **Sign-off Fri 20:30, freeze 21:00.**
 
-Until the real sim exists, Alexandru's `server/mock_feed.py` sends the same JSON, so the console never waits for Javier and Simone.
+Until the real sim exists, Alexandru's `server/mock_feed.py` sends the same JSON, so the console never waits for Javier and Simeone.
 
 ---
 
