@@ -15,6 +15,26 @@ import type { Boat, Contact } from "../types";
 import { boxBounds, boxGeo, cableLabels, cablesGeo, laneGeo, type Label } from "./scene";
 import * as T from "./theme";
 import { commsLayers } from "./comms";
+import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
+import type { Decision } from "../types";
+
+/** Feature 22: dashed "ghost" route of what an open decision would make a boat do. */
+function ghostRoutes(snap: NonNullable<ReturnType<typeof useStore.getState>["snap"]>, hover: string | null): Layer[] {
+  const open = snap.decisions.filter((d) => d.state === "pending" && d.route && d.route.length > 1);
+  return [
+    new PathLayer<Decision, PathStyleExtensionProps<Decision>>({
+      id: "ghost-routes", data: open, getPath: (d) => d.route ?? [],
+      getColor: (d) => (d.id === hover ? [255, 255, 255, 255] : [230, 236, 242, 150]),
+      getWidth: (d) => (d.id === hover ? 3.5 : 2), widthUnits: "pixels",
+      getDashArray: [4, 3], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
+      updateTriggers: { getColor: hover, getWidth: hover },
+    }),
+    new ScatterplotLayer<Decision>({
+      id: "ghost-ends", data: open, getPosition: (d) => d.route![d.route!.length - 1], radiusUnits: "pixels",
+      getRadius: 7, filled: false, stroked: true, getLineColor: [230, 236, 242, 220], lineWidthUnits: "pixels", getLineWidth: 2,
+    }),
+  ];
+}
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -83,6 +103,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const selected = useStore((s) => s.selected);
   const selectedContact = useStore((s) => s.selectedContact);
   const showComms = useStore((s) => s.showComms);
+  const hoverDecision = useStore((s) => s.hoverDecision);
 
   useEffect(() => {
     if (!el.current) return;
@@ -152,8 +173,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   }, [satellite, loaded]);
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms) });
-  }, [snap, scene, conn, selected, selectedContact, showComms]);
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision) });
+  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision]);
 
   return <div ref={el} className="chart" />;
 }
@@ -165,6 +186,7 @@ function buildLayers(
   selected: number | null,
   selectedContact: string | null,
   showComms: boolean,
+  hoverDecision: string | null,
 ): Layer[] {
   const layers: Layer[] = [];
   const labels: Label[] = cableLabels();
@@ -189,6 +211,7 @@ function buildLayers(
   }
 
   if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
+  if (snap) layers.push(...ghostRoutes(snap, hoverDecision));
 
   if (snap) {
     const staleAfter = scene?.stale_after_s ?? 60;

@@ -73,3 +73,22 @@ button:disabled { color: var(--muted); cursor: default; }
 .chip.type-fused { border-color: #6ec878; color: #6ec878; box-shadow: 0 0 0 1px var(--caution); }
 .chip.type-dark { border-color: var(--caution); color: var(--caution); border-width: 2px; }
 .card.contact .note { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.decisions { margin-bottom: 12px; }
+.decision { border: 1px solid var(--line); border-left-width: 6px; border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; background: #1d2a37; }
+.decision.held { border-left-color: var(--warning); }
+.decision.delegated { border-left-color: var(--friend); border-left-style: double; }
+.decision.late { border-color: var(--alarm); border-left-color: var(--alarm); }
+.decision .tier { font-size: 12px; font-weight: 700; letter-spacing: 0.4px; color: var(--muted); display: flex; }
+.decision.held .tier { color: var(--warning); }
+.decision.late .tier { color: #ff8a80; }
+.decision .open-for { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); }
+.decision .text { font-size: 17px; font-weight: 600; margin: 6px 0 4px; }
+.decision .sub { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.decision .buttons { display: flex; gap: 8px; }
+.act { font-size: 16px; font-weight: 700; padding: 8px 14px; flex: 1; }
+.act kbd { margin-left: 8px; font-size: 11px; border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; opacity: 0.8; }
+.act-approve, .act-confirm { background: #1f3a2a; border-color: #4f9a68; }
+.act-decline, .act-stop { background: #3a2222; border-color: #b0544c; }
+.done { list-style: none; padding: 0; margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.done li { padding: 3px 0; border-top: 1px solid var(--line); }
+.done .did { font-weight: 700; color: var(--text); }

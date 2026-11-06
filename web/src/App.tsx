@@ -15,7 +15,7 @@ function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "re
       <div className="title">Shore console · Great Belt cable watch</div>
       <div className="clock">{snap ? utc(t0Of(snap), snap.t) : "--:--:--Z"}</div>
       <div className="meta">
-        {snap ? <>sim {dur(snap.t)} · warp {snap.speed}× · {snap.source === "mock" ? "MOCK FEED" : snap.source}</> : "waiting for feed"}
+        {snap ? <>sim {dur(snap.t)} · {snap.speed === 0 ? "PAUSED" : `warp ${snap.speed}×`} · {snap.source === "mock" ? "MOCK FEED" : snap.source}</> : "waiting for feed"}
       </div>
       <div className="controls">
         <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>

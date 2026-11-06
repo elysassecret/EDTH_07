@@ -20,6 +20,8 @@ interface State {
   select: (id: number | null) => void;
   selectedContact: string | null; // contact id, e.g. "contact:C-07"
   selectContact: (id: string | null) => void;
+  hoverDecision: string | null; // decision card under the mouse: its ghost route is highlighted
+  setHoverDecision: (id: string | null) => void;
   showComms: boolean; // feature 21 overlay toggle
   toggleComms: () => void;
   setChannel: (c: Channel) => void;
@@ -47,6 +49,8 @@ export const useStore = create<State>((set, get) => ({
   select: (id) => set({ selected: id }),
   selectedContact: null,
   selectContact: (id) => set({ selectedContact: id }),
+  hoverDecision: null,
+  setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
   setChannel: (c) => {

@@ -42,6 +42,7 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 | Course vector | line to where the contact will be in 6 minutes |
 | Radio link up | thin blue line between two boats, or boat and Korsør |
 | Route to shore | thicker bright blue line from each boat to its next hop (`via`) |
+| Decision route | dashed white line to where an open decision would send the boat; brighter while the mouse is on its card |
 | Link cut | red dashed line, red ✕ and "LINK CUT" (grey dashed = link down) |
 | Cables | magenta (power) / violet (data); scenario cables thicker |
 | Shipping lane | grey dashed (measured from one day of AIS) |
@@ -63,6 +64,7 @@ src/main.tsx        start the connection, render <App/>
 src/App.tsx         layout, top bar, banners
 src/ui/BoatCard.tsx     feature 18: USV cards (fleet panel)
 src/ui/ContactList.tsx  feature 19: contact list (type, seen by, age)
+src/ui/DecisionPanel.tsx feature 22: decision cards (Confirm/Stop, Approve/Decline, keys C S A D)
 src/store.ts        WebSocket + Zustand store + feed-lost watchdog
 src/types.ts        contract types + console extras
 src/contract.ts     GENERATED from contract/schema.json
