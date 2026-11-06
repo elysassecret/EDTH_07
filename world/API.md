@@ -11,7 +11,8 @@ sim = World(root=".", seed=1, agent_factory=Agent, shore_factory=ShoreNode)
 sim.step(0)  # first tick, no motion interval before t=0
 sim.step(sim.next_tick_ms)  # subsequently 1000, 2000, ... with current config
 truth = sim.truth_view()
-shore = sim.shore_view()
+shore = sim.shore.picture(sim.t_ms, speed=240)  # contract Snapshot for /shore
+raw_reports = sim.shore_view()  # diagnostic only
 sim.inject({"kind": "battery_low", "a": 1})
 sim.inject({"kind": "link_off", "a": 4, "b": "shore"})
 next_events = sim.upcoming_event_times()
@@ -56,7 +57,20 @@ Detached data, **not a contract Snapshot**. C maps domain fields to contract mod
 - `events`: applied tape entries plus `t_ms`, `origin` (scripted/injected) and `exercise`.
   Injected commands are copied into the queue, so mutating the caller's dict cannot edit them.
 
-## Delivered shore (`shore_view() -> dict`)
+## Console shore picture versus raw diagnostics
+
+For the console `/shore` channel, C uses **`sim.shore.picture(sim.t_ms, speed)`** from
+Javier's merged ShoreNode. It returns the contract Snapshot, with its display times in
+**seconds**, built from delivered protocol data. Pass sim time in **milliseconds**.
+`sim.shore.command(sim.t_ms, cmd)` handles confirm/stop/approve/decline transport; physical
+injections go to world. Contact behaviour still depends on A's later phase.
+
+`shore_view()` is only a raw diagnostic with explicit creation/receipt timestamps in ms;
+it must not become a competing console snapshot builder. Its receipt time differs from
+`picture().boats[*].last_heard`, which uses the original report timestamp in seconds.
+Do not interchange the units or timestamp meanings.
+
+## Raw delivered shore (`shore_view() -> dict`)
 
 `{"t": current_sim_ms, "boats": [report, ...]}` with IDs sorted. Initially empty.
 Each report contains:
@@ -73,8 +87,9 @@ are detached copies. A cut direct link may still deliver a new report through a 
 that is valid fresh data, not a reason to freeze all shore updates for that boat.
 
 There is no invented heading, speed, via ID, coverage, or contact data at shore. The current
-HB payload does not supply all those fields. `ShoreNode.picture/command` and contact/CMD
-handling await A's later phases. Do not source missing fields from truth or treat default
+raw report is not the full console picture. `ShoreNode.picture/command` now supplies the
+console contract view and decision transport; contact response awaits A's next phase.
+Do not source missing fields from truth or treat default
 contract values as measured observations. Decision answers stay with A/C, not world.
 
 ## Commands and reset
@@ -97,3 +112,15 @@ C/D should include `Agent.view()` and the remaining protocol state when defining
 The committed public approximate routes yield seven cable tasks under the strict 5 km
 limit, including H:0..2. Consume Mission.tasks dynamically; do not assume H has two tasks.
 Total clipped route length is about 23.60 km. No land/collision avoidance is claimed.
+
+## Energy assumption
+
+Battery is remaining cruise-equivalent time. With `hotel_load_permille=100`, motors-off
+operation consumes a chosen 100/1000 of total cruise load; moving under power, including
+SENTINEL correction, pays total cruise load (hotel already included). Fractional drain is
+carried across ticks. Arriving at a target during a tick conservatively pays cruise load
+for that tick. A stationary target or a zero-speed command is motors-off regardless of
+mode label. UNAVAILABLE/disabled boats draw nothing in this simplified dock/offline model.
+This is not a calibrated power curve or a measured saving; sensors/radio stay on while idle.
+Seven-hour endurance and safety reserve remain unchanged. Current/tide physics is still
+not enabled, so this is not the full drift-and-correct energy demonstration yet.

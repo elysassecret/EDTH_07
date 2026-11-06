@@ -2,7 +2,8 @@
 
 ## Agreed scope
 
-- Branch `b/routes`: first small slice is routes, sampling and contract Mission construction.
+- Routes/loop/API landed via PR #12. Follow-up branch `b/sentinel-energy` addresses
+  Javier's review: motors-off hotel load, preserving seven-hour cruise endurance.
 - Simeone owns the deterministic loop in `world/sim.py`; server wraps it (coordinate with Alexandru).
 - Start with basic kinematic motion and a simple battery model; record deferred realism here.
 - Agent owns return decisions and networking (forwarding, dedupe, retries, expiry, hop limit).
@@ -15,8 +16,8 @@
    `load_mission(root)` is the convenience integration entry point. Tests accompany the slice.
 2. Implemented — motion: millimetre-state kinematics; previous actions apply next tick.
    Retains fractional metres at 2.3 m/s. World currently runs with zero current.
-3. Implemented — own sensors, range-limited synthetic contacts, basic uniform battery
-   depletion and low-battery injection. Mode-specific drain remains deferred.
+3. Implemented — own sensors, range-limited synthetic contacts, low-battery injection and
+   motors-off hotel load versus powered cruise drain. Power ratios are simulation assumptions.
 4. Implemented — physical radio: range checks at send/delivery, directed link-off,
    counter-keyed loss/delay by seed/time/link/send ordinal. No global draw stream consumed
    by unrelated nodes. Baseline modes with different traffic still need fairness validation;
@@ -24,10 +25,48 @@
 5. Implemented — loop and scenario integration: events -> motion using previous actions -> radio delivery
    -> boat steps in ID order, then shore -> broadcasts -> evaluator/snapshot.
    No same-tick radio delivery. Reset reconstructs all state, queues and random generators.
-6. Fixed current/tide flip, mode-dependent battery drain and SENTINEL drift physics;
-   integrate with the agent's safety return rule and station correction.
+6. Partial — mode-dependent energy implemented; fixed current/tide flip and SENTINEL drift
+   physics still pending. Agent safety return and powered station correction are integrated.
 7. AIS replay once Franco supplies the private clip and core is green. No CSV in git.
 8. Cue/triage work only after features 1–25 are green and a full video exists.
+
+## PR #12 energy review follow-up
+
+- Javier confirmed seven segments and real-scene integration; #12 is merged.
+- Added `hotel_load_permille=100` as a chosen simulation input, not calibrated hull power.
+  Motors-off operation pays hotel load; powered transit/correction pays total cruise load.
+  Fractional drain is retained; total cruise load includes hotel load (not counted twice).
+- Seven-hour endurance stays unchanged. The eight-hour alternative needs a team decision.
+- Seed 1 at 14,000 s: 03 remains operational and takes H:0..2 when 02 returns; 05 keeps relay.
+  03 no longer returns just for sitting idle. **pick:N opens due to the takeover**: hotel load
+  does not erase the sweeper's energy limit or magically close every gap.
+- `/shore` uses A's merged `ShoreNode.picture(t_ms, speed)`; world.shore_view is raw diagnostics.
+  Distinguish picture seconds/original report time from raw ms/local receipt time.
+- Current/tide physics and a calibrated power curve remain deferred. Do not claim real-hull
+  savings, full energy realism, or a completed contact story.
+- Validation: full local suite 118 passing; lint and targeted formatting checks pass.
+  Includes full seed-1 evaluation plus reset/re-run, fractional drain, correction-load and
+  delivered ShoreNode.picture energy checks.
+
+## Where Simeone stands against the ordered plan
+
+| Work item | Status |
+|---|---|
+| Scene/Mission, <=5 km segmentation, samples | Implemented and tested; seven tasks documented |
+| Basic motion and deterministic loop/reset | Implemented and tested against real Agent |
+| Local synthetic sensors and battery injection | Implemented and tested |
+| Physical radio and agent-owned multi-hop | Implemented; loss/link/rejoin/staleness tested |
+| Console tick API / issue #8 | Implemented; C must wire the real bridge to this API |
+| Motors-off hotel load / SENTINEL energy | Implemented in this follow-up; chosen ratio, not hull data |
+| Fixed current/tide and drift-and-correct physics | Next B task; not implemented |
+| Warm-state phases, shared channel fairness, final metrics | Needs coordination with Franco |
+| AIS replay | Blocked on Franco supplying private clip |
+| Cue/triage | Gated behind main features and full video |
+| Contact response/operator policy | A/C integration pending; world synthetic contact tape exists |
+
+This is progress by deliverable, not a claim that timed team milestones or the whole
+console demo are complete. Next: current/tide and mode integration, then a full contact run
+with Javier and Alexandru when their phases land. Do not start triage yet.
 
 ## Real-core integration milestone
 
@@ -43,13 +82,13 @@
   aliases and logs, detached truth/shore views with original creation and local receipt times.
   See world/API.md for C's handoff. No server/web/contract edits.
 - Local lint and full suite pass: 89 tests (includes upstream agent tests).
-- Contact policy, operator command routing and ShoreNode.picture() are still later A phases.
+- Contact policy is still a later A phase; shore command transport and picture() have now merged.
   A successful world run is not a completed challenge story.
 - Latest actual-agent 14,400 s run completes all seven events, with five delivered boat
   reports at shore and boat 1 UNAVAILABLE near home. North boats later return on energy;
   no contact handling or patrol-gap closure is claimed from these results.
-- Next: current/tide physics and mode-dependent energy. Coordinate seven-segment geometry
-  with A and D before result collection.
+- Next: current/tide physics and cross-system contact integration. Coordinate seven-segment
+  geometry and cold-start metric semantics with A and D before result collection.
 
 ## Headless-world milestone
 
@@ -81,12 +120,11 @@
 
 ## Deferred / not implemented
 
-- Real movement/auction/return core is integrated; contact policy and shore decision commands
-  await Javier's later phases. Keep both real-core tests and stand-in physics tests.
+- Real movement/auction/return and shore decision transport are integrated; contact response
+  awaits Javier's later phase. Keep both real-core tests and stand-in physics tests.
 - Default `python -m world` uses exercise controllers. `--controller core` runs real agents.
-- Full current/tide integration and calibrated/mode-specific energy drain remain unimplemented.
-- Basic battery model drains cruise-equivalent charge uniformly while enabled, including
-  stationary time. It must not be used to claim SENTINEL endurance savings.
+- Full current/tide integration and calibrated energy remain unimplemented. Motors-off hotel
+  load is now modelled with a chosen ratio, not measured hull savings.
 - Motion quantizes to millimetres per tick; fractional millimetres are not carried.
 - Contact course vectors use trig once, quantized to mm/s. Cross-OS equality is unverified;
   explicit integer vectors are the fallback if CI finds differences.

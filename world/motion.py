@@ -15,6 +15,7 @@ class Boat:
     charge_ms: int
     endurance_ms: int
     enabled: bool = True
+    drain_remainder: int = 0  # fractional cruise-equivalent ms spent, in thousandths
 
     @classmethod
     def at(cls, boat_id: int, point: Point, endurance_ms: int) -> "Boat":
@@ -27,18 +28,36 @@ class Boat:
     def own(self, current: Point = (0, 0)) -> Own:
         return Own(*self.point, self.charge_ms * 1000 // self.endurance_ms, *current)
 
-    def advance(self, action: Action, dt_ms: int, current: Point = (0, 0)) -> None:
+    def advance(
+        self,
+        action: Action,
+        dt_ms: int,
+        current: Point = (0, 0),
+        hotel_load_permille: int = 1000,
+    ) -> None:
         if dt_ms < 0 or action.speed_mm_s < 0:
             raise ValueError("time step and speed must be nonnegative")
+        if not 1 <= hotel_load_permille <= 1000:
+            raise ValueError("hotel load must be between 1 and 1000 permille of cruise load")
         if not self.enabled or self.charge_ms == 0 or action.mode == UNAVAILABLE:
             return
-        # Basic model: cruise-equivalent endurance drains uniformly while operating.
-        dt_ms = min(dt_ms, self.charge_ms)
-        self.charge_ms -= dt_ms
+        dx, dy = 0, 0
         if action.target is not None:
             dx = action.target[0] * 1000 - self.x_mm
             dy = action.target[1] * 1000 - self.y_mm
-            distance = isqrt(dx * dx + dy * dy)
+        distance = isqrt(dx * dx + dy * dy)
+        motors_on = distance > 0 and action.speed_mm_s > 0
+        # Total cruise load already includes hotel load; do not add it twice.
+        rate = 1000 if motors_on else hotel_load_permille
+        available = self.charge_ms * 1000 - self.drain_remainder
+        requested_ms = dt_ms
+        dt_ms = min(dt_ms, available // rate)
+        spent, self.drain_remainder = divmod(dt_ms * rate + self.drain_remainder, 1000)
+        self.charge_ms -= spent
+        if dt_ms < requested_ms:
+            # Exhausted within the tick: discard less than one ms of operating energy.
+            self.charge_ms, self.drain_remainder = 0, 0
+        if action.target is not None:
             travel = action.speed_mm_s * dt_ms // 1000
             if distance <= travel:
                 self.x_mm, self.y_mm = action.target[0] * 1000, action.target[1] * 1000
