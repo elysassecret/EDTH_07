@@ -8,7 +8,9 @@ Three levels, the bridge alert words (docs/research/operations_incidents_law.md)
 - alarm:   a held decision unanswered for ALARM_AFTER_S ("Unanswered: repeats in 05:00,
            then alarm")
 - warning: a held decision waiting for the watch officer; a boat not heard for stale_after_s
-- caution: no link to shore, a boat returning to Korsør, a lane picket uncovered,
+- caution: no link to shore, a boat returning to Korsør, a lane picket uncovered
+           ("since HH:MMZ": when the console first saw it open), a cable segment past the
+           revisit target ("no visit since HH:MMZ", from the shore's own segment age),
            an exercise failure (battery_low, boat_off, link_off)
 
 Rules:
@@ -36,8 +38,9 @@ def _usv(i: int) -> str:
 
 
 class AlertBook:
-    def __init__(self, stale_after_s: int, t0_utc: str = ""):
+    def __init__(self, stale_after_s: int, t0_utc: str = "", revisit_target_s: int | None = None):
         self.stale_after_s = stale_after_s
+        self.revisit_target_s = revisit_target_s  # config/run.toml; None = no overdue alerts
         self.t0 = datetime.fromisoformat(t0_utc) if t0_utc else None
         self.active: dict[str, dict] = {}  # id -> {level, text, t, ack}
         self.acked_events: set[str] = set()  # exercise-event alerts the officer cleared
@@ -65,7 +68,19 @@ class AlertBook:
         for k, task in sorted(pic.tasks.items()):
             # state 0 released / 2 vetoed; v > 0 means it was claimed before (not start-up)
             if k.startswith("pick:") and task.state != 1 and task.v > 0:
-                want[f"picket:{k}"] = ("caution", f"Lane picket {k[5:]} uncovered")
+                aid = f"picket:{k}"
+                since = self.active[aid]["t"] if aid in self.active else t
+                want[aid] = ("caution", f"Lane picket {k[5:]} uncovered since {self._hhmm(since)}")
+
+        target = self.revisit_target_s
+        for k, age in sorted(pic.seg_age.items()):
+            if target is None or age <= target:
+                continue
+            if age >= t:  # the shore has no visit report for it in this run
+                text = f"Cable {k}: no visit reported since start (shore-reported)"
+            else:
+                text = f"Cable {k} overdue: no visit since {self._hhmm(t - age)} (shore-reported)"
+            want[f"overdue:{k}"] = ("caution", text)
 
         for d in pic.decisions:
             if d.state != "pending" or d.tier != "held":

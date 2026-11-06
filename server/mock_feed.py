@@ -359,6 +359,13 @@ class MockWorld:
     def t(self) -> float:
         return self.t_ms / 1000.0
 
+    def _hhmm(self) -> str:
+        """Sim time now as HH:MMZ (sim clock from T0_UTC)."""
+        from datetime import datetime, timedelta
+
+        t0 = datetime.fromisoformat(T0_UTC)
+        return (t0 + timedelta(seconds=int(self.t))).strftime("%H:%MZ")
+
     def _event(self, kind: str, text: str, exercise: bool = False) -> None:
         self.events.append({"t": round(self.t, 1), "kind": kind, "text": text,
                             "exercise": exercise})
@@ -575,7 +582,7 @@ class MockWorld:
             for task in self._tasks_of(b.id):
                 if task.startswith("pick:"):
                     self._release(task)
-                    self._alert(task, "caution", f"Lane picket {task[-1]} uncovered")
+                    self._alert(task, "caution", f"Lane picket {task[-1]} uncovered since {self._hhmm()}")
                     self._event("release", f"USV {b.id:02d} released {task}: picket "
                                            f"{task[-1]} uncovered")
             for s in segs:
@@ -720,7 +727,7 @@ class MockWorld:
         for task in self._tasks_of(k.id):
             if task.startswith("pick:"):
                 self._release(task)
-                self._alert(task, "caution", f"Lane picket {task[-1]} uncovered")
+                self._alert(task, "caution", f"Lane picket {task[-1]} uncovered since {self._hhmm()}")
         self._goto(k, sp, "hold", "SHADOWING")
         self._story = {"scout": by, "keeper": k.id, "contact": c.id, "handed": False}
         self._decision("delegated", f"USV {k.id:02d} keeping {c.id} in view at 1 nm. "

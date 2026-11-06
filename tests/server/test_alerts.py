@@ -94,3 +94,24 @@ def test_sim_alerts_through_the_tape():
     assert next(a for a in s.snapshot("shore")["alerts"] if a["id"] == "rtb:1")["ack"] is True
     assert s.command({"cmd": "ack", "id": "nope"})["ok"] is False
     assert s.snapshot("truth")["alerts"] == s.snapshot("shore")["alerts"]
+
+
+def test_picket_says_since_when_and_keeps_that_time():
+    book = AlertBook(60, t0_utc="2026-11-03T10:15:00Z")
+    open_s = {"pick:S": TaskView(v=2, owner=4, deputy=0, state=0)}
+    book.update(pic(3600, tasks=open_s), [], set())
+    book.update(pic(4000, tasks=open_s), [], set())
+    [a] = book.alerts()
+    assert a.text == "Lane picket S uncovered since 11:15Z" and a.t == 3600
+
+
+def test_overdue_cable_segments_use_the_shore_age():
+    book = AlertBook(60, t0_utc="2026-11-03T10:15:00Z", revisit_target_s=1000)
+    snap = pic(5000).model_copy(update={"seg_age": {"seg:G:0": 999, "seg:G:1": 1800,
+                                                    "seg:M:0": 5000}})
+    book.update(snap, [], set())
+    texts = {a.id: a.text for a in book.alerts()}
+    assert "overdue:seg:G:0" not in texts
+    assert texts["overdue:seg:G:1"] == "Cable seg:G:1 overdue: no visit since 11:08Z (shore-reported)"
+    assert texts["overdue:seg:M:0"] == "Cable seg:M:0: no visit reported since start (shore-reported)"
+    assert AlertBook(60).revisit_target_s is None  # no target: no overdue alerts
