@@ -41,8 +41,8 @@ log = logging.getLogger("mock_feed")
 # them, and each one is listed in server/README.md as a proposed contract addition.
 SCHEMA_VERSION = 1
 LINK_WORD = {"direct": "direct", "relay": "peer", "none": "none"}  # contract Boat.link
-DEC_STATE = {"waiting": "pending", "active": "pending", "confirmed": "approved",
-             "approved": "approved", "stopped": "declined", "declined": "declined",
+DEC_STATE = {"waiting": "pending", "active": "pending", "confirmed": "confirmed",
+             "approved": "approved", "stopped": "stopped", "declined": "declined",
              "expired": "expired", "withdrawn": "expired"}  # contract Decision.state
 T0_UTC = "2026-11-03T10:15:00Z"  # scenarios/fixed.toml ais_t0, treated as UTC (unverified)
 LAT0, LON0 = 55.40, 11.00  # local frame origin, BUILD_PLAN step 5
