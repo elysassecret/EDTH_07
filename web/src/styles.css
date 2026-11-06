@@ -162,3 +162,7 @@ button.more { width: 100%; font-size: 12px; }
 .inject select { font: inherit; background: #223040; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
 .inject .check { font-size: 13px; }
 .small { font-size: 12px; }
+/* map files credit and "missing file" note (src/map/geo.ts) */
+.map-credit { position: absolute; right: 8px; bottom: 6px; z-index: 2; font-size: 11px; color: var(--muted); background: rgba(15, 23, 31, 0.75); padding: 1px 6px; border-radius: 3px; pointer-events: none; }
+.map-credit:empty { display: none; }
+.map-credit .warn { font-weight: 400; }

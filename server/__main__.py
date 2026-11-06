@@ -2,6 +2,9 @@
 
     uv run python -m server --serve-web    # real sim + console on http://localhost:8765/
     uv run python -m server --mock         # mock feed instead of the real sim
+
+The real sim writes a JSONL run log to runs/ (one file per reset); check it with
+    uv run python -m server.replay runs/<file>.jsonl
 """
 
 import argparse
@@ -17,14 +20,20 @@ def main() -> None:
     ap.add_argument("--hz", type=float, default=10.0)
     ap.add_argument("--mock", action="store_true", help="use server/mock_feed.py, not the sim")
     ap.add_argument("--serve-web", action="store_true", help="also serve web/dist over HTTP")
+    ap.add_argument("--no-log", action="store_true", help="real sim: do not write runs/*.jsonl")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    extra = {}
     if args.mock:
         from server.mock_feed import serve
     else:
         from server.bridge import serve
+        from server.feed import ROOT
+
+        extra = {"runs_dir": None if args.no_log else ROOT / "runs"}
     try:
-        asyncio.run(serve(args.host, args.port, args.seed, args.hz, serve_web=args.serve_web))
+        asyncio.run(serve(args.host, args.port, args.seed, args.hz, serve_web=args.serve_web,
+                          **extra))
     except KeyboardInterrupt:
         pass
 

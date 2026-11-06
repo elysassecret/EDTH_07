@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import tomllib
 from collections import deque
+from pathlib import Path
 
 from agent.core import Agent
 from agent.shore import ShoreNode
@@ -31,6 +32,7 @@ from contract.tasks import from_wire, merge
 from contract.views import Boat, Contact, ContactFlags, Event, Link, Snapshot, TaskView
 from server.alerts import AlertBook
 from server.feed import ROOT
+from server.runlog import HASH_MS, SNAPSHOT_MS, RunLog, replay_digest
 from world.sim import World
 
 INJECT_KINDS = ("battery_low", "boat_off", "link_off", "link_on")
@@ -69,7 +71,7 @@ def _event_text(e: dict) -> str:
 class SimSource:
     """World + ShoreNode adapted to the Feed source interface (see server/feed.py)."""
 
-    def __init__(self, seed: int = 1):
+    def __init__(self, seed: int = 1, runs_dir: Path | None = None):
         self.seed = seed
         self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode)
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
@@ -83,7 +85,12 @@ class SimSource:
         # sim time requested so far; can sit between ticks at slow warp (5x at 10 Hz = 0.5 s)
         self.clock_ms = 0
         self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc)
+        schema = Snapshot.model_fields["schema_version"].default
+        self.log = RunLog.open_new(runs_dir, seed, schema, self.t0_utc) if runs_dir else None
+        self._logged_events = 0
         self.world.step()  # t = 0 processed, so every view is defined from the first frame
+        self._after_tick()
+        self._flush()
 
     # ---- Feed source interface
     @property
@@ -92,11 +99,36 @@ class SimSource:
 
     def step(self, dt_ms: int) -> None:
         self.clock_ms = min(self.clock_ms + max(0, dt_ms), self.horizon_ms)
-        seen = len(self.world.events)
         while self.world.next_tick_ms <= self.clock_ms:
             self.world.step()
-        for e in self.world.events[seen:]:
+            self._after_tick()
+        self._flush()
+
+    def _after_tick(self) -> None:
+        """Bookkeeping after every sim tick: event times for auto-warp, and the run log."""
+        new = self.world.events[self._logged_events:]
+        self._logged_events = len(self.world.events)
+        for e in new:
             self.past_events.append(int(e["t_ms"]))
+        if self.log is None:
+            return
+        t = self.world.t_ms
+        for e in new:
+            self.log.write({"type": "event", "t_ms": int(e["t_ms"]), "event": e})
+        if t % SNAPSHOT_MS == 0:
+            speed = self.speed()
+            self.log.write({"type": "snapshot", "t_ms": t, "shore": self.snapshot("shore", speed),
+                            "truth": self.snapshot("truth", speed)})
+        if t % HASH_MS == 0:
+            self.log.write({"type": "hash", "t_ms": t, "hash": replay_digest(self.world)})
+
+    def _flush(self) -> None:
+        if self.log is not None:
+            self.log.flush()
+
+    def close(self) -> None:
+        if self.log is not None:
+            self.log.close()
 
     def near_event(self) -> bool:
         t = self.world.t_ms
@@ -132,6 +164,13 @@ class SimSource:
         return out
 
     def command(self, msg: dict) -> dict:
+        res = self._command(msg)
+        if self.log is not None:
+            self.log.write({"type": "cmd", "t_ms": self.world.t_ms, "msg": msg, "ok": res["ok"]})
+            self.log.flush()
+        return res
+
+    def _command(self, msg: dict) -> dict:
         cmd = msg.get("cmd")
         try:
             if cmd in ANSWER_CMDS:
@@ -285,7 +324,10 @@ class SimSource:
 
 
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
-                serve_web: bool = False) -> None:
+                serve_web: bool = False, runs_dir: Path | None = None) -> None:
     from server.feed import serve as feed_serve
 
-    await feed_serve(SimSource, host, port, seed, hz, ready, serve_web, name="sim bridge")
+    def factory(s: int) -> SimSource:
+        return SimSource(s, runs_dir=runs_dir)
+
+    await feed_serve(factory, host, port, seed, hz, ready, serve_web, name="sim bridge")
