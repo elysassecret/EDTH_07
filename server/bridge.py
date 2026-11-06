@@ -73,7 +73,9 @@ class SimSource:
         self.seed = seed
         self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode)
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
-        self.horizon_ms = int(_toml("config/run.toml")["horizon_s"]) * 1000
+        run = _toml("config/run.toml")
+        self.horizon_ms = int(run["horizon_s"]) * 1000
+        self.revisit_target_s = int(run["revisit_target_s"])  # D's number, "confirm Friday"
         tape = _toml("scenarios/fixed.toml").get("event", [])
         t0 = next((e.get("ais_t0") for e in tape if e.get("kind") == "reset"), None)
         self.t0_utc = f"{t0}Z" if t0 and not str(t0).endswith("Z") else (t0 or "")
@@ -116,6 +118,7 @@ class SimSource:
             "shore": ll(m.shore),
             "stale_after_s": self.ui["stale_after_s"],
             "horizon_s": self.horizon_ms // 1000,
+            "revisit_target_s": self.revisit_target_s,
         }
 
     def snapshot(self, channel: str = "shore", speed: int | None = None) -> dict:

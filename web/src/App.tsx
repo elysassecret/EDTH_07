@@ -5,6 +5,7 @@ import { useStore } from "./store";
 import { dur, utc } from "./format";
 import { FleetPanel } from "./ui/BoatCard";
 import { AlertStrip } from "./ui/AlertPanel";
+import { CoverageBox } from "./ui/Coverage";
 import { t0Of } from "./types";
 
 function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void }) {
@@ -67,7 +68,10 @@ export function App() {
       <TruthBanner />
       <AlertStrip />
       <main>
-        <Chart satellite={sat} onSatelliteState={onSatState} />
+        <div className="chart-wrap">
+          <Chart satellite={sat} onSatelliteState={onSatState} />
+          <CoverageBox />
+        </div>
         <FleetPanel />
       </main>
     </div>

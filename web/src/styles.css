@@ -123,3 +123,20 @@ button.more { width: 100%; font-size: 12px; }
 .alert-strip .ack { margin-left: auto; }
 @keyframes alarm-flash { 50% { background: #5a2420; } }
 @media (prefers-reduced-motion: reduce) { .alert.alarm:not(.acked), .alert-strip.alarm { animation: none; } }
+/* Feature 24: coverage headline over the chart */
+.chart-wrap { flex: 1; position: relative; display: flex; min-width: 0; }
+.coverage { position: absolute; top: 10px; left: 10px; z-index: 2; width: 300px; padding: 8px 10px; background: rgba(24, 35, 46, 0.92); border: 1px solid var(--line); border-left: 4px solid #5abeaa; border-radius: 4px; font-size: 13px; }
+.coverage.gap { border-left-color: #e08c30; }
+.coverage .headline { font-size: 15px; }
+.coverage .gap-line { color: #f0b060; font-weight: 700; margin-top: 2px; }
+.coverage .sub { color: var(--muted); font-size: 12px; margin: 4px 0; }
+.coverage table { width: 100%; border-collapse: collapse; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.coverage td { padding: 1px 4px; }
+.coverage .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+.coverage .num { text-align: right; }
+.coverage .legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.band { display: inline-block; width: 14px; height: 6px; margin-right: 4px; vertical-align: middle; border-radius: 2px; }
+.band.recent { background: rgb(90, 190, 170); }
+.band.due { background: rgb(232, 208, 112); }
+.band.over { background: rgb(224, 140, 48); height: 9px; }
+.band.none { background: repeating-linear-gradient(90deg, rgb(150, 156, 162) 0 3px, transparent 3px 5px); }

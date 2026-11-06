@@ -135,3 +135,14 @@ def test_injected_boat_link_cut_is_crossed():
     assert s.command({"cmd": "inject", "kind": "link_on", "a": 3, "b": 2})["ok"]
     s.step(2_000)
     assert _shore_links(s).get((2, 3)) != "cut"
+
+
+def test_scene_carries_revisit_target_from_run_config():
+    import tomllib
+
+    from server.feed import ROOT
+    from server.mock_feed import MockWorld
+
+    want = tomllib.loads((ROOT / "config" / "run.toml").read_text())["revisit_target_s"]
+    assert SimSource(1).scene_msg()["revisit_target_s"] == want
+    assert MockWorld(1).scene_msg()["revisit_target_s"] == want

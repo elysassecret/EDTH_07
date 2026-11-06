@@ -15,8 +15,41 @@ import type { Boat, Contact } from "../types";
 import { boxBounds, boxGeo, cableLabels, cablesGeo, laneGeo, type Label } from "./scene";
 import * as T from "./theme";
 import { commsLayers } from "./comms";
+import { segAges, type Band } from "../coverage";
+import { hmShort } from "../format";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import type { Decision } from "../types";
+
+// Feature 24: a wide band under each cable segment, coloured by revisit age (legend in the
+// coverage box; the age is also written on the chart, so colour is never the only cue).
+const BAND_RGB: Record<Band, [number, number, number]> = {
+  recent: [90, 190, 170], due: [232, 208, 112], over: [224, 140, 48], none: [150, 156, 162],
+};
+
+function coverageLayers(snap: NonNullable<ReturnType<typeof useStore.getState>["snap"]>,
+  scene: NonNullable<ReturnType<typeof useStore.getState>["scene"]>, frozen: boolean): Layer[] {
+  const segs = segAges(snap, scene).map((a) => ({ ...a, path: scene.segments[a.id] ?? [] }))
+    .filter((a) => a.path.length > 1);
+  const alpha = frozen ? 70 : 140;
+  const solid = segs.filter((a) => a.band !== "none");
+  return [
+    new PathLayer<(typeof segs)[number]>({
+      id: "coverage", data: solid, getPath: (a) => a.path, getColor: (a) => [...BAND_RGB[a.band], alpha],
+      getWidth: (a) => (a.band === "over" ? 11 : 8), widthUnits: "pixels", capRounded: true,
+    }),
+    new PathLayer<(typeof segs)[number], PathStyleExtensionProps<(typeof segs)[number]>>({
+      id: "coverage-none", data: segs.filter((a) => a.band === "none"), getPath: (a) => a.path,
+      getColor: [...BAND_RGB.none, alpha], getWidth: 8, widthUnits: "pixels",
+      getDashArray: [2, 1.5], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
+    }),
+    new TextLayer<(typeof segs)[number]>({
+      id: "coverage-age", data: segs, getPosition: (a) => a.path[Math.floor(a.path.length / 2)],
+      getText: (a) => `${a.id.slice(4)} ${a.age === null ? "no visit" : hmShort(a.age)}`,
+      getSize: 11, getColor: (a) => [...BAND_RGB[a.band], 255], getPixelOffset: [0, -14],
+      fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
+    }),
+  ];
+}
 
 /** Feature 22: dashed "ghost" route of what an open decision would make a boat do. */
 function ghostRoutes(snap: NonNullable<ReturnType<typeof useStore.getState>["snap"]>, hover: string | null): Layer[] {
@@ -210,6 +243,7 @@ function buildLayers(
     labels.push({ pos: scene.shore, text: "Korsør (shore)", kind: "station" });
   }
 
+  if (snap && scene) layers.push(...coverageLayers(snap, scene, frozen));
   if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
   if (snap) layers.push(...ghostRoutes(snap, hoverDecision));
 
