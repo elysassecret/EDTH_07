@@ -27,7 +27,8 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
    everything that moves (boats, contacts, trails) and **all text**, so the map style has no
    font or tile URLs: it works with Wi-Fi off (N1).
 4. **Panels** — `src/App.tsx`: top bar (UTC clock in Z, sim time, warp, SHORE/TRUTH switch,
-   satellite toggle) and the fleet list.
+   satellite toggle). `src/ui/`: one card per USV and one per contact. Click a card or a symbol
+   on the chart to highlight it.
 
 ## Map symbols (colour always paired with shape or words)
 
@@ -35,7 +36,10 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 |---|---|
 | Own USV | blue circle + heading line, number label; grey when stale |
 | AIS vessel | green square, name label |
-| Camera-only contact | yellow square, "NO AIS" label |
+| AIS vessel also on a USV camera | green square + thin yellow ring, "AIS+CAM" |
+| Camera-only contact | yellow quatrefoil (four lobes), "NO AIS" label, lines to the USVs that see it |
+| Stale contact | grey, at its last known position, "LAST SEEN mm:ss AGO" |
+| Course vector | line to where the contact will be in 6 minutes |
 | Cables | magenta (power) / violet (data); scenario cables thicker |
 | Shipping lane | grey dashed (measured from one day of AIS) |
 | Box | white dotted |
@@ -53,7 +57,9 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 
 ```text
 src/main.tsx        start the connection, render <App/>
-src/App.tsx         layout, top bar, banners, fleet list
+src/App.tsx         layout, top bar, banners
+src/ui/BoatCard.tsx     feature 18: USV cards (fleet panel)
+src/ui/ContactList.tsx  feature 19: contact list (type, seen by, age)
 src/store.ts        WebSocket + Zustand store + feed-lost watchdog
 src/types.ts        contract types + console extras
 src/contract.ts     GENERATED from contract/schema.json

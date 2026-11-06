@@ -18,6 +18,8 @@ interface State {
   lastAck: Ack | null;
   selected: number | null; // boat highlighted on the chart and in the fleet panel
   select: (id: number | null) => void;
+  selectedContact: string | null; // contact id, e.g. "contact:C-07"
+  selectContact: (id: string | null) => void;
   setChannel: (c: Channel) => void;
   send: (c: Command) => boolean;
 }
@@ -41,6 +43,8 @@ export const useStore = create<State>((set, get) => ({
   lastAck: null,
   selected: null,
   select: (id) => set({ selected: id }),
+  selectedContact: null,
+  selectContact: (id) => set({ selectedContact: id }),
   setChannel: (c) => {
     if (c === get().channel) return;
     set({ channel: c, snap: null });

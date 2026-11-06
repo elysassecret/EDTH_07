@@ -4,7 +4,7 @@
 // All times are sim seconds since t0_utc.
 import type * as C from "./contract";
 
-export type LatLon = [number, number];
+export type LonLat = [number, number]; // every point list in the feed is [lon, lat]
 export type Mode =
   | "PATROL" | "ECO" | "SENTINEL" | "DORMANT" | "SHADOWING" | "RETURNING" | "UNAVAILABLE";
 
@@ -20,7 +20,7 @@ export interface Contact extends C.Contact {
   name?: string | null;
   source?: "ais" | "camera" | "fused";
   sog_kn?: number;
-  trail?: LatLon[];
+  trail?: LonLat[];
   name_status?: string;
   anchor_status?: string;
   detected?: boolean; // truth view only
@@ -31,7 +31,7 @@ export interface Decision extends C.Decision {
   actions?: ("confirm" | "stop" | "approve" | "decline")[];
   status?: string;
   boat?: number;
-  route?: LatLon[] | null;
+  route?: LonLat[] | null;
   answered?: number | null;
 }
 
@@ -58,9 +58,9 @@ export interface SceneMsg {
   schema_version: number;
   source: string;
   t0_utc: string;
-  segments: Record<string, LatLon[]>;
-  stations: Record<string, LatLon>;
-  shore: LatLon;
+  segments: Record<string, LonLat[]>;
+  stations: Record<string, LonLat>;
+  shore: LonLat;
   stale_after_s: number;
   horizon_s: number;
 }

@@ -1,6 +1,7 @@
 // Owner: C. Feature 18: one card per USV. Role, mode chip, battery as time left and
 // must-return-by, link, data age. Stale boats are greyed and say when they were last heard.
 import { useStore } from "../store";
+import { ContactList } from "./ContactList";
 import { deg, dur, hm, hhmm } from "../format";
 import { t0Of, type Boat, type Snapshot } from "../types";
 
@@ -70,6 +71,7 @@ export function FleetPanel() {
     <aside className="panel">
       <h2>Fleet · {snap.boats.length} USVs</h2>
       {snap.boats.map((b) => <BoatCard key={b.id} b={b} snap={snap} staleAfter={staleAfter} />)}
+      <ContactList />
     </aside>
   );
 }
