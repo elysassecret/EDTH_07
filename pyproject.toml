@@ -1,0 +1,24 @@
+[project]
+name = "edth07"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy",
+  "shapely",
+  "pyproj",
+  "pandas",
+  "pydantic>=2",
+  "websockets",
+  "cryptography",
+  "matplotlib",
+]
+
+[dependency-groups]
+dev = ["pytest", "hypothesis", "ruff"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -19,7 +19,9 @@
 /tests/smoke/ @FRANCO_GITHUB
 /tests/eval/ @FRANCO_GITHUB
 /tests/story/ @FRANCO_GITHUB
-/requirements.txt @FRANCO_GITHUB
+/pyproject.toml @FRANCO_GITHUB
+/uv.lock @FRANCO_GITHUB
+/CLAUDE.md @emermelada @SIMONE_GITHUB @zytzev @FRANCO_GITHUB
 /config/agent.toml @emermelada
 /config/scene.toml @SIMONE_GITHUB
 /config/boat.toml @SIMONE_GITHUB
