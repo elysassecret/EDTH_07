@@ -35,6 +35,11 @@ interface State {
   send: (c: Command) => boolean;
 }
 
+/** HTTP URL on the same server as the feed (incident report, tamper demo). */
+export function apiUrl(path: string): string {
+  return `${feedUrl("shore").replace(/\/shore$/, "").replace(/^ws/, "http")}${path}`;
+}
+
 function feedUrl(channel: Channel): string {
   const q = new URLSearchParams(window.location.search).get("feed");
   const base = q ?? `ws://${window.location.hostname || "localhost"}:8765`;

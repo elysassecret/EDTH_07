@@ -165,13 +165,54 @@ def _static(connection, request):
                                         ("Content-Length", str(len(body)))]), body)
 
 
+async def _api(feed: Feed, connection, request):
+    """GET /api/report.md?from=S&to=S (incident report) and /api/tamper-demo (JSON).
+    Real sim with a run log only. The work runs in a thread so frames keep flowing."""
+    from urllib.parse import parse_qs, urlsplit
+
+    from websockets.datastructures import Headers
+    from websockets.http11 import Response
+
+    from evidence.report import report, tamper_demo
+
+    url = urlsplit(request.path)
+    log_ = getattr(feed.world, "log", None)
+    if log_ is None:
+        return connection.respond(404, "No run log: real sim only, without --no-log\n")
+    log_.flush()
+    try:
+        if url.path == "/api/report.md":
+            q = parse_qs(url.query)
+            t_from = int(q["from"][0]) if "from" in q else None
+            t_to = int(q["to"][0]) if "to" in q else None
+            body = (await asyncio.to_thread(report, log_.path, t_from=t_from, t_to=t_to)).encode()
+            name = log_.path.stem + ".report.md"
+            headers = [("Content-Type", "text/markdown; charset=utf-8"),
+                       ("Content-Disposition", f'attachment; filename="{name}"')]
+        elif url.path == "/api/tamper-demo":
+            body = json.dumps(await asyncio.to_thread(tamper_demo, log_.path)).encode()
+            headers = [("Content-Type", "application/json")]
+        else:
+            return connection.respond(404, "Unknown API path\n")
+    except (ValueError, OSError) as e:
+        log.warning("api %s failed: %s", url.path, e)
+        return connection.respond(500, f"Could not build it: {e}\n")
+    return Response(200, "OK", Headers([*headers, ("Content-Length", str(len(body)))]), body)
+
+
 async def serve(factory: Callable[[int], Any], host: str, port: int, seed: int, hz: float = 10.0,
                 ready=None, serve_web: bool = False, name: str = "feed",
                 start_paused: bool = False) -> None:
     from websockets.asyncio.server import serve as ws_serve
 
     feed = Feed(factory, seed, hz, start_paused)
-    extra = {"process_request": _static} if serve_web else {}
+
+    async def process_request(connection, request):
+        if request.path.startswith("/api/"):
+            return await _api(feed, connection, request)
+        return _static(connection, request) if serve_web else None
+
+    extra = {"process_request": process_request}
     async with ws_serve(feed.handler, host, port, **extra) as server:
         bound = server.sockets[0].getsockname()[1]
         log.info("%s on ws://%s:%d/shore and /truth, seed %d", name, host, bound, seed)
