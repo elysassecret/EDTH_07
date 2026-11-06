@@ -1,0 +1,584 @@
+{
+  "$defs": {
+    "Alert": {
+      "properties": {
+        "ack": {
+          "default": false,
+          "title": "Ack",
+          "type": "boolean"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "alarm",
+            "warning",
+            "caution"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "t": {
+          "title": "T",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "level",
+        "text",
+        "t"
+      ],
+      "title": "Alert",
+      "type": "object"
+    },
+    "Boat": {
+      "properties": {
+        "batt": {
+          "title": "Batt",
+          "type": "integer"
+        },
+        "endurance_s": {
+          "title": "Endurance S",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "last_heard": {
+          "title": "Last Heard",
+          "type": "integer"
+        },
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "link": {
+          "enum": [
+            "direct",
+            "peer",
+            "none"
+          ],
+          "title": "Link",
+          "type": "string"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "must_return_by": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Must Return By"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "array"
+        },
+        "tour": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tour",
+          "type": "array"
+        },
+        "x": {
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "x",
+        "y",
+        "lon",
+        "lat",
+        "mode",
+        "batt",
+        "endurance_s",
+        "link",
+        "tour",
+        "roles",
+        "last_heard"
+      ],
+      "title": "Boat",
+      "type": "object"
+    },
+    "Contact": {
+      "properties": {
+        "ais": {
+          "title": "Ais",
+          "type": "boolean"
+        },
+        "cog": {
+          "title": "Cog",
+          "type": "integer"
+        },
+        "course": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Course"
+        },
+        "first_seen": {
+          "title": "First Seen",
+          "type": "integer"
+        },
+        "flags": {
+          "$ref": "#/$defs/ContactFlags"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "last_seen": {
+          "title": "Last Seen",
+          "type": "integer"
+        },
+        "lat": {
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "title": "Lon",
+          "type": "number"
+        },
+        "seen_by": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Seen By",
+          "type": "array"
+        },
+        "sog": {
+          "title": "Sog",
+          "type": "integer"
+        },
+        "state": {
+          "title": "State",
+          "type": "integer"
+        },
+        "track": {
+          "title": "Track",
+          "type": "string"
+        },
+        "watcher": {
+          "title": "Watcher",
+          "type": "integer"
+        },
+        "x": {
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "track",
+        "x",
+        "y",
+        "lon",
+        "lat",
+        "sog",
+        "cog",
+        "ais",
+        "first_seen",
+        "last_seen",
+        "seen_by",
+        "watcher",
+        "state",
+        "flags"
+      ],
+      "title": "Contact",
+      "type": "object"
+    },
+    "ContactFlags": {
+      "properties": {
+        "anchor": {
+          "default": false,
+          "title": "Anchor",
+          "type": "boolean"
+        },
+        "cannot_hold": {
+          "default": false,
+          "title": "Cannot Hold",
+          "type": "boolean"
+        },
+        "capped": {
+          "default": false,
+          "title": "Capped",
+          "type": "boolean"
+        },
+        "dwell": {
+          "default": false,
+          "title": "Dwell",
+          "type": "boolean"
+        },
+        "name": {
+          "default": false,
+          "title": "Name",
+          "type": "boolean"
+        }
+      },
+      "title": "ContactFlags",
+      "type": "object"
+    },
+    "Decide": {
+      "properties": {
+        "cmd": {
+          "enum": [
+            "confirm",
+            "stop",
+            "approve",
+            "decline"
+          ],
+          "title": "Cmd",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cmd",
+        "id"
+      ],
+      "title": "Decide",
+      "type": "object"
+    },
+    "Decision": {
+      "properties": {
+        "dec": {
+          "title": "Dec",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "approved",
+            "declined",
+            "delivered",
+            "expired"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "t": {
+          "title": "T",
+          "type": "integer"
+        },
+        "task": {
+          "title": "Task",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "task",
+        "dec",
+        "text",
+        "state",
+        "t"
+      ],
+      "title": "Decision",
+      "type": "object"
+    },
+    "Event": {
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "t": {
+          "title": "T",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "kind",
+        "text"
+      ],
+      "title": "Event",
+      "type": "object"
+    },
+    "Inject": {
+      "properties": {
+        "a": {
+          "title": "A",
+          "type": "integer"
+        },
+        "b": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "shore",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "B"
+        },
+        "cmd": {
+          "const": "inject",
+          "title": "Cmd",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "battery_low",
+            "link_off",
+            "link_on",
+            "boat_off"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cmd",
+        "kind",
+        "a"
+      ],
+      "title": "Inject",
+      "type": "object"
+    },
+    "Link": {
+      "properties": {
+        "a": {
+          "title": "A",
+          "type": "integer"
+        },
+        "b": {
+          "title": "B",
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "up",
+            "down",
+            "cut"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "a",
+        "b",
+        "state"
+      ],
+      "title": "Link",
+      "type": "object"
+    },
+    "Snapshot": {
+      "properties": {
+        "alerts": {
+          "items": {
+            "$ref": "#/$defs/Alert"
+          },
+          "title": "Alerts",
+          "type": "array"
+        },
+        "boats": {
+          "items": {
+            "$ref": "#/$defs/Boat"
+          },
+          "title": "Boats",
+          "type": "array"
+        },
+        "contacts": {
+          "items": {
+            "$ref": "#/$defs/Contact"
+          },
+          "title": "Contacts",
+          "type": "array"
+        },
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/Decision"
+          },
+          "title": "Decisions",
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/Event"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "title": "Links",
+          "type": "array"
+        },
+        "schema_version": {
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "seg_age": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Seg Age",
+          "type": "object"
+        },
+        "speed": {
+          "title": "Speed",
+          "type": "integer"
+        },
+        "t": {
+          "title": "T",
+          "type": "integer"
+        },
+        "tasks": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TaskView"
+          },
+          "title": "Tasks",
+          "type": "object"
+        },
+        "view": {
+          "enum": [
+            "shore",
+            "truth"
+          ],
+          "title": "View",
+          "type": "string"
+        }
+      },
+      "required": [
+        "view",
+        "t",
+        "speed",
+        "boats",
+        "tasks",
+        "seg_age",
+        "links",
+        "contacts",
+        "decisions",
+        "alerts",
+        "events"
+      ],
+      "title": "Snapshot",
+      "type": "object"
+    },
+    "TaskView": {
+      "properties": {
+        "deputy": {
+          "title": "Deputy",
+          "type": "integer"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "integer"
+        },
+        "state": {
+          "title": "State",
+          "type": "integer"
+        },
+        "v": {
+          "title": "V",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "owner",
+        "deputy",
+        "state"
+      ],
+      "title": "TaskView",
+      "type": "object"
+    }
+  },
+  "description": "Root of the exported schema, so one file carries every type.",
+  "properties": {
+    "command": {
+      "discriminator": {
+        "mapping": {
+          "approve": "#/$defs/Decide",
+          "confirm": "#/$defs/Decide",
+          "decline": "#/$defs/Decide",
+          "inject": "#/$defs/Inject",
+          "stop": "#/$defs/Decide"
+        },
+        "propertyName": "cmd"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Decide"
+        },
+        {
+          "$ref": "#/$defs/Inject"
+        }
+      ],
+      "title": "Command"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/Snapshot"
+    }
+  },
+  "required": [
+    "snapshot",
+    "command"
+  ],
+  "title": "Contract",
+  "type": "object"
+}
