@@ -29,8 +29,9 @@ that the complete contact demo/video is delivered.
 - Local artifacts: `/tmp/edth-browser-check/artifacts-pr20/` contains screenshots, result.json,
   server log and a WebM visibly labelled **NOT FINAL DEMO**. These are temporary session
   artifacts, not the final uploaded video or committed repository files.
-- Browser check cold start was 331 ms and graceful server-loss banner 112 ms in that one run.
-  Do not generalize those observations into platform-wide guarantees or abrupt-failure timing.
+- Server HTTP readiness was 331 ms (NOT full console/map cold start), and the graceful
+  server-loss banner appeared in 112 ms in that one run. Do not generalize these into
+  platform-wide guarantees, complete startup certification or abrupt-failure timing.
 
 ## Seeded world audit (diagnostic, not eval/)
 
