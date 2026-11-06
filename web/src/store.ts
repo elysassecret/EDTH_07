@@ -26,6 +26,9 @@ interface State {
   toggleComms: () => void;
   // Evaluator view: a second socket to /truth, open only while this is on. Off by default,
   // never available in operator mode (?operator).
+  digestOpen: boolean; // U2 "since you last looked"
+  lastLookT: number | null; // sim time of the officer's last look (null = not yet)
+  setDigest: (open: boolean, lookedAt?: number) => void;
   placing: { ais: boolean } | null; // exercise: next chart click places a synthetic contact
   setPlacing: (p: { ais: boolean } | null) => void;
   evalOn: boolean;
@@ -66,6 +69,9 @@ export const useStore = create<State>((set, get) => ({
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
+  digestOpen: false,
+  lastLookT: null,
+  setDigest: (open, lookedAt) => set((s) => ({ digestOpen: open, lastLookT: lookedAt ?? s.lastLookT })),
   placing: null,
   setPlacing: (p) => set({ placing: p }),
   evalOn: false,
