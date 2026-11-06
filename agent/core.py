@@ -50,6 +50,7 @@ class Agent:
         self.cur = (0, 0)
         self.t = 0
         self.returning = False
+        self.action: Action | None = None
         self.driving = False  # SENTINEL correction under way
         self.started = False
         self.majority_since: int | None = None
@@ -89,7 +90,7 @@ class Agent:
         if self.rec_due(t):
             self.net.send(t, "REC", {"recs": [to_wire(r) for r in self.table.recs.values()]})
         action = self.behave()
-        self.mode = action.mode
+        self.mode, self.action = action.mode, action
         return action, self.net.flush()
 
     # messages and records ------------------------------------------------------------------
@@ -232,6 +233,8 @@ class Agent:
         return {"x": self.pos[0], "y": self.pos[1], "mode": self.mode, "batt": self.batt,
                 "cyc": cyc, "tour": [leg[0] for leg in legs],
                 "roles": self.table.held_by(self.me),
+                "to": list(self.action.target) if self.action and self.action.target else None,
+                "spd": self.action.speed_mm_s if self.action and self.action.target else 0,
                 "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE)}
 
     def view(self) -> dict:

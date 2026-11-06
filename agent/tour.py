@@ -17,6 +17,19 @@ def length(pts: tuple[Point, ...]) -> int:
     return sum(dist(a, b) for a, b in pairwise(pts))
 
 
+def dist_to_line(p: Point, pts: tuple[Point, ...]) -> int:
+    """Shortest distance from a point to a polyline, integer maths only."""
+    best = dist(p, pts[0])
+    for a, b in pairwise(pts):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        den = dx * dx + dy * dy
+        if den == 0:
+            continue
+        num = min(max((p[0] - a[0]) * dx + (p[1] - a[1]) * dy, 0), den)
+        best = min(best, dist(p, (a[0] + dx * num // den, a[1] + dy * num // den)))
+    return best
+
+
 class Tours:
     """Geometry of the mission's segments, shared by everything that plans tours."""
 
