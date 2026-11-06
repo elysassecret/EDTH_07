@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit -p . && vite build",
     "preview": "vite preview",
-    "mock": "cd .. && uv run python -m server.mock_feed"
+    "mock": "cd .. && uv run python -m server.mock_feed",
+    "gen:contract": "json2ts -i ../contract/schema.json -o src/contract.ts --additionalProperties false --bannerComment \"// GENERATED from contract/schema.json by pnpm gen:contract. Do not edit.\""
   },
   "dependencies": {
     "@deck.gl/core": "^9.4.1",
@@ -23,6 +24,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
+    "json-schema-to-typescript": "^16.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.6"
   }

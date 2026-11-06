@@ -35,7 +35,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SCENE_FILE = ROOT / "data" / "scene-coordinates.json"
 log = logging.getLogger("mock_feed")
 
-SCHEMA_VERSION = 0
+# Snapshots follow contract/views.py (Snapshot, schema_version 1); tests validate against it.
+# Extra keys the contract does not have yet are marked "console extra" below; pydantic ignores
+# them, and each one is listed in server/README.md as a proposed contract addition.
+SCHEMA_VERSION = 1
+LINK_WORD = {"direct": "direct", "relay": "peer", "none": "none"}  # contract Boat.link
+DEC_STATE = {"waiting": "pending", "active": "pending", "confirmed": "approved",
+             "approved": "approved", "stopped": "declined", "declined": "declined",
+             "expired": "expired", "withdrawn": "expired"}  # contract Decision.state
 T0_UTC = "2026-11-03T10:15:00Z"  # scenarios/fixed.toml ais_t0, treated as UTC (unverified)
 LAT0, LON0 = 55.40, 11.00  # local frame origin, BUILD_PLAN step 5
 EARTH_R = 6_371_000.0
@@ -205,6 +212,8 @@ class Contact:
     seen_by: list[int] = field(default_factory=list)
     trail: list[tuple[float, float]] = field(default_factory=list)
     trail_t: float = -1e9
+    first_seen: float | None = None
+    looked: bool = False
     name_status: str = "NOT READ"
     anchor_status: str = "NOT SEEN"
 
@@ -469,8 +478,8 @@ class MockWorld:
         if a not in self.boats:
             return {"ok": False, "error": f"no boat {a}"}
         if kind in ("link_off", "link_on"):
-            b = msg.get("b", "shore")
-            b = "shore" if b == "shore" else str(int(b))
+            b = msg.get("b")
+            b = "shore" if b in (None, "shore", 0) else str(int(b))
             self._apply(kind, {"a": a, "b": b}, exercise=True, injected=True)
         elif kind in ("battery_low", "boat_off"):
             self._apply(kind, {"boat": a}, exercise=True, injected=True)
@@ -614,6 +623,7 @@ class MockWorld:
                     for c in self.contacts.values():
                         if not c.ais and c.active and dist(c.pos, b.pos) <= 600:
                             c.name_status, c.anchor_status = "IMAGE TAKEN", "IMAGE TAKEN"
+                            c.looked = True
                             self._event("look", f"USV {b.id:02d} at 500 m from {c.id}: bow "
                                                 f"images taken, for the watch officer to review")
                     self._hold(b, b.pos, "SHADOWING")
@@ -658,6 +668,8 @@ class MockWorld:
             c.seen_by = seen
             if seen:
                 c.last_seen, c.seen_pos = self.t, c.pos
+                if c.first_seen is None:
+                    c.first_seen = self.t
                 if not c.detected:
                     c.detected = True
                     if not c.ais:
@@ -756,14 +768,18 @@ class MockWorld:
         lat, lon = to_ll(*b.pos)
         home = dist(b.pos, self.sc.shore) / self.v
         tasks = self._tasks_of(b.id)
+        via = link[1]
         return {
-            "id": b.id, "name": f"USV {b.id:02d}", "x": round(b.pos[0]), "y": round(b.pos[1]),
-            "lat": r6(lat), "lon": r6(lon), "hdg": round(b.hdg), "sog_kn": round(b.sog / KN, 1),
-            "mode": b.mode, "role": self._role(b, tasks),
+            "id": b.id, "x": round(b.pos[0]), "y": round(b.pos[1]), "lon": r6(lon), "lat": r6(lat),
+            "mode": b.mode,
             "batt": round(1000 * b.endurance_s / float(self.sc.boat["endurance_s"])),
             "endurance_s": round(b.endurance_s),
             "must_return_by": round(self.t + max(0.0, b.endurance_s - self.reserve - home)),
-            "link": link[0], "via": link[1], "tour": tasks, "last_heard": round(self.t, 1),
+            "link": LINK_WORD[link[0]], "tour": tasks, "roles": tasks,
+            "last_heard": int(self.t),
+            # console extras (not in contract yet)
+            "hdg": round(b.hdg), "sog_kn": round(b.sog / KN, 1), "role_text": self._role(b, tasks),
+            "via": 0 if via == "shore" else via, "heard": True,
         }
 
     def _role(self, b: Boat, tasks: list[str]) -> str:
@@ -778,6 +794,8 @@ class MockWorld:
             return "Relay"
         if any(t.startswith("seg:") for t in tasks):
             return "Cable sweep"
+        if b.mode == "SHADOWING":
+            return "Moving to keep contact in view"
         for t in tasks:
             if t.startswith("pick:"):
                 return f"Lane picket {t[-1]}"
@@ -791,8 +809,9 @@ class MockWorld:
                 self.shore_view[b.id] = self._boat_view(b, status[b.id])
             elif b.id in self.shore_view:
                 self.shore_view[b.id] = {**self.shore_view[b.id], "link": "none", "via": None}
-            else:
-                self.shore_view[b.id] = {**self._boat_view(b, status[b.id]), "last_heard": None}
+            else:  # never heard: contract needs an int, "heard" says it is not real data
+                self.shore_view[b.id] = {**self._boat_view(b, status[b.id]), "last_heard": 0,
+                                         "heard": False}
 
     # ---- output
     def speed(self) -> int:
@@ -802,7 +821,7 @@ class MockWorld:
 
     def scene_msg(self) -> dict:
         return {
-            "type": "scene", "schema": SCHEMA_VERSION, "source": "mock", "t0_utc": T0_UTC,
+            "type": "scene", "schema_version": SCHEMA_VERSION, "source": "mock", "t0_utc": T0_UTC,
             "segments": {k: [list(map(r6, to_ll(*p))) for p in v[::5] + [v[-1]]]
                          for k, v in self.sc.segments.items()},
             "stations": {k: list(map(r6, to_ll(*p))) for k, p in self.sc.stations.items()},
@@ -827,11 +846,27 @@ class MockWorld:
             lat, lon = to_ll(*p)
             cam = self._camera(c)
             src = "camera" if not c.ais else ("fused" if cam else "ais")
+            task = self.tasks.get(f"contact:{c.id}")
+            st = getattr(self, "_story", None) or {}
             view = {
-                "id": c.id, "lat": r6(lat), "lon": r6(lon), "x": round(p[0]), "y": round(p[1]),
-                "cog": round(c.cog), "sog_kn": round(c.sog / KN, 1), "ais": c.ais,
-                "name": c.name, "source": src, "seen_by": c.seen_by,
-                "last_seen": round(c.last_seen, 1) if c.last_seen is not None else None,
+                "id": f"contact:{c.id}" if not c.ais else f"ais:{c.id}", "track": c.id,
+                "x": round(p[0]), "y": round(p[1]), "lon": r6(lon), "lat": r6(lat),
+                "sog": round(c.sog * 1000), "cog": round(c.cog), "ais": c.ais,
+                "first_seen": int(c.first_seen or 0), "last_seen": int(c.last_seen or 0),
+                "seen_by": c.seen_by,
+                "watcher": task["owner"] if task and task["state"] == 1 else 0,
+                "state": task["state"] if task else 0,
+                "flags": {
+                    "dwell": (not c.ais and c.first_seen is not None
+                              and self.t - c.first_seen >= 180 and c.sog < 1.0),
+                    "name": c.looked, "anchor": c.looked,
+                    "cannot_hold": bool(st.get("cannot_hold")) and st.get("contact") == c.id,
+                    "capped": False,
+                },
+                "course": round(c.cog) if st.get("cannot_hold") and st.get("contact") == c.id
+                else None,
+                # console extras (not in contract yet)
+                "name": c.name, "source": src, "sog_kn": round(c.sog / KN, 1),
                 "trail": [list(map(r6, to_ll(*q))) for q in c.trail],
                 "name_status": c.name_status if not c.ais else "AIS",
                 "anchor_status": c.anchor_status,
@@ -839,18 +874,36 @@ class MockWorld:
             if truth:
                 view["detected"] = c.detected
             contacts.append(view)
+        links = [{"a": 0 if lk["b"] == "shore" else lk["a"],
+                  "b": lk["a"] if lk["b"] == "shore" else lk["b"],
+                  "state": "up" if lk["ok"] else "cut", "m": lk["m"]} for lk in self._last_links]
+        decisions = [{
+            "id": d["id"], "task": f"contact:{d['contact']}" if d["contact"] else "",
+            "dec": {"close_look": "close", "keep_in_view": "keep"}.get(d["kind"], d["kind"]),
+            "text": d["text"], "state": DEC_STATE[d["status"]], "t": int(d["created"]),
+            # console extras (not in contract yet)
+            "tier": d["tier"], "actions": d["actions"], "status": d["status"],
+            "boat": d["boat"], "route": d["route"], "answered": d.get("answered"),
+        } for d in self.decisions.values()]
+        alerts = [{"id": a["key"], "level": a["level"], "text": a["text"], "t": int(a["t"]),
+                   "ack": a["acked"]} for a in self.alerts.values() if a["active"]]
+        events = [{"t": int(e["t"]), "kind": e["kind"], "text": e["text"],
+                   "exercise": e["exercise"]} for e in self.events[-40:]]
         return {
-            "type": "snapshot", "schema": SCHEMA_VERSION, "source": "mock", "channel": channel,
-            "seed": self.seed, "t": round(self.t, 1), "t0_utc": T0_UTC,
+            "schema_version": SCHEMA_VERSION, "view": channel,
+            "t": int(self.t),
             "speed": speed if speed is not None else self.speed(),
             "boats": boats,
             "tasks": dict(sorted(self.tasks.items())),
             "seg_age": {k: round(v) for k, v in sorted(self.seg_age.items())},
-            "links": self._last_links,
+            "links": links,
             "contacts": contacts,
-            "decisions": list(self.decisions.values()),
-            "alerts": [a for a in self.alerts.values() if a["active"]],
-            "events": self.events[-40:],
+            "decisions": decisions,
+            "alerts": alerts,
+            "events": events,
+            # console extras (not in contract yet)
+            "type": "snapshot", "source": "mock", "seed": self.seed, "t_exact": round(self.t, 1),
+            "t0_utc": T0_UTC,
         }
 
 

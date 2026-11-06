@@ -62,8 +62,9 @@ export function connect(): void {
   };
   sock.onmessage = (ev) => {
     const msg = JSON.parse(String(ev.data)) as Snapshot | SceneMsg | Ack;
-    if (msg.type === "snapshot") {
-      useStore.setState({ snap: msg, conn: "live", lastMsgAt: performance.now() });
+    // Contract snapshots carry no "type"; anything with schema_version + boats is one.
+    if (msg.type === "snapshot" || (msg.type === undefined && "boats" in msg)) {
+      useStore.setState({ snap: msg as Snapshot, conn: "live", lastMsgAt: performance.now() });
     } else if (msg.type === "scene") {
       useStore.setState({ scene: msg });
     } else if (msg.type === "ack") {
