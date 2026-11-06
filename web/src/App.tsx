@@ -21,6 +21,7 @@ function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "re
         <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
           {channel === "shore" ? "View: SHORE (delivered)" : "View: TRUTH (evaluator)"}
         </button>
+        <CommsToggle />
         <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
           title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
           {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
@@ -28,6 +29,12 @@ function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "re
       </div>
     </header>
   );
+}
+
+function CommsToggle() {
+  const on = useStore((s) => s.showComms);
+  const toggle = useStore((s) => s.toggleComms);
+  return <button onClick={toggle} className={on ? "on" : ""}>{on ? "Comms ON" : "Comms OFF"}</button>;
 }
 
 function FeedBanner() {

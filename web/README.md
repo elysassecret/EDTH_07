@@ -40,6 +40,9 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 | Camera-only contact | yellow quatrefoil (four lobes), "NO AIS" label, lines to the USVs that see it |
 | Stale contact | grey, at its last known position, "LAST SEEN mm:ss AGO" |
 | Course vector | line to where the contact will be in 6 minutes |
+| Radio link up | thin blue line between two boats, or boat and Korsør |
+| Route to shore | thicker bright blue line from each boat to its next hop (`via`) |
+| Link cut | red dashed line, red ✕ and "LINK CUT" (grey dashed = link down) |
 | Cables | magenta (power) / violet (data); scenario cables thicker |
 | Shipping lane | grey dashed (measured from one day of AIS) |
 | Box | white dotted |
@@ -66,5 +69,6 @@ src/contract.ts     GENERATED from contract/schema.json
 src/format.ts       UTC "Z" time, mm:ss, "2 h 10 min", degrees
 src/map/Chart.tsx   MapLibre base + deck.gl layers
 src/map/scene.ts    static geometry from data/scene-coordinates.json
+src/map/comms.ts    feature 21: comms overlay (toggle "Comms" in the top bar)
 src/map/theme.ts    colours (NATO-style: friend blue, neutral green, unknown yellow)
 ```
