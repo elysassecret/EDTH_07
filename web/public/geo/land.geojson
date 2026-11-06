@@ -1,0 +1,6 @@
+{
+  "type": "FeatureCollection",
+  "name": "PLACEHOLDER - no coastline yet",
+  "note": "Empty on purpose. tools/ (Franco) writes the clipped OSM land polygons here. Credit: (c) OpenStreetMap contributors.",
+  "features": []
+}
