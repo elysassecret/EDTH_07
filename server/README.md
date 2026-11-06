@@ -33,6 +33,11 @@ uv run python -m server --serve-web --mock   # same with the mock feed
 - `demo.toml` + `DEMO.md`: the video preset (`uv run python -m server --serve-web --demo`):
   seed 1, starts paused at 6900 s, relay loss injected at 11 100 s, about 2:26 after Run.
   Shot list, timings and narration in `DEMO.md`; `tests/server/test_demo.py` checks the beats.
+- `narrator.py`: plain lines about what changed between consecutive /shore frames (task owners,
+  modes, links, data age), e.g. "USV 04 took cable seg:G:0, seg:G:1; lane picket S now
+  uncovered". Shore data only; it says "took", not why (the shore does not see bids). `feed.py`
+  adds the latest lines to /shore frames as `narration`; the console shows them under
+  "What changed".
 - `mock_feed.py`: deterministic fake of the whole story, for UI work without the sim.
 - `alerts.py`: alerts for the real sim (feature 23), made from the shore picture and the
   console's own exercise events, never from truth. Alarm: held decision unanswered 05:00.

@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from server.evaluator import compare
+from server.narrator import Narrator
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB_DIST = ROOT / "web" / "dist"
@@ -41,6 +42,7 @@ class Feed:
         self.seed = seed
         self.hz = hz
         self.world = factory(seed)
+        self.narrator = self._new_narrator()
         self.clients: dict = {}  # connection -> channel
         self.start_paused = start_paused  # demo: every (re)start waits for "Run"
         self.paused = start_paused
@@ -54,6 +56,7 @@ class Feed:
                 self.seed = int(msg.get("seed", self.seed))
                 getattr(self.world, "close", lambda: None)()  # e.g. finish the run log
                 self.world = self.factory(self.seed)
+                self.narrator = self._new_narrator()
                 self.paused = self.paused or self.start_paused
                 return {"ok": True}
             if cmd == "pause":
@@ -105,10 +108,17 @@ class Feed:
         out["near_event"] = out["warp_mode"] == "auto" and bool(self.world.near_event())
         return out
 
+    def _new_narrator(self) -> Narrator:
+        scene = self.world.scene_msg()
+        return Narrator(int(scene.get("stale_after_s", 60)))
+
     def _frames(self, speed: int) -> dict[str, dict]:
         """Both channels. Only /truth carries "eval" (shore belief next to truth): the
-        operator's /shore picture never does."""
+        operator's /shore picture never does. /shore carries "narration", made from /shore
+        frames alone (server/narrator.py)."""
         shore = self._snap("shore", speed)
+        self.narrator.update(shore)
+        shore["narration"] = self.narrator.lines[-12:]
         truth = self._snap("truth", speed)
         truth["eval"] = compare(shore, truth)
         return {"shore": shore, "truth": truth}

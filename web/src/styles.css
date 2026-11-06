@@ -179,3 +179,6 @@ button.on.eval { border-color: #be8cff; color: #e6d6ff; }
 .evalpanel .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
 .evalpanel tr.diff td { color: #f0b060; }
 .evalpanel ul { margin: 0; padding-left: 16px; }
+.eventlog .tabs { display: flex; gap: 6px; }
+.eventlog .tabs button { font-size: 12px; padding: 3px 8px; }
+.eventlog .tabs .more { margin-left: auto; }
