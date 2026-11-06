@@ -2,9 +2,15 @@
 
 ## Agreed scope
 
-- Routes/loop/API landed via PR #12; hotel-load energy landed via PR #14.
-- PRs #14 and #15 (boat contact policy) merged after combined local validation.
-  Branch `b/current-tide` is rebased on main `32a7c54`; current changes stay in B's folders.
+- Routes/loop/API, hotel load, boat contacts and current/tide are merged (#12/#14/#15/#16).
+- C's real console/control work is merged (#20). Current integration baseline is main
+  `00e892d`; follow-up `b/integration-proof` adds only B-owned diagnostics/documentation.
+- Detailed checks, actual outcomes and remaining gates are in world/VALIDATION.md.
+- world.check runs 30 cold fixed-phase integration cases; all 10 elysa/off pre-event
+  physical comparisons matched. This is NOT the final warm-state/metric benchmark.
+- Full local suite: 160 tests pass. Built console runtime, fresh cached offline Python env,
+  local UI injection/pause/reset, feed loss and reconnect are checked on this laptop.
+  Partial labelled recording exists; full video, final metrics and two-laptop tests do not.
 - Simeone owns the deterministic loop in `world/sim.py`; server wraps it (coordinate with Alexandru).
 - Start with basic kinematic motion and a simple battery model; record deferred realism here.
 - Agent owns return decisions and networking (forwarding, dedupe, retries, expiry, hop limit).
@@ -84,17 +90,18 @@
 | Basic motion and deterministic loop/reset | Implemented and tested against real Agent |
 | Local synthetic sensors and battery injection | Implemented and tested |
 | Physical radio and agent-owned multi-hop | Implemented; loss/link/rejoin/staleness tested |
-| Console tick API / issue #8 | Implemented; C must wire the real bridge to this API |
-| Motors-off hotel load / SENTINEL energy | Implemented in this follow-up; chosen ratio, not hull data |
-| Fixed current/tide and drift-and-correct physics | Implemented on b/current-tide; chosen fixed field |
-| Warm-state phases, shared channel fairness, final metrics | Needs coordination with Franco |
+| Console tick API / issue #8 | Integrated with C real bridge; build/browser checks pass (#20) |
+| Motors-off hotel load / SENTINEL energy | Merged #14; chosen ratio, not hull data |
+| Fixed current/tide and drift-and-correct physics | Merged #16; chosen fixed field |
+| Warm-state phases, shared channel fairness, final metrics | Assigned #19; 30 cold integration cases are NOT final eval |
 | AIS replay | Blocked on Franco supplying private clip |
 | Cue/triage | Gated behind main features and full video |
-| Contact response/operator policy | Boat policy tested with current; shore contact/decision picture still pending |
+| Contact response/operator policy | Boat policy tested; shore presentation pending #17; ages/via pending #21/#22 |
 
 This is progress by deliverable, not a claim that timed team milestones or the whole
-console demo are complete. Next: full bridge/contact integration with Javier/Alexandru as
-those phases land, and baseline/warm-state coordination with Franco. Do not start triage yet.
+console demo are complete. Bridge/control browser checks pass; next unblock A's delivered
+contact/coverage semantics and D's warm-state/final metrics. Issues #17/#19/#21/#22 track the
+handoffs. Full video and actual two-laptop offline tests remain outstanding. Do not start triage.
 
 ## Real-core integration milestone
 

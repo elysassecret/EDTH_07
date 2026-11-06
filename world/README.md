@@ -8,6 +8,7 @@ Owner: Simeone (B). See `world/PLAN.md` for delivery status, assumptions and def
 uv run python -m world --seconds 14400 --seed 1
 uv run python -m world --controller core --seconds 14400 --seed 1
 uv run pytest -q tests/world
+uv run python -m world.check --jobs 4 > /tmp/edth-world-audit.json
 ```
 
 The default uses explicitly labelled fixed-route stand-ins, **not Javier's swarm**.
@@ -19,6 +20,10 @@ substitute exercise behaviour for missing agent features.
 Both modes print a final truth snapshot and physical-state hash; neither is an evaluation
 result. Core mode also prints public agent views and the heartbeats actually received by
 shore (original creation times and hop counts), not a fabricated live fleet picture.
+
+`world.check` runs cold fixed-phase integration cases across seeds, speeds and policies;
+it is **not eval/'s final benchmark**. See `world/VALIDATION.md` for the performed checks,
+recording artifacts, known shore-semantic gaps and remaining release gates.
 
 ## Integrate
 
