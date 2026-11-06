@@ -488,6 +488,8 @@ class MockWorld:
         if kind in ("link_off", "link_on"):
             b = msg.get("b")
             b = "shore" if b in (None, "shore", 0) else str(int(b))
+            if b != "shore" and (int(b) not in self.boats or int(b) == a):
+                return {"ok": False, "error": f"bad link end {b}"}
             self._apply(kind, {"a": a, "b": b}, exercise=True, injected=True)
         elif kind in ("battery_low", "boat_off"):
             self._apply(kind, {"boat": a}, exercise=True, injected=True)
@@ -823,10 +825,11 @@ class MockWorld:
                                          "heard": False}
 
     # ---- output
+    def near_event(self) -> bool:
+        return any(e - 60 <= self.t <= e + 60 for e in self.event_times)
+
     def speed(self) -> int:
-        near = int(self.sc.ui["warp_near_events"])
-        far = int(self.sc.ui["warp_between_events"])
-        return near if any(e - 60 <= self.t <= e + 60 for e in self.event_times) else far
+        return int(self.sc.ui["warp_near_events" if self.near_event() else "warp_between_events"])
 
     def scene_msg(self) -> dict:
         return {

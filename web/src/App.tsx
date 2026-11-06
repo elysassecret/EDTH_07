@@ -6,9 +6,12 @@ import { dur, utc } from "./format";
 import { FleetPanel } from "./ui/BoatCard";
 import { AlertStrip } from "./ui/AlertPanel";
 import { CoverageBox } from "./ui/Coverage";
+import { EventLog, ExerciseBanner, InjectPanel, WarpControl } from "./ui/Demo";
 import { t0Of } from "./types";
 
-function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void }) {
+function TopBar({ sat, satState, onSat, inject, onInject }: {
+  sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void; inject: boolean; onInject: () => void;
+}) {
   const snap = useStore((s) => s.snap);
   const channel = useStore((s) => s.channel);
   const setChannel = useStore((s) => s.setChannel);
@@ -17,13 +20,15 @@ function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "re
       <div className="title">Shore console · Great Belt cable watch</div>
       <div className="clock">{snap ? utc(t0Of(snap), snap.t) : "--:--:--Z"}</div>
       <div className="meta">
-        {snap ? <>sim {dur(snap.t)} · {snap.speed === 0 ? "PAUSED" : `warp ${snap.speed}×`} · {snap.source === "mock" ? "MOCK FEED" : snap.source}</> : "waiting for feed"}
+        {snap ? <>sim {dur(snap.t)} · {snap.source === "mock" ? "MOCK FEED" : snap.source}</> : "waiting for feed"}
       </div>
+      <WarpControl />
       <div className="controls">
         <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
           {channel === "shore" ? "View: SHORE (delivered)" : "View: TRUTH (evaluator)"}
         </button>
         <CommsToggle />
+        <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
         <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
           title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
           {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
@@ -61,16 +66,20 @@ export function App() {
   const [sat, setSat] = useState(false);
   const [satState, setSatState] = useState<"none" | "ready" | "checking">("checking");
   const onSatState = useCallback((s: "none" | "ready") => setSatState(s), []);
+  const [inject, setInject] = useState(false);
   return (
     <div className="app">
-      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} />
+      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} inject={inject} onInject={() => setInject((v) => !v)} />
       <FeedBanner />
       <TruthBanner />
+      <ExerciseBanner />
       <AlertStrip />
       <main>
         <div className="chart-wrap">
           <Chart satellite={sat} onSatelliteState={onSatState} />
           <CoverageBox />
+          <EventLog />
+          {inject && <InjectPanel onClose={() => setInject(false)} />}
         </div>
         <FleetPanel />
       </main>

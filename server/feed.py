@@ -5,6 +5,7 @@ A *source* is anything with this shape (MockWorld in mock_feed.py, SimSource in 
     source.t                      sim seconds now
     source.step(dt_ms)            advance the sim by dt_ms of sim time
     source.speed()                auto-warp factor for the current sim time
+    source.near_event()           True while auto-warp is slowed for an event
     source.scene_msg()            static geometry, sent once per connection
     source.snapshot(channel, speed) -> dict   channel "shore" or "truth"
     source.command(msg) -> {"ok": bool, "error"?: str}
@@ -70,7 +71,7 @@ class Feed:
         log.info("client connected on /%s (%d total)", channel, len(self.clients))
         try:
             await ws.send(json.dumps(self.world.scene_msg()))
-            await ws.send(json.dumps(self.world.snapshot(channel, self._speed())))
+            await ws.send(self._frame(channel, self._speed()))
             async for raw in ws:
                 try:
                     msg = json.loads(raw)
@@ -90,11 +91,19 @@ class Feed:
     def _speed(self) -> int:
         return 0 if self.paused else (self.speed_override or self.world.speed())
 
+    def _frame(self, channel: str, speed: int) -> str:
+        out = self.world.snapshot(channel, speed)
+        # console extras (feature 25): who sets the warp, and whether auto-warp is slowed
+        out["warp_mode"] = ("paused" if self.paused else
+                            "manual" if self.speed_override else "auto")
+        out["near_event"] = out["warp_mode"] == "auto" and bool(self.world.near_event())
+        return json.dumps(out)
+
     def tick(self) -> dict[str, str]:
         """One frame: advance the source and render both channels (no I/O, testable)."""
         speed = self._speed()
         self.world.step(int(speed * 1000 / self.hz))
-        return {ch: json.dumps(self.world.snapshot(ch, speed)) for ch in ("shore", "truth")}
+        return {ch: self._frame(ch, speed) for ch in ("shore", "truth")}
 
     async def run(self) -> None:
         period = 1.0 / self.hz

@@ -146,3 +146,37 @@ def test_scene_carries_revisit_target_from_run_config():
     want = tomllib.loads((ROOT / "config" / "run.toml").read_text())["revisit_target_s"]
     assert SimSource(1).scene_msg()["revisit_target_s"] == want
     assert MockWorld(1).scene_msg()["revisit_target_s"] == want
+
+
+@pytest.mark.parametrize("make", ["sim", "mock"])
+def test_injection_works_for_any_boat_and_link(make):
+    """BUILD_PLAN step 14: not only the scripted boats 01, 04 and 05."""
+    from server.mock_feed import MockWorld
+
+    s = SimSource(1) if make == "sim" else MockWorld(1)
+    s.step(60_000)
+    for msg in ({"cmd": "inject", "kind": "battery_low", "a": 3},
+                {"cmd": "inject", "kind": "boat_off", "a": 2},
+                {"cmd": "inject", "kind": "link_off", "a": 3, "b": 2},
+                {"cmd": "inject", "kind": "link_off", "a": 2, "b": "shore"},
+                {"cmd": "inject", "kind": "link_on", "a": 2, "b": "shore"}):
+        assert s.command(msg)["ok"], msg
+    assert s.command({"cmd": "inject", "kind": "link_off", "a": 3, "b": 3})["ok"] is False
+    s.step(2_000)
+    texts = [e["text"] for e in s.snapshot("shore")["events"] if e["exercise"]]
+    assert any("03" in t for t in texts) and any("02" in t for t in texts)
+
+
+def test_frames_say_who_sets_the_warp():
+    f = Feed(SimSource, seed=1, hz=10)
+    assert json.loads(f.tick()["shore"])["warp_mode"] == "auto"
+    f.handle_command({"cmd": "speed", "value": 60})
+    snap = json.loads(f.tick()["shore"])
+    assert snap["warp_mode"] == "manual" and snap["near_event"] is False and snap["speed"] == 60
+    f.handle_command({"cmd": "pause", "on": True})
+    assert json.loads(f.tick()["truth"])["warp_mode"] == "paused"
+    f.handle_command({"cmd": "speed", "value": "auto"})
+    f.handle_command({"cmd": "pause", "on": False})
+    f.world.step(7_190_000)  # just before the scripted battery_low at 7200 s
+    snap = json.loads(f.tick()["shore"])
+    assert snap["near_event"] is True and snap["speed"] == f.world.ui["warp_near_events"]

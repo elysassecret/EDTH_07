@@ -98,12 +98,13 @@ class SimSource:
         for e in self.world.events[seen:]:
             self.past_events.append(int(e["t_ms"]))
 
-    def speed(self) -> int:
+    def near_event(self) -> bool:
         t = self.world.t_ms
-        near = int(self.ui["warp_near_events"])
-        far = int(self.ui["warp_between_events"])
         times = [*self.past_events, *self.world.upcoming_event_times()]
-        return near if any(abs(t - e) <= EVENT_WINDOW_MS for e in times if e > 0) else far
+        return any(abs(t - e) <= EVENT_WINDOW_MS for e in times if e > 0)
+
+    def speed(self) -> int:
+        return int(self.ui["warp_near_events" if self.near_event() else "warp_between_events"])
 
     def scene_msg(self) -> dict:
         m = self.world.mission
@@ -150,6 +151,8 @@ class SimSource:
                     event["b"] = "shore" if b in (None, "shore", SHORE) else int(b)
                     if event["b"] != "shore" and event["b"] not in self.world.mission.boats:
                         return {"ok": False, "error": f"no boat {event['b']}"}
+                    if event["b"] == a:
+                        return {"ok": False, "error": "a link needs two different ends"}
                 self.world.inject(event)
                 return {"ok": True}
             if cmd == "ack":

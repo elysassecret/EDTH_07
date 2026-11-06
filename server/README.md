@@ -63,4 +63,5 @@ Sent as extra keys (pydantic ignores them). To make them real they need a contra
 | Decision | `route` | ghost-route preview (feature 22) |
 | Decision | confirmed / stopped states | contract only has pending/approved/declined/delivered/expired |
 | Event | `exercise` | EXERCISE banner on injected failures (feature 25) |
+| Snapshot | `warp_mode`, `near_event` | warp display: auto/manual/paused, "slowing for event" (feature 25) |
 | Link | `m` | link length, for the comms overlay |

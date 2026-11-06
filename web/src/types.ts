@@ -52,6 +52,8 @@ export interface Snapshot extends Omit<C.Snapshot, "boats" | "contacts" | "decis
   seed?: number;
   t_exact?: number;
   t0_utc?: string;
+  warp_mode?: "auto" | "manual" | "paused"; // server/feed.py (feature 25)
+  near_event?: boolean; // auto-warp slowed around a scripted or injected event
 }
 
 export interface SceneMsg {
