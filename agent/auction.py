@@ -6,7 +6,17 @@ Losers do nothing; if two boats both think they won, merge keeps the lower bid.
 """
 from typing import TYPE_CHECKING
 
-from contract.constants import CLAIMED, CYCLE_MAX, SHORE_SILENCE, SLOT
+from contract.constants import (
+    CLAIMED,
+    CYCLE_MAX,
+    PEER_STALE,
+    REBALANCE,
+    RETURNING,
+    SHADOWING,
+    SHORE_SILENCE,
+    SLOT,
+    UNAVAILABLE,
+)
 from contract.geo import dist
 from contract.tasks import BID_ORDER, kind
 
@@ -22,6 +32,7 @@ class Auction:
     def __init__(self, agent: "Agent"):
         self.a = agent
         self.bids: dict[int, dict[str, list[tuple[int, int]]]] = {}  # e -> task -> [(cost, boat)]
+        self.gave: dict[str, int] = {}  # task -> until when I won't bid on what I just gave away
 
     def on_bid(self, p: dict) -> None:
         self.bids.setdefault(p["e"], {}).setdefault(p["task"], []).append((p["cost"], p["boat"]))
@@ -82,6 +93,8 @@ class Auction:
     def can_bid(self, task: str, t: int) -> bool:
         a = self.a
         k = kind(task)
+        if t < self.gave.get(task, -1):
+            return False
         if k == "seg":
             if a.table.recs[task].state == CLAIMED and not a.majority:
                 return False  # taking over an expired claim needs a live majority (P4)
@@ -95,3 +108,32 @@ class Auction:
                     and self.energy_ok(task))
         return False  # contact and cue come in later phases
 
+
+    # rebalance (PLAN 7.7 and F5) -------------------------------------------------------------
+    def rebalance(self, t: int) -> None:
+        """Hand one segment to a less loaded peer, at most once per period. Only boats that
+        hold nothing but segments count as available: pickets and the relay are not idle."""
+        a = self.a
+        legs = a.legs()
+        if len(legs) < 2 or any(a.table.is_open(k, t) and self.can_bid(k, t)
+                                for k in a.table.recs):
+            return
+        avail = []
+        for b, (tc, p) in sorted(a.peers.items()):
+            if (t - tc <= PEER_STALE and p["mode"] not in (RETURNING, UNAVAILABLE, SHADOWING)
+                    and all(kind(r) == "seg" for r in p["roles"])):
+                avail.append((p["cyc"], b, p["tour"]))
+        if not avail:
+            return
+        lo_cyc, _, lo_tour = min(avail)
+        mine = ms(a.tours.cycle_m(legs), a.params.speed_mm_s)
+        if mine * 1000 <= a.params.rebalance_ratio_permille * lo_cyc:
+            return
+        _, give = min((a.tours.cycle_m([leg for leg in legs if leg[0] != k]), k)
+                      for k, _ in legs)
+        lo_legs = []
+        for k in sorted(lo_tour + [give]):
+            lo_legs = a.tours.insert(lo_legs, k)
+        if ms(a.tours.cycle_m(lo_legs), a.params.speed_mm_s) < mine:
+            a.release(give)
+            self.gave[give] = t + REBALANCE  # don't win it straight back

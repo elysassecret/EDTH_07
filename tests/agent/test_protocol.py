@@ -148,3 +148,26 @@ def test_policy_static_parks_every_boat():
         a = s.agents[b]
         x, y = a.static_point
         assert abs(s.xy(b)[0] - x) <= 300 and abs(s.xy(b)[1] - y) <= 300, b
+
+
+def test_r0_no_task_changes_owner_without_an_event():
+    """PLAN F5: pickets and the relay are not idle, so rebalance moves nothing pre-event."""
+    s = Sim(scene_mission(), PARAMS, START)
+    s.run_until(7_200_000)
+    for task, owner in scene_mission().initial:
+        assert owners(s, task) == {(owner, CLAIMED)}, task
+        assert {a.table.recs[task].ver for a in s.agents.values()} == {1}, task
+
+
+def test_p5_idle_boat_gets_work_within_two_rebalance_periods():
+    tasks = (TaskSpec("seg:A:0", ((0, 0), (3000, 0))), TaskSpec("seg:A:1", ((3000, 0), (6000, 0))),
+             TaskSpec("relay", ((3000, 1000),)))
+    m = Mission(boats=(1, 2, 3), tasks=tasks,
+                initial=(("seg:A:0", 1), ("seg:A:1", 1), ("relay", 3)),
+                shore=(3000, -5000), lane=((0, 20_000), (6000, 20_000)), lane_half_m=650)
+    s = Sim(m, PARAMS, {1: (0, 0), 2: (4500, 0), 3: (3000, 1000)})  # 2 starts with nothing
+    s.run_until(2 * 300_000 + 60_000)
+    assert s.agents[2].legs() != []
+    assert len(s.agents[1].legs()) == 1
+    held = sorted(k for b in (1, 2) for k in s.agents[b].table.held_by(b))
+    assert held == ["seg:A:0", "seg:A:1"]

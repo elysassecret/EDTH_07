@@ -34,6 +34,7 @@ class Net:
         self.out: list[bytes] = []
         self.fwd: list[bytes] = []
         self.pruned_at = 0
+        self.acks: list[str] = []  # ids of VETO and CMD to acknowledge, duplicates included
 
     def send(self, t: int, kind: str, p: dict, retry: bool = False) -> Msg:
         self.seq += 1
@@ -50,12 +51,20 @@ class Net:
             m = decode(raw)
         except (ValueError, KeyError, TypeError):
             return None
-        if m.id in self.seen or t > m.te:
+        if t > m.te:
+            return None
+        if m.kind in ("VETO", "CMD") and m.src != self.me and m.id not in self.acks:
+            self.acks.append(m.id)  # ack resends too, in case our first ACK was lost
+        if m.id in self.seen:
             return None
         self.seen[m.id] = m.te
         if m.hops < MAX_HOPS:
             self.fwd.append(encode(replace(m, hops=m.hops + 1)))
         return m
+
+    def take_acks(self) -> list[str]:
+        out, self.acks = self.acks, []
+        return out
 
     def ack(self, msg_id: str) -> None:
         self.pending.pop(msg_id, None)
