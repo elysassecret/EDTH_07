@@ -85,3 +85,14 @@ def test_s6_relay_lost_nobody_cut_off_relay_stays_open():
     for b in (1, 2):
         t = s.agents[b].table
         assert t.recs["relay"].owner == 3 and t.is_open("relay", s.t)  # open and visible
+
+
+def test_one_way_cut_is_not_a_direct_shore_hop():
+    """#21: after 4 -> shore is cut, 04 still hears the shore but the shore no longer hears it."""
+    s = scene()
+    s.run_until(30_000)
+    s.off.add((4, 0))
+    s.run_until(120_000)
+    boats = {b.id: b for b in s.shore.picture(s.t).boats}
+    assert boats[4].link == "peer" and boats[4].via != 0
+    assert boats[boats[4].via].link == "direct"  # next hop is a boat the shore hears
