@@ -33,7 +33,14 @@ function onCtl(f) {
 }
 
 /* ---------- top bar ---------- */
+function renderNarrator(f) {
+  const el = $('narrator'); if (!el) return;
+  const html = (f.narrator || []).slice().reverse().map(n => `<div><span style="color:var(--muted);margin-right:6px">${hms(n.t)}</span>${esc(n.text)}</div>`).join('');
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+
 function renderStatus() {
+  if (state.status) renderNarrator(state.status);
   const s = state.status; if (!s) return;
   $('mode').textContent = s.mode; $('seed').textContent = s.seed;
   $('clock').textContent = hms(s.t); $('tsec').textContent = `t=${s.t} s`;
