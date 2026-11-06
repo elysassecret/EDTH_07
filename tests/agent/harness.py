@@ -38,6 +38,9 @@ class Sim:
     def kill(self, b: int) -> None:
         self.alive[b] = False
 
+    def set_batt(self, b: int, permille: int) -> None:
+        self.batt[b] = permille
+
     def link(self, a: int, b: int, on: bool) -> None:
         for pair in ((a, b), (b, a)):
             if on:

@@ -3,12 +3,31 @@
 Sees only its own sensors and its radio inbox; returns an action and bytes to broadcast.
 No clock, no files, no randomness: time is the argument t (sim ms).
 """
+from agent.auction import Auction, ms
 from agent.net import Every, Net
 from agent.table import Table
-from contract.constants import HEARTBEAT, PATROL, REBROADCAST, SHORE
+from agent.tour import Follower, Leg, Tours
+from contract.constants import (
+    CLAIMED,
+    HEARTBEAT,
+    PATROL,
+    PEER_STALE,
+    REBROADCAST,
+    RELEASED,
+    RETURNING,
+    SENTINEL,
+    SHORE,
+    SLOT,
+    UNAVAILABLE,
+)
+from contract.geo import dist
 from contract.messages import Msg
 from contract.mission import Action, Detection, Mission, Own, Params
-from contract.tasks import Rec, from_wire, to_wire
+from contract.tasks import Rec, from_wire, kind, to_wire
+
+HOME_M = 50  # at the shore station
+STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
+ACTIVE_WINDOW = 600_000  # a boat silent this long no longer counts towards the majority
 
 
 class Agent:
@@ -18,31 +37,55 @@ class Agent:
         self.params = params
         self.net = Net(me)
         self.table = Table(me, params.seg_lease_ms, mission)
+        self.tours = Tours({s.id: s.pts for s in mission.tasks if kind(s.id) == "seg"})
+        self.stations = {s.id: s.pts[0] for s in mission.tasks if kind(s.id) != "seg"}
+        self.follow = Follower(self.tours)
+        self.auction = Auction(self)
         self.peers: dict[int, tuple[int, dict]] = {}  # boat -> (tc, payload) of newest HB
         self.shore_t = -1  # tc of the newest shore heartbeat; -1 = never heard
         self.mode = PATROL
         self.pos = (0, 0)
         self.batt = 1000
+        self.cur = (0, 0)
         self.t = 0
+        self.returning = False
+        self.driving = False  # SENTINEL correction under way
+        self.started = False
+        self.majority_since: int | None = None
+        self.majority = False
+        mine = sorted(k for k, o in mission.initial if o == me and kind(k) == "seg")
+        first = self.tours.pts[mine[0]] if mine else None
+        self.static_point = ((first[0][0] + first[-1][0]) // 2,
+                             (first[0][1] + first[-1][1]) // 2) if first else None
         stagger = me * 1_000  # five heartbeats should not land in the same tick
         self.hb_due = Every(HEARTBEAT, stagger)
         self.rec_due = Every(REBROADCAST, stagger)
+        self.slot_due = Every(SLOT)
 
     def step(self, t: int, own: Own, seen: tuple[Detection, ...],
              inbox: list[bytes]) -> tuple[Action, list[bytes]]:
         self.t = t
-        self.pos, self.batt = (own.x, own.y), own.batt
+        self.pos, self.batt, self.cur = (own.x, own.y), own.batt, (own.cur_x, own.cur_y)
         for raw in inbox:
             m = self.net.receive(t, raw)
             if m is not None:
                 self.on_msg(m)
         self.net.tick(t)
+        self.update_majority(t)
+        self.sync_tour()
+        if not self.returning and self.return_due():
+            self.go_home()
+        if self.slot_due(t):
+            self.auction.on_slot(t)
         if self.hb_due(t):
             self.net.send(t, "HB", self.heartbeat())
         if self.rec_due(t):
             self.net.send(t, "REC", {"recs": [to_wire(r) for r in self.table.recs.values()]})
-        return Action(self.mode, None, 0), self.net.flush()
+        action = self.behave()
+        self.mode = action.mode
+        return action, self.net.flush()
 
+    # messages and records ------------------------------------------------------------------
     def on_msg(self, m: Msg) -> None:
         if m.kind == "HB":
             if m.src == SHORE:
@@ -53,29 +96,140 @@ class Agent:
                     self.peers[m.src] = (m.tc, m.p)
         elif m.kind == "REC":
             for w in m.p["recs"]:
-                self.apply(from_wire(w))
+                self.table.apply(from_wire(w))
         elif m.kind == "VETO":
-            self.apply(from_wire(m.p["rec"]))
+            self.table.apply(from_wire(m.p["rec"]))
+        elif m.kind == "BID":
+            self.auction.on_bid(m.p)
         elif m.kind == "ACK":
             self.net.ack(m.p["of"])
-
-    def apply(self, r: Rec) -> None:
-        self.table.apply(r)
 
     def publish(self, r: Rec) -> None:
         """Adopt a record locally and broadcast it."""
         self.table.apply(r)
         self.net.send(self.t, "REC", {"recs": [to_wire(r)]})
 
+    def claim(self, task: str, cost: int, deputy: int) -> None:
+        self.publish(Rec(task, self.table.max_ver(task) + 1, CLAIMED, cost, self.me, deputy))
+        k = kind(task)
+        drop = ("pick",) if k == "seg" else ("seg", "pick") if k in ("relay", "contact") else ()
+        for other in self.table.held_by(self.me):
+            if kind(other) in drop:
+                self.release(other)  # PLAN F6: free the work this boat can no longer do
+        self.sync_tour()
+
+    def release(self, task: str) -> None:
+        self.publish(Rec(task, self.table.max_ver(task) + 1, RELEASED, 0, self.me))
+        self.sync_tour()
+
+    # what this boat holds ------------------------------------------------------------------
+    def holds(self, k: str) -> bool:
+        return any(kind(x) == k for x in self.table.held_by(self.me))
+
+    def legs(self) -> list[Leg]:
+        return self.follow.legs
+
+    def station(self, task: str) -> tuple[int, int]:
+        return self.stations[task]
+
+    def sync_tour(self) -> None:
+        """The table is the truth: the tour is exactly the segments this boat holds."""
+        held = [k for k in self.table.held_by(self.me) if kind(k) == "seg"]
+        legs = [leg for leg in self.follow.legs if leg[0] in held]
+        for k in sorted(held):
+            if all(leg[0] != k for leg in legs):
+                legs = self.tours.insert(legs, k)
+        if legs != self.follow.legs or not self.started:
+            self.follow.set_legs(legs, self.pos)
+            self.started = True
+
+    # energy --------------------------------------------------------------------------------
+    def remaining_ms(self) -> int:
+        return self.batt * self.params.endurance_ms // 1000
+
+    def return_ms(self, frm: tuple[int, int]) -> int:
+        """Time to the shore from a point, with the current this boat measures."""
+        shore, v = self.mission.shore, self.params.speed_mm_s
+        d = dist(frm, shore)
+        if d == 0:
+            return 0
+        along = (self.cur[0] * (shore[0] - frm[0]) + self.cur[1] * (shore[1] - frm[1])) // d
+        return ms(d, max(v + along, v // 4))
+
+    def return_due(self) -> bool:
+        p = self.params
+        need = p.return_safety_permille * (self.return_ms(self.pos) + p.reserve_ms) // 1000
+        return self.remaining_ms() <= need
+
+    def go_home(self) -> None:
+        """Automatic safety: release everything at once so others re-auction next slot."""
+        self.returning = True
+        for task in self.table.held_by(self.me):
+            self.release(task)
+
+    def live_peers(self, t: int) -> int:
+        return sum(1 for b, tc in self.table.last_hb.items() if b != self.me
+                   and t - tc <= PEER_STALE)
+
+    def n_active(self, t: int) -> int:
+        """Me plus boats heard recently that have not announced going home."""
+        return 1 + sum(1 for b, (tc, p) in self.peers.items() if b != self.me
+                       and t - tc <= ACTIVE_WINDOW and p["mode"] not in (RETURNING, UNAVAILABLE))
+
+    def update_majority(self, t: int) -> None:
+        """Expiry takeovers need a live majority, so an isolated boat claims nothing (P4).
+        After a rejoin the majority must hold for PEER_STALE first, so fresh heartbeats from
+        owners we could not hear have time to arrive before anything is taken over."""
+        if 1 + self.live_peers(t) < self.n_active(t) // 2 + 1:
+            self.majority_since = None
+        elif self.majority_since is None:
+            self.majority_since = t
+        self.majority = self.majority_since is not None and t - self.majority_since >= PEER_STALE
+
+    def may_bid(self, t: int) -> bool:
+        p = self.params
+        if self.returning or p.policy == "static":
+            return False
+        return p.policy != "off" or t < p.repair_off_after_ms
+
+    # behaviour -----------------------------------------------------------------------------
+    def keep_station(self, point: tuple[int, int]) -> Action:
+        d = dist(self.pos, point)
+        if d > self.params.sentinel_radius_m:
+            self.driving = True
+        elif d <= STATION_BACK_M:
+            self.driving = False
+        return Action(SENTINEL, point if self.driving else None, self.params.speed_mm_s)
+
+    def behave(self) -> Action:
+        v = self.params.speed_mm_s
+        if self.returning:
+            if dist(self.pos, self.mission.shore) <= HOME_M:
+                return Action(UNAVAILABLE, None, 0)
+            return Action(RETURNING, self.mission.shore, v)
+        held = self.table.held_by(self.me)
+        if self.params.policy == "static" and self.legs():
+            return self.keep_station(self.static_point)
+        for task in held:
+            if kind(task) in ("relay", "pick"):
+                return self.keep_station(self.station(task))
+        if self.legs():
+            return Action(PATROL, self.follow.target(self.pos), v)
+        return Action(SENTINEL, None, 0)
+
     def heartbeat(self) -> dict:
+        legs = self.legs()
+        cyc = ms(self.tours.cycle_m(legs), self.params.speed_mm_s) if legs else 0
         return {"x": self.pos[0], "y": self.pos[1], "mode": self.mode, "batt": self.batt,
-                "cyc": 0, "tour": [], "roles": self.table.held_by(self.me)}
+                "cyc": cyc, "tour": [leg[0] for leg in legs],
+                "roles": self.table.held_by(self.me)}
 
     def view(self) -> dict:
         """JSON-safe state for /truth, state hashes and tests."""
         return {
             "me": self.me, "t": self.t, "mode": self.mode, "pos": list(self.pos),
-            "batt": self.batt, "shore_t": self.shore_t,
+            "batt": self.batt, "shore_t": self.shore_t, "returning": self.returning,
+            "tour": [[k, rev] for k, rev in self.legs()],
             "last_hb": {str(b): tc for b, tc in sorted(self.table.last_hb.items())},
             "tasks": {k: to_wire(r) for k, r in sorted(self.table.recs.items())},
         }
