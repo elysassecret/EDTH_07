@@ -19,6 +19,7 @@ import { commsLayers } from "./comms";
 import { evaluatorLayers } from "./evaluator";
 import type { EvalData } from "../types";
 import { segAges, type Band } from "../coverage";
+import { isDocked } from "../roles";
 import { hmShort } from "../format";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import type { Decision } from "../types";
@@ -344,9 +345,13 @@ function buildLayers(
         getRadius: 20, filled: false, stroked: true, getLineColor: T.c(T.TEXT), lineWidthUnits: "pixels", getLineWidth: 2,
       }),
     );
+    // Docked (UNAVAILABLE inside the agents' home radius, src/roles.ts):
+    // a hollow ring and "DOCKED", so a boat beside the shore square is never read as the shore.
+    const docked = (b: Boat) => isDocked(b, scene);
+    const afloat = snap.boats.filter((b) => !docked(b));
     layers.push(
       new LineLayer<Boat>({
-        id: "boat-heading", data: snap.boats,
+        id: "boat-heading", data: afloat,
         getSourcePosition: (b) => [b.lon, b.lat],
         getTargetPosition: (b) => {
           const r = ((b.hdg ?? 0) * Math.PI) / 180;
@@ -355,9 +360,14 @@ function buildLayers(
         getColor: (b) => T.c(boatColor(b)), getWidth: 2, widthUnits: "pixels",
       }),
       new ScatterplotLayer<Boat>({
-        id: "boats", data: snap.boats, getPosition: (b) => [b.lon, b.lat], radiusUnits: "pixels", pickable: true,
+        id: "boats", data: afloat, getPosition: (b) => [b.lon, b.lat], radiusUnits: "pixels", pickable: true,
         getRadius: 9, getFillColor: (b) => T.c(boatColor(b), isStale(b) ? 120 : 230),
         stroked: true, getLineColor: [10, 20, 30, 255], lineWidthUnits: "pixels", getLineWidth: 1.5,
+      }),
+      new ScatterplotLayer<Boat>({
+        id: "boats-docked", data: snap.boats.filter(docked), getPosition: (b) => [b.lon, b.lat],
+        radiusUnits: "pixels", pickable: true, getRadius: 7, filled: false, stroked: true,
+        getLineColor: (b) => T.c(boatColor(b), 230), lineWidthUnits: "pixels", getLineWidth: 2,
       }),
     );
     const sel = snap.boats.filter((b) => b.id === selected);
@@ -368,7 +378,9 @@ function buildLayers(
       }),
     );
     for (const b of snap.boats) {
-      labels.push({ pos: [b.lon, b.lat], text: String(b.id).padStart(2, "0"), kind: isStale(b) ? "boat-stale" : "boat" });
+      const id = String(b.id).padStart(2, "0");
+      if (docked(b)) labels.push({ pos: [b.lon, b.lat], text: `${id} DOCKED`, kind: "docked" });
+      else labels.push({ pos: [b.lon, b.lat], text: id, kind: isStale(b) ? "boat-stale" : "boat" });
     }
     for (const k of snap.contacts) {
       const base = k.ais ? (k.name ?? k.track) : `${k.track} NO AIS`;
@@ -385,9 +397,10 @@ function buildLayers(
       getColor: (d) =>
         d.kind === "cable" ? [215, 160, 205, 230]
           : d.kind === "dark" ? T.c(T.UNKNOWN)
-            : d.kind === "boat-stale" || d.kind === "stale" ? T.c(T.STALE)
+            : d.kind === "boat-stale" || d.kind === "stale" || d.kind === "docked" ? T.c(T.STALE)
               : T.c(T.TEXT, 235),
-      getPixelOffset: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10] : [0, 16]),
+      getPixelOffset: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10]
+        : d.kind === "docked" ? [-48, -12] : [0, 16]),
       outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   );

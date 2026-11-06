@@ -225,6 +225,12 @@ class Contact:
     anchor_status: str = "NOT SEEN"
 
 
+def _home_m() -> int:
+    from agent.core import HOME_M  # same "at the shore station" radius as the real agents
+
+    return HOME_M
+
+
 class MockWorld:
     """Deterministic fake of the swarm, driven by the fixed event tape and operator commands."""
 
@@ -840,6 +846,7 @@ class MockWorld:
             "shore": lonlat(self.sc.shore),
             "stale_after_s": self.sc.ui["stale_after_s"],
             "horizon_s": 14400,
+            "home_m": _home_m(),
             # D's revisit target (config/run.toml, "confirm Friday"), read, never hardcoded
             "revisit_target_s": int(tomllib.loads(
                 (ROOT / "config" / "run.toml").read_text(encoding="utf-8"))["revisit_target_s"]),

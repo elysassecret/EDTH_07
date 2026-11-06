@@ -67,6 +67,7 @@ export interface SceneMsg {
   stale_after_s: number;
   horizon_s: number;
   revisit_target_s?: number; // config/run.toml (D), via the server
+  home_m?: number; // agent's "at the shore station" radius (agent/core.py HOME_M)
 }
 
 export interface Ack { type: "ack"; cmd: string | null; id: string | null; ok: boolean; error?: string }

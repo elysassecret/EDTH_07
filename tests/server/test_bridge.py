@@ -180,3 +180,16 @@ def test_frames_say_who_sets_the_warp():
     f.world.step(7_190_000)  # just before the scripted battery_low at 7200 s
     snap = json.loads(f.tick()["shore"])
     assert snap["near_event"] is True and snap["speed"] == f.world.ui["warp_near_events"]
+
+
+def test_issue_25_peer_cut_survives_shore_link_restore():
+    """#25: cuts 1->4 and 4->1 at ~7081 s stay crossed after the script restores 4->shore."""
+    s = SimSource(1)
+    run_to(s, 7_081)
+    for a, b in ((1, 4), (4, 1)):
+        assert s.command({"cmd": "inject", "kind": "link_off", "a": a, "b": b})["ok"]
+    run_to(s, 11_000)  # script: 4 -> shore cut at 7320 s, restored at 10 800 s
+    links = _shore_links(s)
+    assert links[(1, 4)] == "cut"
+    assert links.get((0, 4)) != "cut"
+    assert s.scene_msg()["home_m"] > 0
