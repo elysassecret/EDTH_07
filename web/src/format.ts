@@ -27,3 +27,9 @@ export function hm(s: number): string {
 }
 
 export const deg = (d: number) => `${String(Math.round(d) % 360).padStart(3, "0")}°`;
+
+/** Short age for chart labels: "38 min", "1 h 05". */
+export function hmShort(s: number): string {
+  const v = Math.max(0, Math.round(s / 60));
+  return v < 60 ? `${v} min` : `${Math.floor(v / 60)} h ${String(v % 60).padStart(2, "0")}`;
+}

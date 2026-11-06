@@ -26,9 +26,12 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
    cables, shipping lane) from `data/scene-coordinates.json`, bundled at build time. deck.gl draws
    everything that moves (boats, contacts, trails) and **all text**, so the map style has no
    font or tile URLs: it works with Wi-Fi off (N1).
-4. **Panels** — `src/App.tsx`: top bar (UTC clock in Z, sim time, warp, SHORE/TRUTH switch,
-   satellite toggle). `src/ui/`: one card per USV and one per contact. Click a card or a symbol
-   on the chart to highlight it.
+4. **Panels** — `src/App.tsx`: top bar (UTC clock in Z, sim time, warp with Auto/Pause/1×–240×
+   and "slowing for event", SHORE/TRUTH switch, Exercise controls, satellite toggle), then the
+   banners (FEED LOST, TRUTH, EXERCISE) and the alert strip. `src/ui/`: decisions, alerts, one
+   card per USV and one per contact. Click a card or a symbol on the chart to highlight it.
+5. **Over the chart** — the coverage box (oldest cable visit, gap line, all segments) top left,
+   the event log bottom left, the exercise injection panel top right.
 
 ## Map symbols (colour always paired with shape or words)
 
@@ -42,11 +45,15 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 | Course vector | line to where the contact will be in 6 minutes |
 | Radio link up | thin blue line between two boats, or boat and Korsør |
 | Route to shore | thicker bright blue line from each boat to its next hop (`via`) |
+| Decision route | dashed white line to where an open decision would send the boat; brighter while the mouse is on its card |
 | Link cut | red dashed line, red ✕ and "LINK CUT" (grey dashed = link down) |
 | Cables | magenta (power) / violet (data); scenario cables thicker |
 | Shipping lane | grey dashed (measured from one day of AIS) |
 | Box | white dotted |
 | Korsør shore station | grey square |
+| Cable segment age | wide band under the cable: teal within half the target, yellow due, orange (thicker) over target, grey dashed no visit reported; the age is written next to it |
+| Alarm / warning / caution | red triangle / orange circle / yellow square, with the word; an alarm flashes until acknowledged |
+| EXERCISE | striped yellow banner and EXERCISE tags in the event log and alerts |
 
 ## Files that come from someone else
 
@@ -63,6 +70,12 @@ src/main.tsx        start the connection, render <App/>
 src/App.tsx         layout, top bar, banners
 src/ui/BoatCard.tsx     feature 18: USV cards (fleet panel)
 src/ui/ContactList.tsx  feature 19: contact list (type, seen by, age)
+src/ui/DecisionPanel.tsx feature 22: decision cards (Confirm/Stop, Approve/Decline, keys C S A D)
+src/ui/AlertPanel.tsx   feature 23: alert list + strip, Acknowledge
+src/ui/Coverage.tsx     feature 24: headline number (oldest cable visit, gap open)
+src/ui/Demo.tsx         feature 25: warp control, EXERCISE banner, event log, failure injection
+src/coverage.ts     segment ages and bands against the revisit target
+src/roles.ts        plain role words from task IDs (Cable sweep, Lane picket N, Relay)
 src/store.ts        WebSocket + Zustand store + feed-lost watchdog
 src/types.ts        contract types + console extras
 src/contract.ts     GENERATED from contract/schema.json
