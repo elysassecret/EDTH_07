@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { Chart } from "./map/Chart";
 import { useStore } from "./store";
 import { dur, hm, utc } from "./format";
+import { t0Of } from "./types";
 
 function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void }) {
   const snap = useStore((s) => s.snap);
@@ -11,7 +12,7 @@ function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "re
   return (
     <header className="topbar">
       <div className="title">Shore console · Great Belt cable watch</div>
-      <div className="clock">{snap ? utc(snap.t0_utc, snap.t) : "--:--:--Z"}</div>
+      <div className="clock">{snap ? utc(t0Of(snap), snap.t) : "--:--:--Z"}</div>
       <div className="meta">
         {snap ? <>sim {dur(snap.t)} · warp {snap.speed}× · {snap.source === "mock" ? "MOCK FEED" : snap.source}</> : "waiting for feed"}
       </div>
@@ -32,7 +33,7 @@ function FeedBanner() {
   const conn = useStore((s) => s.conn);
   const snap = useStore((s) => s.snap);
   if (conn === "live") return null;
-  const frozen = snap ? `display frozen at ${utc(snap.t0_utc, snap.t)}` : "no data received yet";
+  const frozen = snap ? `display frozen at ${utc(t0Of(snap), snap.t)}` : "no data received yet";
   return (
     <div className="banner lost" role="alert">
       {conn === "lost" ? "FEED LOST" : "CONNECTING"} — {frozen} · reconnecting
@@ -56,10 +57,10 @@ function FleetPanel() {
         <div key={b.id} className="row">
           <span className="id">USV {String(b.id).padStart(2, "0")}</span>
           <span className={`chip mode-${b.mode}`}>{b.mode}</span>
-          <span className="role">{b.role}</span>
+          <span className="role">{b.role_text ?? b.roles.join(", ")}</span>
           <span className="small">
             {hm(b.endurance_s)} · link {b.link}
-            {b.last_heard !== null && snap.t - b.last_heard > 1 ? ` · LAST SEEN ${dur(snap.t - b.last_heard)} AGO` : ""}
+            {b.heard === false ? " · NEVER HEARD" : snap.t - b.last_heard > 1 ? ` · LAST SEEN ${dur(snap.t - b.last_heard)} AGO` : ""}
           </span>
         </div>
       ))}

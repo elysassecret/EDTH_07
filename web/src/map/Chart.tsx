@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
+// Bundle MapLibre's worker with its imports so it loads offline in dev and in dist.
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { LineLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
@@ -11,6 +13,8 @@ import { useStore } from "../store";
 import type { Boat, Contact } from "../types";
 import { boxBounds, boxGeo, cableLabels, cablesGeo, laneGeo, type Label } from "./scene";
 import * as T from "./theme";
+
+maplibregl.setWorkerUrl(workerUrl);
 
 const FONT = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 const M_PER_DEG_LAT = 111_320;
@@ -30,7 +34,8 @@ function square(lon: number, lat: number, half: number): [number, number][] {
 const style: StyleSpecification = {
   version: 8,
   sources: {
-    land: { type: "geojson", data: "geo/land.geojson" },
+    // absolute URL: the worker resolves relative URLs against its own location
+    land: { type: "geojson", data: new URL("geo/land.geojson", window.location.href).href },
     box: { type: "geojson", data: boxGeo },
     cables: { type: "geojson", data: cablesGeo },
     lane: { type: "geojson", data: laneGeo },
@@ -81,6 +86,14 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     map.addControl(overlay);
     overlayRef.current = overlay;
     mapRef.current = map;
+    if (import.meta.env.DEV) (window as unknown as { __map: unknown }).__map = map; // debugging
+    // Keep the box in view when the panel or window changes size.
+    const ro = new ResizeObserver(() => {
+      map.resize();
+      map.fitBounds(boxBounds, { padding: 40, animate: false });
+    });
+    ro.observe(el.current);
+    map.on("error", (e) => console.error("map:", e.error?.message ?? e));
     map.on("load", async () => {
       setLoaded(true);
       // Satellite: Franco's tools/ writes geo/s2_box.png and geo/s2_box.json
@@ -101,6 +114,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
       }
     });
     return () => {
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
     };
@@ -149,14 +163,14 @@ function buildLayers(
 
   if (snap) {
     const staleAfter = scene?.stale_after_s ?? 60;
-    const isStale = (b: Boat) => frozen || b.last_heard === null || snap.t - b.last_heard > staleAfter;
+    const isStale = (b: Boat) => frozen || b.heard === false || snap.t - b.last_heard > staleAfter;
     const boatColor = (b: Boat) => (isStale(b) ? T.STALE : T.FRIEND);
     const contactColor = (k: Contact) => (frozen ? T.STALE : k.ais ? T.NEUTRAL : T.UNKNOWN);
 
     layers.push(
       new PathLayer<Contact>({
-        id: "trails", data: snap.contacts.filter((k) => k.trail.length > 1),
-        getPath: (k) => k.trail.map((p): [number, number] => [p[1], p[0]]), getColor: (k) => T.c(contactColor(k), 120),
+        id: "trails", data: snap.contacts.filter((k) => (k.trail?.length ?? 0) > 1),
+        getPath: (k) => (k.trail ?? []).map((p): [number, number] => [p[1], p[0]]), getColor: (k) => T.c(contactColor(k), 120),
         widthUnits: "pixels", getWidth: 1.5,
       }),
       new PolygonLayer<Contact>({
@@ -168,7 +182,7 @@ function buildLayers(
         id: "boat-heading", data: snap.boats,
         getSourcePosition: (b) => [b.lon, b.lat],
         getTargetPosition: (b) => {
-          const r = (b.hdg * Math.PI) / 180;
+          const r = ((b.hdg ?? 0) * Math.PI) / 180;
           return offset(b.lon, b.lat, Math.sin(r) * 700, Math.cos(r) * 700);
         },
         getColor: (b) => T.c(boatColor(b)), getWidth: 2, widthUnits: "pixels",
@@ -183,7 +197,7 @@ function buildLayers(
       labels.push({ pos: [b.lon, b.lat], text: String(b.id).padStart(2, "0"), kind: isStale(b) ? "boat-stale" : "boat" });
     }
     for (const k of snap.contacts) {
-      const tag = k.ais ? (k.name ?? k.id) : `${k.id} NO AIS`;
+      const tag = k.ais ? (k.name ?? k.track) : `${k.track} NO AIS`;
       labels.push({ pos: [k.lon, k.lat], text: tag, kind: k.ais ? "ais" : "dark" });
     }
   }
