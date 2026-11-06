@@ -1,0 +1,17 @@
+WEBSITE DESCRIPTION.
+
+Swarm Coordination for Collaborative Missions
+
+In applications like search and rescue, environmental monitoring, or defense, multiple USVs working together can cover more area and achieve complex objectives. The challenge is to design a coordination system that allows a swarm of USVs to operate collaboratively, sharing data and tasks efficiently.
+
+Context
+Possible Solutions Distributed Task Allocation Implement a system where each USV dynamically takes on roles (leader, scout, data collector) based on mission requirements and its relative position in the swarm. Data Fusion and Sharing Protocols Develop real-time data-sharing protocols to ensure that all USVs in the swarm have up-to-date information, even if some lose direct communication with the main control station.
+
+Operational Scenario
+A coastguard unit in the western Baltic must keep watch over a 25 × 10 km stretch of water between the Danish islands. It carries two subsea power cables, a data cable and a busy shipping lane. The unit has five small USVs (2–3 m long, 6–8 hours endurance, each with a camera, an AIS receiver and a short-range radio) and one operator on shore.
+
+The swarm splits the area into patrol sectors and assigns roles two USVs scout the cable routes, two watch the shipping lane, and one acts as a communications relay back to shore. Halfway through the mission, one USV runs low on battery and heads home, and another loses its link to the control station. The remaining vessels must reassign roles and sectors on their own, keep sharing what they see with each other, and keep the gap in coverage as small as possible.
+
+A scout then spots a vessel loitering over a cable with its AIS switched off. It shares the contact with the swarm; the nearest free USV moves to keep the vessel in view while the others close the gap it leaves behind. The operator sees one combined picture and approves decisions instead of steering each boat.
+
+Teams can demonstrate this in simulation, for example ArduPilot Rover (boat) SITL, Gazebo VRX, or a simple 2D simulator.

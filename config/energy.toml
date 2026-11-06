@@ -1,0 +1,6 @@
+# Feature 15-16. Judgement values; replace with hull data if a mentor has it.
+current_mps = 0.5          # fixed field for the demo (direction below)
+current_dir_deg = 345
+tide_flip_s = 9000         # current reverses at this sim time
+sentinel_radius_m = 300
+return_safety = 1.2

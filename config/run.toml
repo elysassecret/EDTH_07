@@ -1,0 +1,5 @@
+horizon_s = 14400
+evaluate_s = 14000
+revisit_target_s = 12000   # confirm Friday
+tick_s = 1
+seeds = [1, 2, 3, 4, 5]

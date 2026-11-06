@@ -1,0 +1,10 @@
+speed_mps = 2.3            # sensitivity 3.0
+endurance_s = 25200
+reserve_s = 1800
+r_verify_m = 500
+r_detect_m = {dusk = 2000, ship_day = 5000, small_day = 1500, night_unlit = 500}
+keep_in_view_m = 2000
+standoff_m = 1852
+standoff_floor_m = 500
+ais_class_a_m = 20000
+ais_class_b_m = 8000
