@@ -43,3 +43,30 @@ def test_docstring_example_and_commands_validate():
     inject = Contract.model_validate({"snapshot": s.model_dump(), "command": {
         "cmd": "inject", "kind": "link_off", "a": 4, "b": "shore"}})
     assert inject.command.b == "shore"
+
+
+def test_console_fields_from_issue_7():
+    s = Snapshot.model_validate({
+        "view": "truth", "t": 7500, "speed": 5, "seg_age": {}, "tasks": {}, "links": [],
+        "alerts": [], "events": [{"t": 7200, "kind": "battery_low", "text": "USV 01 low",
+                                  "exercise": True}],
+        "boats": [{"id": 3, "x": 1, "y": 2, "lon": 10.9, "lat": 55.45, "mode": "SHADOWING",
+                   "batt": 800, "endurance_s": 20000, "link": "peer", "tour": [], "roles": [],
+                   "last_heard": 7490, "hdg": 270, "sog": 2300, "via": 5}],
+        "contacts": [{"id": "contact:C-07", "track": "C-07", "x": 0, "y": 0, "lon": 10.87,
+                      "lat": 55.45, "sog": 200, "cog": 0, "ais": False, "first_seen": 7400,
+                      "last_seen": 7499, "seen_by": [2, 3], "watcher": 3, "state": 1,
+                      "flags": {"dwell": True}, "source": "camera",
+                      "trail": [[10.87, 55.45], [10.871, 55.45]]}],
+        "decisions": [{"id": "close:contact:C-07", "task": "contact:C-07", "dec": "close",
+                       "text": "Close to 500 m, photograph both bows", "state": "pending",
+                       "t": 7500, "tier": "held", "actions": ["approve", "decline"], "boat": 3,
+                       "route": [[10.88, 55.45], [10.871, 55.45]]}]})
+    assert s.t0_utc.endswith("Z") and s.boats[0].via == 5 and s.contacts[0].source == "camera"
+    old = Snapshot.model_validate({"view": "shore", "t": 0, "speed": 1, "boats": [], "tasks": {},
+                                   "seg_age": {}, "links": [], "contacts": [], "decisions": [],
+                                   "alerts": [], "events": []})
+    assert old.t0_utc == "2026-11-03T10:15:00Z"  # optional fields keep old producers valid
+    ack = Contract.model_validate({"snapshot": old.model_dump(),
+                                   "command": {"cmd": "ack", "id": "A-1"}})
+    assert ack.command.cmd == "ack"

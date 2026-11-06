@@ -1,5 +1,24 @@
 {
   "$defs": {
+    "AckAlert": {
+      "properties": {
+        "cmd": {
+          "const": "ack",
+          "title": "Cmd",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cmd",
+        "id"
+      ],
+      "title": "AckAlert",
+      "type": "object"
+    },
     "Alert": {
       "properties": {
         "ack": {
@@ -46,6 +65,11 @@
         },
         "endurance_s": {
           "title": "Endurance S",
+          "type": "integer"
+        },
+        "hdg": {
+          "default": 0,
+          "title": "Hdg",
           "type": "integer"
         },
         "id": {
@@ -96,12 +120,29 @@
           "title": "Roles",
           "type": "array"
         },
+        "sog": {
+          "default": 0,
+          "title": "Sog",
+          "type": "integer"
+        },
         "tour": {
           "items": {
             "type": "string"
           },
           "title": "Tour",
           "type": "array"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
         },
         "x": {
           "title": "X",
@@ -174,6 +215,18 @@
           "title": "Lon",
           "type": "number"
         },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
         "seen_by": {
           "items": {
             "type": "integer"
@@ -185,6 +238,16 @@
           "title": "Sog",
           "type": "integer"
         },
+        "source": {
+          "default": "ais",
+          "enum": [
+            "ais",
+            "camera",
+            "fused"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
         "state": {
           "title": "State",
           "type": "integer"
@@ -192,6 +255,24 @@
         "track": {
           "title": "Track",
           "type": "string"
+        },
+        "trail": {
+          "default": [],
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Trail",
+          "type": "array"
         },
         "watcher": {
           "title": "Watcher",
@@ -283,6 +364,25 @@
     },
     "Decision": {
       "properties": {
+        "actions": {
+          "default": [],
+          "items": {
+            "enum": [
+              "confirm",
+              "stop",
+              "approve",
+              "decline"
+            ],
+            "type": "string"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "boat": {
+          "default": 0,
+          "title": "Boat",
+          "type": "integer"
+        },
         "dec": {
           "title": "Dec",
           "type": "string"
@@ -291,13 +391,40 @@
           "title": "Id",
           "type": "string"
         },
+        "route": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Route"
+        },
         "state": {
           "enum": [
             "pending",
             "approved",
             "declined",
             "delivered",
-            "expired"
+            "expired",
+            "confirmed",
+            "stopped"
           ],
           "title": "State",
           "type": "string"
@@ -312,6 +439,15 @@
         },
         "text": {
           "title": "Text",
+          "type": "string"
+        },
+        "tier": {
+          "default": "held",
+          "enum": [
+            "delegated",
+            "held"
+          ],
+          "title": "Tier",
           "type": "string"
         }
       },
@@ -328,6 +464,11 @@
     },
     "Event": {
       "properties": {
+        "exercise": {
+          "default": false,
+          "title": "Exercise",
+          "type": "boolean"
+        },
         "kind": {
           "title": "Kind",
           "type": "string"
@@ -487,6 +628,11 @@
           "title": "T",
           "type": "integer"
         },
+        "t0_utc": {
+          "default": "2026-11-03T10:15:00Z",
+          "title": "T0 Utc",
+          "type": "string"
+        },
         "tasks": {
           "additionalProperties": {
             "$ref": "#/$defs/TaskView"
@@ -553,6 +699,7 @@
     "command": {
       "discriminator": {
         "mapping": {
+          "ack": "#/$defs/AckAlert",
           "approve": "#/$defs/Decide",
           "confirm": "#/$defs/Decide",
           "decline": "#/$defs/Decide",
@@ -567,6 +714,9 @@
         },
         {
           "$ref": "#/$defs/Inject"
+        },
+        {
+          "$ref": "#/$defs/AckAlert"
         }
       ],
       "title": "Command"

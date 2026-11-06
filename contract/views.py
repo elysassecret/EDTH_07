@@ -17,6 +17,10 @@ Example:
 Commands from the dashboard:
 {"cmd": "confirm"|"stop"|"approve"|"decline", "id": "..."}
 {"cmd": "inject", "kind": "battery_low"|"link_off"|"link_on"|"boat_off", "a": 4, "b": "shore"}
+{"cmd": "ack", "id": "<alert id>"}
+
+Fields added for the console (issue #7) are optional with defaults, so older producers still
+validate.
 """
 from typing import Annotated, Literal
 
@@ -39,6 +43,9 @@ class Boat(BaseModel):
     tour: list[str]
     roles: list[str]
     last_heard: int  # sim s of the newest data from this boat
+    hdg: int = 0  # degrees true, for the heading line on the chart
+    sog: int = 0  # mm/s, same unit as Contact.sog
+    via: int | None = None  # next hop toward shore (0 = shore), for the comms overlay
 
 
 class TaskView(BaseModel):
@@ -79,6 +86,9 @@ class Contact(BaseModel):
     state: int
     flags: ContactFlags
     course: int | None = None  # last course logged when it could not be held
+    source: Literal["ais", "camera", "fused"] = "ais"  # "camera" = NO AIS
+    name: str | None = None  # AIS name if any
+    trail: list[tuple[float, float]] = []  # recent [lon, lat] positions, oldest first
 
 
 class Decision(BaseModel):
@@ -86,8 +96,13 @@ class Decision(BaseModel):
     task: str
     dec: str  # "close"
     text: str
-    state: Literal["pending", "approved", "declined", "delivered", "expired"]
+    state: Literal["pending", "approved", "declined", "delivered", "expired", "confirmed",
+                   "stopped"]
     t: int
+    tier: Literal["delegated", "held"] = "held"  # delegated = Confirm/Stop, held = Approve/Decline
+    actions: list[Literal["confirm", "stop", "approve", "decline"]] = []
+    boat: int = 0  # the boat that would act
+    route: list[tuple[float, float]] | None = None  # [lon, lat] ghost-route preview
 
 
 class Alert(BaseModel):
@@ -102,10 +117,12 @@ class Event(BaseModel):
     t: int
     kind: str
     text: str
+    exercise: bool = False  # injected or scripted failure: drives the EXERCISE banner
 
 
 class Snapshot(BaseModel):
     schema_version: int = SCHEMA_VERSION
+    t0_utc: str = "2026-11-03T10:15:00Z"  # wall-clock label for t = 0 (scenarios ais_t0)
     view: Literal["shore", "truth"]
     t: int  # sim s
     speed: int  # time-warp factor
@@ -131,7 +148,12 @@ class Inject(BaseModel):
     b: int | Literal["shore"] | None = None
 
 
-Command = Annotated[Decide | Inject, Field(discriminator="cmd")]
+class AckAlert(BaseModel):
+    cmd: Literal["ack"]
+    id: str  # Alert.id
+
+
+Command = Annotated[Decide | Inject | AckAlert, Field(discriminator="cmd")]
 
 
 class Contract(BaseModel):
