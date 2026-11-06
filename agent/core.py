@@ -12,6 +12,7 @@ from contract.constants import (
     HEARTBEAT,
     PATROL,
     PEER_STALE,
+    REBALANCE,
     REBROADCAST,
     RELEASED,
     RETURNING,
@@ -61,6 +62,8 @@ class Agent:
         self.hb_due = Every(HEARTBEAT, stagger)
         self.rec_due = Every(REBROADCAST, stagger)
         self.slot_due = Every(SLOT)
+        self.rebalance_due = Every(REBALANCE, me * 60_000)
+        self.direct: dict[int, int] = {}  # node -> tc of newest heartbeat heard with 0 hops
 
     def step(self, t: int, own: Own, seen: tuple[Detection, ...],
              inbox: list[bytes]) -> tuple[Action, list[bytes]]:
@@ -70,6 +73,8 @@ class Agent:
             m = self.net.receive(t, raw)
             if m is not None:
                 self.on_msg(m)
+        for mid in self.net.take_acks():
+            self.net.send(t, "ACK", {"of": mid})
         self.net.tick(t)
         self.update_majority(t)
         self.sync_tour()
@@ -77,6 +82,8 @@ class Agent:
             self.go_home()
         if self.slot_due(t):
             self.auction.on_slot(t)
+        if self.rebalance_due(t) and self.may_bid(t):
+            self.auction.rebalance(t)
         if self.hb_due(t):
             self.net.send(t, "HB", self.heartbeat())
         if self.rec_due(t):
@@ -88,6 +95,8 @@ class Agent:
     # messages and records ------------------------------------------------------------------
     def on_msg(self, m: Msg) -> None:
         if m.kind == "HB":
+            if m.hops == 0:
+                self.direct[m.src] = max(self.direct.get(m.src, 0), m.tc)
             if m.src == SHORE:
                 self.shore_t = max(self.shore_t, m.tc)
             else:
@@ -222,7 +231,8 @@ class Agent:
         cyc = ms(self.tours.cycle_m(legs), self.params.speed_mm_s) if legs else 0
         return {"x": self.pos[0], "y": self.pos[1], "mode": self.mode, "batt": self.batt,
                 "cyc": cyc, "tour": [leg[0] for leg in legs],
-                "roles": self.table.held_by(self.me)}
+                "roles": self.table.held_by(self.me),
+                "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE)}
 
     def view(self) -> dict:
         """JSON-safe state for /truth, state hashes and tests."""
