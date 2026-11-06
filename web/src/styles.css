@@ -182,3 +182,5 @@ button.on.eval { border-color: #be8cff; color: #e6d6ff; }
 .eventlog .tabs { display: flex; gap: 6px; }
 .eventlog .tabs button { font-size: 12px; padding: 3px 8px; }
 .eventlog .tabs .more { margin-left: auto; }
+.inject.evidence { top: auto; bottom: 120px; border-color: var(--friend); }
+a.btn { flex: 1; text-align: center; font-size: 14px; color: var(--text); background: #223040; border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; text-decoration: none; }

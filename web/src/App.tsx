@@ -9,9 +9,11 @@ import { CoverageBox } from "./ui/Coverage";
 import { EventLog, ExerciseBanner, InjectPanel, WarpControl } from "./ui/Demo";
 import { OPERATOR_MODE, t0Of } from "./types";
 import { EvalBanner } from "./ui/EvalPanel";
+import { EvidencePanel } from "./ui/Evidence";
 
-function TopBar({ sat, satState, onSat, inject, onInject }: {
+function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }: {
   sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void; inject: boolean; onInject: () => void;
+  evidence: boolean; onEvidence: () => void;
 }) {
   const snap = useStore((s) => s.snap);
   const channel = useStore((s) => s.channel);
@@ -31,6 +33,7 @@ function TopBar({ sat, satState, onSat, inject, onInject }: {
         </button>}
         <CommsToggle />
         <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
+        <button onClick={onEvidence} className={evidence ? "on" : ""}>Evidence</button>
         <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
           title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
           {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
@@ -75,9 +78,11 @@ export function App() {
   const [satState, setSatState] = useState<"none" | "ready" | "checking">("checking");
   const onSatState = useCallback((s: "none" | "ready") => setSatState(s), []);
   const [inject, setInject] = useState(false);
+  const [evidence, setEvidence] = useState(false);
   return (
     <div className="app">
-      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} inject={inject} onInject={() => setInject((v) => !v)} />
+      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} inject={inject} onInject={() => setInject((v) => !v)}
+        evidence={evidence} onEvidence={() => setEvidence((v) => !v)} />
       <FeedBanner />
       <TruthBanner />
       <EvalBanner />
@@ -89,6 +94,7 @@ export function App() {
           <CoverageBox />
           <EventLog />
           {inject && <InjectPanel onClose={() => setInject(false)} />}
+          {evidence && <EvidencePanel onClose={() => setEvidence(false)} />}
         </div>
         <FleetPanel />
       </main>

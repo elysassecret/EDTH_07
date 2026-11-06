@@ -95,5 +95,13 @@ class RunLog:
 
 
 def read(path: Path) -> list[dict]:
-    with path.open(encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+    """All records. A last line cut short (the server still writing it) is skipped."""
+    lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    out = []
+    for i, line in enumerate(lines):
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError:
+            if i != len(lines) - 1:
+                raise
+    return out
