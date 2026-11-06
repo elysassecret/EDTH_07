@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def make_world():
-    sim = World(ROOT, seed=42, agent_factory=Agent, shore_factory=ShoreNode)
+    # Preserve the zero-current API/auction regression independently of physics inputs.
+    sim = World(ROOT, seed=42, agent_factory=Agent, shore_factory=ShoreNode, current_enabled=False)
     sim.radio_config = replace(sim.radio_config, loss_permille=0)
     sim.reset()
     return sim

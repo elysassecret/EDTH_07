@@ -13,7 +13,8 @@ uv run pytest -q tests/world
 The default uses explicitly labelled fixed-route stand-ins, **not Javier's swarm**.
 `--controller core` uses the merged `agent.core.Agent` and `agent.shore.ShoreNode`.
 The merged agent now moves boats, returns on low battery and runs the slotted auction.
-Shore decision transport is merged; contact detection/response policy is a later agent phase. The world does not
+Boat contact detection/response and shore decision transport are merged; the shore contact
+list, automatic decision cards and contact alerts remain a later agent phase. The world does not
 substitute exercise behaviour for missing agent features.
 Both modes print a final truth snapshot and physical-state hash; neither is an evaluation
 result. Core mode also prints public agent views and the heartbeats actually received by
@@ -47,7 +48,10 @@ full baseline fairness still needs Franco's cross-system tests.
 Energy uses cruise-equivalent battery units. Moving under power pays total cruise load;
 stationary/motors-off boats pay `hotel_load_permille` of it (100 is a chosen simulation
 input, not measured hull data). SENTINEL correction pays cruise load, not the idle rate.
-Seven-hour cruise endurance is unchanged. Current/tide integration remains deferred.
+Seven-hour cruise endurance is unchanged. The configured uniform current now affects
+motion and own sensors, reversing at `tide_flip_s`; bearing is where the water flows toward.
+SENTINEL drifts until the agent commands correction. Use `World(..., current_enabled=False)`
+only for an explicit no-current control. Real forecasts and calibrated hull physics remain deferred.
 
 See `world/API.md` for the issue #8 console bridge handoff, units and data-age semantics.
 

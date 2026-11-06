@@ -77,7 +77,8 @@ def test_shore_console_picture_reflects_delivered_energy_not_truth():
 
 
 def test_seed_one_picket_and_relay_stay_out_through_evaluate():
-    sim = World(ROOT, seed=1, agent_factory=Agent, shore_factory=ShoreNode)
+    # Retain the no-current seed-1 result from PR #14 as an explicit control case.
+    sim = World(ROOT, seed=1, agent_factory=Agent, shore_factory=ShoreNode, current_enabled=False)
     assert sim.params.endurance_ms == 25_200_000  # retained seven-hour test input
     while sim.next_tick_ms <= 14_000_000:
         sim.step()

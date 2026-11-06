@@ -39,8 +39,10 @@ sim.reset(seed=2)  # next processed tick is zero again
 Detached data, **not a contract Snapshot**. C maps domain fields to contract models.
 
 - `t`, `seed`, `boats`, `contacts`, `events` match the physical snapshot.
+- `current`: `{east_mm_s, north_mm_s, flip_ms}` is truth-only field metadata. It is not
+  added to ShoreNode.picture and must not be silently rendered as delivered shore knowledge.
 - Boats: `id`, integer-metre `x/y`, map `lon/lat`, battery `batt` permille, measured current
-  `cur_x/cur_y` mm/s (currently zero), `enabled`, action and mode, actual over-ground `sog`
+  `cur_x/cur_y` mm/s (configured uniform field), `enabled`, action and mode, actual over-ground `sog`
   mm/s, `hdg` whole navigation degrees and remaining cruise-equivalent `endurance_ms`.
   Current point model has no independent bow attitude; hdg is course over ground and retains
   its last value when stopped. Initial heading is unknown, represented as zero.
@@ -63,7 +65,8 @@ For the console `/shore` channel, C uses **`sim.shore.picture(sim.t_ms, speed)`*
 Javier's merged ShoreNode. It returns the contract Snapshot, with its display times in
 **seconds**, built from delivered protocol data. Pass sim time in **milliseconds**.
 `sim.shore.command(sim.t_ms, cmd)` handles confirm/stop/approve/decline transport; physical
-injections go to world. Contact behaviour still depends on A's later phase.
+injections go to world. Boat contact behaviour is now merged; contact list, auto decision
+cards and contact alerts in the shore picture still depend on A's next phase.
 
 `shore_view()` is only a raw diagnostic with explicit creation/receipt timestamps in ms;
 it must not become a competing console snapshot builder. Its receipt time differs from
@@ -88,7 +91,8 @@ that is valid fresh data, not a reason to freeze all shore updates for that boat
 
 There is no invented heading, speed, via ID, coverage, or contact data at shore. The current
 raw report is not the full console picture. `ShoreNode.picture/command` now supplies the
-console contract view and decision transport; contact response awaits A's next phase.
+console contract view and decision transport; contact/auto-decision presentation at shore
+awaits A's next phase (boat contact response is already merged).
 Do not source missing fields from truth or treat default
 contract values as measured observations. Decision answers stay with A/C, not world.
 
@@ -122,5 +126,25 @@ carried across ticks. Arriving at a target during a tick conservatively pays cru
 for that tick. A stationary target or a zero-speed command is motors-off regardless of
 mode label. UNAVAILABLE/disabled boats draw nothing in this simplified dock/offline model.
 This is not a calibrated power curve or a measured saving; sensors/radio stay on while idle.
-Seven-hour endurance and safety reserve remain unchanged. Current/tide physics is still
-not enabled, so this is not the full drift-and-correct energy demonstration yet.
+Seven-hour endurance and safety reserve remain unchanged.
+
+## Current/tide semantics
+
+The chosen uniform field in config/energy.toml is enabled by default. `current_dir_deg`
+is clockwise from north, flowing TOWARD that bearing (not a weather 'from' direction).
+The vector is quantized once to integer mm/s, then negated once at tide_flip_s; no real
+forecast, spatial variation or repeating tide model is claimed. `current_enabled=False`
+is an explicit zero-current control and persists across reset.
+
+Motion integrates the previous action through the elapsed interval, splitting at reversal
+if necessary. At the reversal boundary the agent receives the NEW current, after its
+previous action moved through the OLD current. GNSS velocity/heading remain actual ground
+motion; Action.speed_mm_s is propulsion speed through water. The point model steers toward
+the target without a full cross-current compensation autopilot.
+
+Motors-off boats drift, paying hotel load; SENTINEL hysteresis is still A's decision and
+corrections pay cruise load. Low-battery injection uses the same measured-current projected
+home-speed/clamp calculation as A's return rule. It does not promise future tide knowledge
+or a route avoiding land. Synthetic contact SOG/course are already ground-relative: no
+second current displacement is added to them. Config hashing/run logs should include the
+field settings and zero-current control flag before claiming cross-mode replay fairness.
