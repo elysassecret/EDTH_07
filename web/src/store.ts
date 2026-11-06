@@ -16,6 +16,8 @@ interface State {
   snap: Snapshot | null;
   lastMsgAt: number; // wall-clock ms of the last snapshot (UI timing only, never sim data)
   lastAck: Ack | null;
+  selected: number | null; // boat highlighted on the chart and in the fleet panel
+  select: (id: number | null) => void;
   setChannel: (c: Channel) => void;
   send: (c: Command) => boolean;
 }
@@ -37,6 +39,8 @@ export const useStore = create<State>((set, get) => ({
   snap: null,
   lastMsgAt: 0,
   lastAck: null,
+  selected: null,
+  select: (id) => set({ selected: id }),
   setChannel: (c) => {
     if (c === get().channel) return;
     set({ channel: c, snap: null });

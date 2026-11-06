@@ -2,7 +2,8 @@
 import { useCallback, useState } from "react";
 import { Chart } from "./map/Chart";
 import { useStore } from "./store";
-import { dur, hm, utc } from "./format";
+import { dur, utc } from "./format";
+import { FleetPanel } from "./ui/BoatCard";
 import { t0Of } from "./types";
 
 function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void }) {
@@ -45,27 +46,6 @@ function TruthBanner() {
   const channel = useStore((s) => s.channel);
   if (channel !== "truth") return null;
   return <div className="banner truth">TRUTH VIEW — evaluator only, not what the shore receives</div>;
-}
-
-function FleetPanel() {
-  const snap = useStore((s) => s.snap);
-  if (!snap) return <aside className="panel" />;
-  return (
-    <aside className="panel">
-      <h2>Fleet</h2>
-      {snap.boats.map((b) => (
-        <div key={b.id} className="row">
-          <span className="id">USV {String(b.id).padStart(2, "0")}</span>
-          <span className={`chip mode-${b.mode}`}>{b.mode}</span>
-          <span className="role">{b.role_text ?? b.roles.join(", ")}</span>
-          <span className="small">
-            {hm(b.endurance_s)} · link {b.link}
-            {b.heard === false ? " · NEVER HEARD" : snap.t - b.last_heard > 1 ? ` · LAST SEEN ${dur(snap.t - b.last_heard)} AGO` : ""}
-          </span>
-        </div>
-      ))}
-    </aside>
-  );
 }
 
 export function App() {
