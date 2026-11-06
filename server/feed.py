@@ -48,6 +48,7 @@ class Feed:
         try:
             if cmd == "reset":
                 self.seed = int(msg.get("seed", self.seed))
+                getattr(self.world, "close", lambda: None)()  # e.g. finish the run log
                 self.world = self.factory(self.seed)
                 return {"ok": True}
             if cmd == "pause":

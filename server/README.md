@@ -21,6 +21,12 @@ uv run python -m server --serve-web --mock   # same with the mock feed
   Answers go to `ShoreNode.command()`, failure injections to `World.inject()`.
   Only failure events (the exercise script and our injections) are added to `/shore`;
   synthetic contacts never are.
+- `runlog.py` + `replay.py` (BUILD_PLAN step 13, test D3): the real sim writes one JSONL file
+  per run to `runs/` (gitignored; `--no-log` turns it off). Line 1 is the header (seed, config
+  hash, git commit, schema version); then every world event, every console command with the
+  tick it arrived at, both snapshots every 10 sim-s and a replay hash every 60 sim-s. A full
+  14 400 s run is about 8 MB. `uv run python -m server.replay runs/<file>.jsonl` rebuilds the
+  run from the seed and the commands and names the first hash that differs.
 - `mock_feed.py`: deterministic fake of the whole story, for UI work without the sim.
 - `alerts.py`: alerts for the real sim (feature 23), made from the shore picture and the
   console's own exercise events, never from truth. Alarm: held decision unanswered 05:00.
