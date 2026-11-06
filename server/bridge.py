@@ -87,7 +87,7 @@ class SimSource:
         self.past_events: deque[int] = deque(maxlen=64)  # ms of events already applied
         # sim time requested so far; can sit between ticks at slow warp (5x at 10 Hz = 0.5 s)
         self.clock_ms = 0
-        self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc)
+        self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc, self.revisit_target_s)
         schema = Snapshot.model_fields["schema_version"].default
         self.log = RunLog.open_new(runs_dir, seed, schema, self.t0_utc) if runs_dir else None
         self._logged_events = 0
