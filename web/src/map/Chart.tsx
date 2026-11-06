@@ -69,6 +69,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const snap = useStore((s) => s.snap);
   const scene = useStore((s) => s.scene);
   const conn = useStore((s) => s.conn);
+  const selected = useStore((s) => s.selected);
 
   useEffect(() => {
     if (!el.current) return;
@@ -128,8 +129,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   }, [satellite, loaded]);
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost") });
-  }, [snap, scene, conn]);
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected) });
+  }, [snap, scene, conn, selected]);
 
   return <div ref={el} className="chart" />;
 }
@@ -138,6 +139,7 @@ function buildLayers(
   snap: ReturnType<typeof useStore.getState>["snap"],
   scene: ReturnType<typeof useStore.getState>["scene"],
   frozen: boolean,
+  selected: number | null,
 ): Layer[] {
   const layers: Layer[] = [];
   const labels: Label[] = cableLabels();
@@ -191,6 +193,13 @@ function buildLayers(
         id: "boats", data: snap.boats, getPosition: (b) => [b.lon, b.lat], radiusUnits: "pixels",
         getRadius: 9, getFillColor: (b) => T.c(boatColor(b), isStale(b) ? 120 : 230),
         stroked: true, getLineColor: [10, 20, 30, 255], lineWidthUnits: "pixels", getLineWidth: 1.5,
+      }),
+    );
+    const sel = snap.boats.filter((b) => b.id === selected);
+    layers.push(
+      new ScatterplotLayer<Boat>({
+        id: "boat-selected", data: sel, getPosition: (b) => [b.lon, b.lat], radiusUnits: "pixels",
+        getRadius: 16, filled: false, stroked: true, getLineColor: T.c(T.TEXT), lineWidthUnits: "pixels", getLineWidth: 2,
       }),
     );
     for (const b of snap.boats) {
