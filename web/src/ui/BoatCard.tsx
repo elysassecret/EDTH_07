@@ -3,6 +3,7 @@
 import { useStore } from "../store";
 import { ContactList } from "./ContactList";
 import { DecisionPanel } from "./DecisionPanel";
+import { AlertPanel } from "./AlertPanel";
 import { deg, dur, hm, hhmm } from "../format";
 import { roleText } from "../roles";
 import { t0Of, type Boat, type Snapshot } from "../types";
@@ -73,6 +74,7 @@ export function FleetPanel() {
   return (
     <aside className="panel">
       <DecisionPanel />
+      <AlertPanel />
       <h2>Fleet · {snap.boats.length} USVs</h2>
       {snap.boats.map((b) => <BoatCard key={b.id} b={b} snap={snap} staleAfter={staleAfter} />)}
       <ContactList />

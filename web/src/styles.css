@@ -92,3 +92,34 @@ button:disabled { color: var(--muted); cursor: default; }
 .done { list-style: none; padding: 0; margin: 4px 0 0; font-size: 13px; color: var(--muted); }
 .done li { padding: 3px 0; border-top: 1px solid var(--line); }
 .done .did { font-weight: 700; color: var(--text); }
+/* Feature 23: alerts. Colour + shape + word for each level. */
+.lvl-icon { flex: none; }
+.lvl-icon text { font: 700 12px system-ui, sans-serif; fill: #10161c; }
+.lvl-icon.alarm path { fill: var(--alarm); }
+.lvl-icon.alarm text { fill: #fff; }
+.lvl-icon.warning circle { fill: var(--warning); }
+.lvl-icon.caution rect { fill: var(--caution); }
+.alerts { margin-bottom: 12px; }
+.alerts ul { list-style: none; padding: 0; margin: 0; }
+.alert { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; margin-bottom: 6px; border: 1px solid var(--line); border-left-width: 4px; border-radius: 4px; background: #1d2a37; font-size: 14px; }
+.alert.alarm { border-left-color: var(--alarm); }
+.alert.warning { border-left-color: var(--warning); }
+.alert.caution { border-left-color: var(--caution); }
+.alert.alarm:not(.acked) { animation: alarm-flash 1s steps(2, start) infinite; }
+.alert.acked { opacity: 0.6; }
+.alert-body { flex: 1; min-width: 0; }
+.alert-head { display: flex; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.4px; }
+.alert.alarm .lvl { color: #ff8a80; }
+.alert.warning .lvl { color: var(--warning); }
+.alert.caution .lvl { color: var(--caution); }
+.alert-head .at { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.alert-text { overflow-wrap: anywhere; }
+.acked-word { font-size: 12px; color: var(--muted); align-self: center; }
+button.ack { font-size: 12px; padding: 4px 8px; align-self: center; }
+button.more { width: 100%; font-size: 12px; }
+.alert-strip { display: flex; align-items: center; gap: 10px; padding: 6px 16px; font-weight: 700; background: #2a2416; border-bottom: 2px solid var(--warning); }
+.alert-strip.alarm { background: #3a1c1a; border-bottom-color: var(--alarm); animation: alarm-flash 1s steps(2, start) infinite; }
+.alert-strip .lvl { letter-spacing: 0.4px; }
+.alert-strip .ack { margin-left: auto; }
+@keyframes alarm-flash { 50% { background: #5a2420; } }
+@media (prefers-reduced-motion: reduce) { .alert.alarm:not(.acked), .alert-strip.alarm { animation: none; } }

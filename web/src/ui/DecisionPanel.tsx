@@ -104,7 +104,7 @@ export function DecisionPanel() {
   // keyboard shortcuts act on the oldest open decision only
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement)?.tagName === "INPUT") return;
+      if (e.metaKey || e.ctrlKey || e.altKey || ["INPUT", "SELECT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) return;
       const d = open[0];
       if (!d || sent) return;
       const a = actionsOf(d).find((x) => KEY[x] === e.key.toUpperCase());

@@ -22,6 +22,11 @@ uv run python -m server --serve-web --mock   # same with the mock feed
   Only failure events (the exercise script and our injections) are added to `/shore`;
   synthetic contacts never are.
 - `mock_feed.py`: deterministic fake of the whole story, for UI work without the sim.
+- `alerts.py`: alerts for the real sim (feature 23), made from the shore picture and the
+  console's own exercise events, never from truth. Alarm: held decision unanswered 05:00.
+  Warning: held decision waiting; boat not heard for `stale_after_s`. Caution: no link,
+  returning to Korsør, lane picket uncovered, exercise failure. One alert per id; `ack`
+  marks it seen (an exercise-event alert goes away when acknowledged).
 
 ## mock_feed.py
 
@@ -58,4 +63,3 @@ Sent as extra keys (pydantic ignores them). To make them real they need a contra
 | Decision | confirmed / stopped states | contract only has pending/approved/declined/delivered/expired |
 | Event | `exercise` | EXERCISE banner on injected failures (feature 25) |
 | Link | `m` | link length, for the comms overlay |
-| Command | `ack` (alert acknowledge) | feature 23 |

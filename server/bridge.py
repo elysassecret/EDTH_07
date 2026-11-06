@@ -29,6 +29,7 @@ from contract.constants import SHORE
 from contract.geo import to_lonlat
 from contract.tasks import from_wire, merge
 from contract.views import Boat, Contact, ContactFlags, Event, Link, Snapshot, TaskView
+from server.alerts import AlertBook
 from server.feed import ROOT
 from world.sim import World
 
@@ -79,6 +80,7 @@ class SimSource:
         self.past_events: deque[int] = deque(maxlen=64)  # ms of events already applied
         # sim time requested so far; can sit between ticks at slow warp (5x at 10 Hz = 0.5 s)
         self.clock_ms = 0
+        self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc)
         self.world.step()  # t = 0 processed, so every view is defined from the first frame
 
     # ---- Feed source interface
@@ -148,7 +150,10 @@ class SimSource:
                 self.world.inject(event)
                 return {"ok": True}
             if cmd == "ack":
-                return {"ok": False, "error": "no alerts yet"}
+                if not isinstance(msg.get("id"), str):
+                    return {"ok": False, "error": "alert id missing"}
+                ok = self.alerts.ack(msg["id"])
+                return {"ok": True} if ok else {"ok": False, "error": f"no alert {msg['id']}"}
         except (KeyError, ValueError, TypeError) as e:
             return {"ok": False, "error": f"bad command: {e}"}
         return {"ok": False, "error": f"unknown cmd {cmd!r}"}
@@ -161,24 +166,33 @@ class SimSource:
                       exercise=bool(e.get("exercise")))
                 for e in self.world.events if e.get("exercise") and e["kind"] in INJECT_KINDS]
 
+    @staticmethod
+    def _pair(e: dict) -> tuple[int, int]:
+        b = e.get("b")
+        a, b = int(e["a"]), SHORE if b in (None, "shore") else int(b)
+        return (min(a, b), max(a, b))
+
     def _exercise_cuts(self) -> set[tuple[int, int]]:
         """Pairs (low id, high id; shore = 0) the exercise has cut and not yet restored.
         The console sent or scripted these itself, so it may show them on /shore."""
         cuts: set[tuple[int, int]] = set()
         for e in self.world.events:
             if e.get("exercise") and e["kind"] in ("link_off", "link_on"):
-                b = e.get("b")
-                pair = tuple(sorted((int(e["a"]), SHORE if b in (None, "shore") else int(b))))
-                (cuts.add if e["kind"] == "link_off" else cuts.discard)(pair)
+                (cuts.add if e["kind"] == "link_off" else cuts.discard)(self._pair(e))
         return cuts
 
-    def _shore_links(self, links: list[Link]) -> list[Link]:
+    def _exercise_failures(self) -> list[dict]:
+        """Exercise events in order, with their console text (and link pair) for alerts."""
+        return [{"kind": e["kind"], "text": _event_text(e),
+                 "pair": self._pair(e) if e["kind"] == "link_off" else None}
+                for e in self.world.events if e.get("exercise") and e["kind"] in INJECT_KINDS]
+
+    def _shore_links(self, links: list[Link], cuts: set[tuple[int, int]]) -> list[Link]:
         """Two console fixes on the shore's link list (no truth used):
         - a shore 'down' link is drawn only for a boat the shore once heard directly; a boat
           that always talked through a peer never had a shore link to lose;
         - a link the exercise cut is shown as 'cut' (crossed), not just 'down'."""
         ever_direct = self.world.shore.direct  # boat -> time of last direct heartbeat
-        cuts = self._exercise_cuts()
         out = []
         for lk in links:
             pair = (min(lk.a, lk.b), max(lk.a, lk.b))
@@ -193,8 +207,11 @@ class SimSource:
     def _shore(self, speed: int) -> Snapshot:
         pic = self.world.shore.picture(self.world.t_ms, speed)
         events = sorted([*pic.events, *self._exercise_events()], key=lambda e: e.t)[-60:]
+        cuts = self._exercise_cuts()
+        self.alerts.update(pic, self._exercise_failures(), cuts)
         return pic.model_copy(update={"t0_utc": self.t0_utc or pic.t0_utc, "events": events,
-                                      "links": self._shore_links(pic.links)})
+                                      "links": self._shore_links(pic.links, cuts),
+                                      "alerts": self.alerts.alerts()})
 
     def _merged_tasks(self) -> dict[str, TaskView]:
         recs = {}
@@ -255,7 +272,9 @@ class SimSource:
             # truth ages are ms or None (never visited); the contract wants int seconds
             seg_age={k: v // 1000 for k, v in sorted(tv["seg_age"].items()) if v is not None},
             links=links, contacts=contacts,
-            decisions=self.world.shore.picture(t_ms, speed).decisions, alerts=[],
+            # decisions and alerts are the shore's: the operator acts on them in either view
+            decisions=self.world.shore.picture(t_ms, speed).decisions,
+            alerts=self.alerts.alerts(),
             events=world_events)
 
 

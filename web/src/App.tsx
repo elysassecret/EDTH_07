@@ -4,6 +4,7 @@ import { Chart } from "./map/Chart";
 import { useStore } from "./store";
 import { dur, utc } from "./format";
 import { FleetPanel } from "./ui/BoatCard";
+import { AlertStrip } from "./ui/AlertPanel";
 import { t0Of } from "./types";
 
 function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void }) {
@@ -64,6 +65,7 @@ export function App() {
       <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} />
       <FeedBanner />
       <TruthBanner />
+      <AlertStrip />
       <main>
         <Chart satellite={sat} onSatelliteState={onSatState} />
         <FleetPanel />
