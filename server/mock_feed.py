@@ -918,86 +918,11 @@ class MockWorld:
 
 # ---------------------------------------------------------------- server
 
-class Feed:
-    """Owns one MockWorld, steps it at a fixed real rate and broadcasts to clients."""
+async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
+                serve_web: bool = False) -> None:
+    from server.feed import serve as feed_serve
 
-    def __init__(self, seed: int, hz: float = 10.0):
-        self.seed = seed
-        self.hz = hz
-        self.world = MockWorld(seed)
-        self.clients: dict = {}  # connection -> channel
-        self.paused = False
-        self.speed_override: int | None = None
-
-    def handle_command(self, msg: dict) -> dict:
-        log.info("command t=%.1f %s", self.world.t, json.dumps(msg, sort_keys=True))
-        cmd = msg.get("cmd")
-        if cmd == "reset":
-            self.world = MockWorld(int(msg.get("seed", self.seed)))
-            return {"ok": True}
-        if cmd == "pause":
-            self.paused = bool(msg.get("on", not self.paused))
-            return {"ok": True}
-        if cmd == "speed":
-            v = msg.get("value")
-            self.speed_override = None if v in (None, "auto") else max(1, int(v))
-            return {"ok": True}
-        return self.world.command(msg)
-
-    async def handler(self, ws) -> None:
-        path = ws.request.path.rstrip("/") or "/shore"
-        channel = "truth" if path == "/truth" else "shore"
-        if path not in ("/shore", "/truth"):
-            await ws.close(code=1008, reason="use /shore or /truth")
-            return
-        self.clients[ws] = channel
-        log.info("client connected on /%s (%d total)", channel, len(self.clients))
-        try:
-            await ws.send(json.dumps(self.world.scene_msg()))
-            await ws.send(json.dumps(self.world.snapshot(channel, self._speed())))
-            async for raw in ws:
-                try:
-                    msg = json.loads(raw)
-                    if not isinstance(msg, dict):
-                        raise TypeError("command must be a JSON object")
-                    res = self.handle_command(msg)
-                except (ValueError, TypeError) as e:
-                    msg, res = {}, {"ok": False, "error": f"bad JSON: {e}"}
-                if not res["ok"]:
-                    log.warning("rejected %s: %s", msg, res["error"])
-                await ws.send(json.dumps({"type": "ack", "cmd": msg.get("cmd"),
-                                          "id": msg.get("id"), **res}))
-        finally:
-            self.clients.pop(ws, None)
-            log.info("client left /%s (%d total)", channel, len(self.clients))
-
-    def _speed(self) -> int:
-        return 0 if self.paused else (self.speed_override or self.world.speed())
-
-    async def run(self) -> None:
-        period = 1.0 / self.hz
-        while True:
-            speed = self._speed()
-            self.world.step(int(speed * period * 1000))
-            frames = {ch: json.dumps(self.world.snapshot(ch, speed)) for ch in ("shore", "truth")}
-            for ws, ch in list(self.clients.items()):
-                try:
-                    await ws.send(frames[ch])
-                except Exception:  # noqa: BLE001 - a dead client must not stop the feed
-                    self.clients.pop(ws, None)
-            await asyncio.sleep(period)
-
-
-async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None) -> None:
-    from websockets.asyncio.server import serve as ws_serve
-
-    feed = Feed(seed, hz)
-    async with ws_serve(feed.handler, host, port) as server:
-        bound = server.sockets[0].getsockname()[1]
-        log.info("mock feed on ws://%s:%d/shore and /truth, seed %d", host, bound, seed)
-        if ready is not None:
-            ready.set_result((feed, bound))
-        await feed.run()
+    await feed_serve(MockWorld, host, port, seed, hz, ready, serve_web, name="mock feed")
 
 
 def main() -> None:
@@ -1006,10 +931,11 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--hz", type=float, default=10.0)
+    ap.add_argument("--serve-web", action="store_true", help="also serve web/dist over HTTP")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     try:
-        asyncio.run(serve(args.host, args.port, args.seed, args.hz))
+        asyncio.run(serve(args.host, args.port, args.seed, args.hz, serve_web=args.serve_web))
     except KeyboardInterrupt:
         pass
 

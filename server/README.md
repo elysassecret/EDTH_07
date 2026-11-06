@@ -4,7 +4,26 @@ WebSocket bridge from sim to browser (`/shore` and `/truth`), replay, failure-in
 
 Rule: only C edits files here. Others open an issue or ask in chat.
 
-## mock_feed.py (until the real sim exists)
+## Run the demo (one command, N3)
+
+```bash
+pnpm --dir web build                      # once, or after web/ changes
+uv run python -m server --serve-web       # real sim + console on http://localhost:8765/
+uv run python -m server --serve-web --mock   # same with the mock feed
+```
+
+## Files
+
+- `feed.py`: WebSocket server shared by both sources. Steps the source at 10 Hz × warp,
+  sends `/shore` and `/truth`, answers every command with an `ack`, serves `web/dist`.
+- `bridge.py`: the real sim. `World` (Simeone) owns the ticks; `ShoreNode.picture()` (Javier)
+  is sent on `/shore` unchanged; truth is mapped to a contract Snapshot for `/truth`.
+  Answers go to `ShoreNode.command()`, failure injections to `World.inject()`.
+  Only failure events (the exercise script and our injections) are added to `/shore`;
+  synthetic contacts never are.
+- `mock_feed.py`: deterministic fake of the whole story, for UI work without the sim.
+
+## mock_feed.py
 
 ```bash
 uv run python -m server.mock_feed --port 8765 --seed 1
