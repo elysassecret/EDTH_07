@@ -1,29 +1,30 @@
+# TODO: replace @SIMONE_GITHUB and @FRANCO_GITHUB with real usernames (one of them is probably @FearedLynx).
 # GitHub asks these people to review PRs touching their folders.
-# Replace @A_GITHUB etc. with real GitHub usernames.
-/contract/   @A_GITHUB @B_GITHUB @zytzev
-/agent/      @A_GITHUB
-/tests/agent/ @A_GITHUB
-/world/      @B_GITHUB
-/ais/        @B_GITHUB
-/triage/     @B_GITHUB
-/scenarios/  @B_GITHUB
-/tests/world/ @B_GITHUB
+# Replace @emermelada etc. with real GitHub usernames.
+/contract/   @emermelada @SIMONE_GITHUB @zytzev
+/agent/      @emermelada
+/tests/agent/ @emermelada
+/world/      @SIMONE_GITHUB
+/ais/        @SIMONE_GITHUB
+/triage/     @SIMONE_GITHUB
+/scenarios/  @SIMONE_GITHUB
+/tests/world/ @SIMONE_GITHUB
 /server/     @zytzev
 /web/        @zytzev
 /evidence/   @zytzev
 /tests/server/ @zytzev
-/eval/       @D_GITHUB
-/tools/      @D_GITHUB
-/deck/       @D_GITHUB
-/tests/smoke/ @D_GITHUB
-/tests/eval/ @D_GITHUB
-/tests/story/ @D_GITHUB
-/requirements.txt @D_GITHUB
-/config/agent.toml @A_GITHUB
-/config/scene.toml @B_GITHUB
-/config/boat.toml @B_GITHUB
-/config/radio.toml @B_GITHUB
-/config/energy.toml @B_GITHUB
-/config/run.toml @D_GITHUB
+/eval/       @FRANCO_GITHUB
+/tools/      @FRANCO_GITHUB
+/deck/       @FRANCO_GITHUB
+/tests/smoke/ @FRANCO_GITHUB
+/tests/eval/ @FRANCO_GITHUB
+/tests/story/ @FRANCO_GITHUB
+/requirements.txt @FRANCO_GITHUB
+/config/agent.toml @emermelada
+/config/scene.toml @SIMONE_GITHUB
+/config/boat.toml @SIMONE_GITHUB
+/config/radio.toml @SIMONE_GITHUB
+/config/energy.toml @SIMONE_GITHUB
+/config/run.toml @FRANCO_GITHUB
 /config/ui.json @zytzev
-/.github/workflows/ @D_GITHUB
+/.github/workflows/ @FRANCO_GITHUB
