@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+.DS_Store
+runs/*
+!runs/.gitkeep
+# AIS data stays private (EDTH treats shared material as non-confidential)
+data/*.csv
+data/*.zip

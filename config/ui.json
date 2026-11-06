@@ -1,0 +1,5 @@
+{
+  "warp_between_events": 240,
+  "warp_near_events": 5,
+  "stale_after_s": 60
+}

@@ -1,0 +1,29 @@
+# GitHub asks these people to review PRs touching their folders.
+# Replace @A_GITHUB etc. with real GitHub usernames.
+/contract/   @A_GITHUB @B_GITHUB @zytzev
+/agent/      @A_GITHUB
+/tests/agent/ @A_GITHUB
+/world/      @B_GITHUB
+/ais/        @B_GITHUB
+/triage/     @B_GITHUB
+/scenarios/  @B_GITHUB
+/tests/world/ @B_GITHUB
+/server/     @zytzev
+/web/        @zytzev
+/evidence/   @zytzev
+/tests/server/ @zytzev
+/eval/       @D_GITHUB
+/tools/      @D_GITHUB
+/deck/       @D_GITHUB
+/tests/smoke/ @D_GITHUB
+/tests/eval/ @D_GITHUB
+/tests/story/ @D_GITHUB
+/requirements.txt @D_GITHUB
+/config/agent.toml @A_GITHUB
+/config/scene.toml @B_GITHUB
+/config/boat.toml @B_GITHUB
+/config/radio.toml @B_GITHUB
+/config/energy.toml @B_GITHUB
+/config/run.toml @D_GITHUB
+/config/ui.json @zytzev
+/.github/workflows/ @D_GITHUB

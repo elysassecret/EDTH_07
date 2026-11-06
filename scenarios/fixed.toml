@@ -1,0 +1,43 @@
+# Event tape. Owner: B (D signs off for the baseline). See Challenge07BuildPlan.md.
+[[event]]
+t = 0
+kind = "reset"
+ais_t0 = "2026-11-03T10:15:00"
+
+[[event]]
+t = 7200
+kind = "battery_low"
+boat = 1
+
+[[event]]
+t = 7320
+kind = "link_off"
+a = 4
+b = "shore"
+
+[[event]]
+t = 7320
+kind = "contact_start"
+id = "C-07"
+lat = 55.4505
+lon = 10.8706
+ais = false
+sog_kn = 0.4
+class = "dusk"
+
+[[event]]
+t = 9200
+kind = "contact_depart"
+id = "C-07"
+sog_kn = 6.0
+course = 255
+
+[[event]]
+t = 10800
+kind = "link_on"
+a = 4
+b = "shore"
+
+[[event]]
+t = 14000
+kind = "evaluate"
