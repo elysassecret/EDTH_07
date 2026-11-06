@@ -4,6 +4,7 @@ Sees only its own sensors and its radio inbox; returns an action and bytes to br
 No clock, no files, no randomness: time is the argument t (sim ms).
 """
 from agent.auction import Auction, ms
+from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
 from agent.table import Table
 from agent.tour import Follower, Leg, Tours
@@ -17,6 +18,7 @@ from contract.constants import (
     RELEASED,
     RETURNING,
     SENTINEL,
+    SHADOWING,
     SHORE,
     SLOT,
     UNAVAILABLE,
@@ -42,6 +44,7 @@ class Agent:
         self.stations = {s.id: s.pts[0] for s in mission.tasks if kind(s.id) != "seg"}
         self.follow = Follower(self.tours)
         self.auction = Auction(self)
+        self.contacts = Contacts(self)
         self.peers: dict[int, tuple[int, dict]] = {}  # boat -> (tc, payload) of newest HB
         self.shore_t = -1  # tc of the newest shore heartbeat; -1 = never heard
         self.mode = PATROL
@@ -79,6 +82,7 @@ class Agent:
         self.net.tick(t)
         self.update_majority(t)
         self.sync_tour()
+        self.contacts.tick(t, seen)
         if not self.returning and self.return_due():
             self.go_home()
         if self.slot_due(t):
@@ -87,8 +91,12 @@ class Agent:
             self.auction.rebalance(t)
         if self.hb_due(t):
             self.net.send(t, "HB", self.heartbeat())
+            for o in self.contacts.observations():
+                self.net.send(t, "OBS", o)
         if self.rec_due(t):
             self.net.send(t, "REC", {"recs": [to_wire(r) for r in self.table.recs.values()]})
+            for task in self.contacts.flags:
+                self.net.send(t, "CONTACT", self.contacts.message(task))
         action = self.behave()
         self.mode, self.action = action.mode, action
         return action, self.net.flush()
@@ -111,6 +119,12 @@ class Agent:
             self.table.apply(from_wire(m.p["rec"]))
         elif m.kind == "BID":
             self.auction.on_bid(m.p)
+        elif m.kind == "OBS":
+            self.contacts.on_obs(m.p)
+        elif m.kind == "CONTACT":
+            self.contacts.on_contact(m.p)
+        elif m.kind == "CMD":
+            self.contacts.on_cmd(m.p)
         elif m.kind == "ACK":
             self.net.ack(m.p["of"])
 
@@ -174,6 +188,7 @@ class Agent:
     def go_home(self) -> None:
         """Automatic safety: release everything at once so others re-auction next slot."""
         self.returning = True
+        self.contacts.holding = None
         for task in self.table.held_by(self.me):
             self.release(task)
 
@@ -217,6 +232,13 @@ class Agent:
             if dist(self.pos, self.mission.shore) <= HOME_M:
                 return Action(UNAVAILABLE, None, 0)
             return Action(RETURNING, self.mission.shore, v)
+        watched = self.contacts.watching()
+        if watched and not self.contacts.stale(watched.split(":", 1)[1], self.t):
+            return Action(SHADOWING, self.contacts.ring(watched), v)
+        hold = self.contacts.holding
+        if hold:
+            pos, r = self.contacts.position(task_of(hold)), self.contacts.radius(task_of(hold))
+            return Action(SHADOWING, ring_point(pos, self.pos, r), v)
         held = self.table.held_by(self.me)
         if self.params.policy == "static" and self.legs():
             return self.keep_station(self.static_point)
@@ -243,6 +265,8 @@ class Agent:
             "me": self.me, "t": self.t, "mode": self.mode, "pos": list(self.pos),
             "batt": self.batt, "shore_t": self.shore_t, "returning": self.returning,
             "tour": [[k, rev] for k, rev in self.legs()],
+            "holding": self.contacts.holding,
+            "contacts": {k: dict(v) for k, v in sorted(self.contacts.flags.items())},
             "last_hb": {str(b): tc for b, tc in sorted(self.table.last_hb.items())},
             "tasks": {k: to_wire(r) for k, r in sorted(self.table.recs.items())},
         }

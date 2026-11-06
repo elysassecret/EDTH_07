@@ -71,6 +71,8 @@ class Auction:
         a = self.a
         if kind(task) == "seg":
             return ms(a.tours.reach_m(a.pos, task), a.params.speed_mm_s)
+        if kind(task) == "contact":
+            return ms(dist(a.pos, a.contacts.ring(task)), a.params.speed_mm_s)
         return ms(dist(a.pos, a.station(task)), a.params.speed_mm_s)
 
     def cost(self, task: str) -> int:
@@ -80,12 +82,16 @@ class Auction:
             c += self.cycle_after(task)
             if a.holds("pick"):
                 c += a.params.role_penalty_ms  # PLAN F3: cables before lane, but not for free
+        if kind(task) == "contact" and a.holds("seg"):
+            c += a.params.role_penalty_ms  # take a watcher from the lane before the cables
         return c
 
     def energy_ok(self, task: str) -> bool:
         a = self.a
         p = a.params
-        far = a.tours.pts[task][-1] if kind(task) == "seg" else a.station(task)
+        k = kind(task)
+        far = (a.tours.pts[task][-1] if k == "seg" else a.contacts.position(task)
+               if k == "contact" else a.station(task))
         one_pass = ms(a.tours.len[task], p.speed_mm_s) if kind(task) == "seg" else 0
         need = self.reach_ms(task) + one_pass + a.return_ms(far)
         return a.remaining_ms() - p.reserve_ms >= p.return_safety_permille * need // 1000
@@ -98,7 +104,8 @@ class Auction:
         if k == "seg":
             if a.table.recs[task].state == CLAIMED and not a.majority:
                 return False  # taking over an expired claim needs a live majority (P4)
-            return (not a.holds("relay") and self.cycle_after(task) <= CYCLE_MAX
+            return (not a.holds("relay") and a.mode != SHADOWING
+                    and a.contacts.watching() is None and self.cycle_after(task) <= CYCLE_MAX
                     and self.energy_ok(task))
         if k == "pick":
             return not any(a.holds(x) for x in ("seg", "pick", "relay", "contact"))
@@ -106,7 +113,21 @@ class Auction:
             # A relay reconnects a group: a lone boat out of range keeps its work instead.
             return (t - a.shore_t > SHORE_SILENCE and a.live_peers(t) >= 1
                     and self.energy_ok(task))
-        return False  # contact and cue come in later phases
+        if k == "contact":
+            track = task.split(":", 1)[1]
+            return (not a.holds("relay") and not self.last_sweeper(t)
+                    and a.contacts.watching() is None and not a.contacts.done(task)
+                    and a.contacts.tracks[track]["sog"] <= a.params.speed_mm_s
+                    and self.energy_ok(task))
+        return False  # cue tasks come with B's AIS replay (P1)
+
+    def last_sweeper(self, t: int) -> bool:
+        """Never take the last boat sweeping cables off them (PLAN F7)."""
+        a = self.a
+        if not a.holds("seg"):
+            return False
+        return not any(t - tc <= PEER_STALE and any(kind(r) == "seg" for r in p["roles"])
+                       for b, (tc, p) in a.peers.items() if b != a.me)
 
 
     # rebalance (PLAN 7.7 and F5) -------------------------------------------------------------

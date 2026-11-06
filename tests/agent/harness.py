@@ -7,18 +7,18 @@ import hashlib
 import heapq
 import json
 import random
-from math import isqrt
+from math import cos, isqrt, radians, sin
 
 from agent.core import Agent
 from agent.shore import ShoreNode
 from contract.constants import SHORE
-from contract.mission import Action, Mission, Own, Params
+from contract.mission import Action, Detection, Mission, Own, Params
 
 
 class Sim:
     def __init__(self, mission: Mission, params: Params, start: dict[int, tuple[int, int]],
                  delay_ms: int = 1_000, loss: float = 0.0, seed: int = 0,
-                 boat_range_m: int = 8_000, shore_range_m: int = 14_000):
+                 boat_range_m: int = 8_000, shore_range_m: int = 14_000, detect_m: int = 2_000):
         self.mission, self.params = mission, params
         self.agents = {b: Agent(b, mission, params) for b in mission.boats}
         self.shore = ShoreNode(mission, params)
@@ -33,6 +33,8 @@ class Sim:
         self.queue: list[tuple[int, int, int, bytes]] = []  # (deliver_t, seq, dst, bytes)
         self.seq = 0
         self.t = 0
+        self.detect_m = detect_m
+        self.tracks: dict[str, dict] = {}  # synthetic contacts, positions in mm
 
     # controls -----------------------------------------------------------------------------
     def kill(self, b: int) -> None:
@@ -47,6 +49,26 @@ class Sim:
                 self.off.discard(pair)
             else:
                 self.off.add(pair)
+
+    def add_track(self, tid: str, xy: tuple[int, int], sog: int = 0, cog: int = 0,
+                  ais: bool = False) -> None:
+        self.tracks[tid] = {"x": xy[0] * 1000, "y": xy[1] * 1000, "ais": ais}
+        self.set_track(tid, sog, cog)
+
+    def set_track(self, tid: str, sog: int, cog: int) -> None:
+        """sog in mm/s, cog in degrees clockwise from north (test-only trig)."""
+        tr = self.tracks[tid]
+        tr.update(sog=sog, cog=cog, vx=round(sog * sin(radians(cog))),
+                  vy=round(sog * cos(radians(cog))))
+
+    def detections(self, b: int) -> tuple[Detection, ...]:
+        x, y = self.xy(b)
+        out = []
+        for tid, tr in sorted(self.tracks.items()):
+            tx, ty = tr["x"] // 1000, tr["y"] // 1000
+            if isqrt((tx - x) ** 2 + (ty - y) ** 2) <= self.detect_m:
+                out.append(Detection(tid, tx, ty, tr["sog"], tr["cog"], tr["ais"]))
+        return tuple(out)
 
     def isolate(self, b: int, on: bool = False) -> None:
         for other in (SHORE, *self.mission.boats):
@@ -87,6 +109,9 @@ class Sim:
         for b in self.mission.boats:
             if self.alive[b]:
                 self.move(b)
+        for tr in self.tracks.values():
+            tr["x"] += tr["vx"]
+            tr["y"] += tr["vy"]
         inbox: dict[int, list[bytes]] = {n: [] for n in (*self.mission.boats, SHORE)}
         while self.queue and self.queue[0][0] <= self.t:
             _, _, dst, raw = heapq.heappop(self.queue)
@@ -95,7 +120,8 @@ class Sim:
             if not self.alive[b]:
                 continue
             x, y = self.xy(b)
-            action, out = self.agents[b].step(self.t, Own(x, y, self.batt[b]), (), inbox[b])
+            action, out = self.agents[b].step(self.t, Own(x, y, self.batt[b]), self.detections(b),
+                                              inbox[b])
             self.actions[b] = action
             self.broadcast(b, out)
         self.broadcast(SHORE, self.shore.step(self.t, inbox[SHORE]))

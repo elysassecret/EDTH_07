@@ -4,7 +4,7 @@ from contract.mission import load_params
 from contract.tasks import Rec
 from contract.views import Snapshot
 from tests.agent.harness import Sim
-from tests.agent.scene import START, line_mission, scene_mission
+from tests.agent.scene import PICK_N, START, line_mission, scene_mission
 
 PARAMS = load_params()
 
@@ -40,6 +40,7 @@ def test_cut_boat_keeps_old_data_on_the_shore():
 def test_stop_is_delivered_to_the_watcher_and_sticks():
     s = scene()
     s.run_until(30_000)
+    s.add_track("C-07", (PICK_N[0] - 1500, PICK_N[1]))  # in 03's camera range
     s.agents[3].publish(Rec("contact:C-07", 1, CLAIMED, 10, 3))  # pretend 03 is watching
     s.run_until(40_000)
     assert s.shore.command(s.t, {"cmd": "stop", "id": "contact:C-07"})
@@ -55,6 +56,7 @@ def test_stop_is_delivered_to_the_watcher_and_sticks():
 def test_approval_to_an_unreachable_boat_expires():
     s = scene()
     s.run_until(30_000)
+    s.add_track("C-07", (PICK_N[0] - 1500, PICK_N[1]))
     s.agents[3].publish(Rec("contact:C-07", 1, CLAIMED, 10, 3))
     s.run_until(40_000)
     s.isolate(3)
