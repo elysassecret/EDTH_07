@@ -2,8 +2,9 @@
 
 ## Agreed scope
 
-- Routes/loop/API landed via PR #12. Follow-up branch `b/sentinel-energy` addresses
-  Javier's review: motors-off hotel load, preserving seven-hour cruise endurance.
+- Routes/loop/API landed via PR #12; hotel-load energy is in PR #14.
+- Branch `b/current-tide` builds on that energy commit to integrate the configured current.
+  GitHub still reports #14 open at last check; this branch preserves its changes.
 - Simeone owns the deterministic loop in `world/sim.py`; server wraps it (coordinate with Alexandru).
 - Start with basic kinematic motion and a simple battery model; record deferred realism here.
 - Agent owns return decisions and networking (forwarding, dedupe, retries, expiry, hop limit).
@@ -15,7 +16,8 @@
 1. Implemented — routes: `load_scene(root)` returns immutable Scene with Mission, boundary and samples;
    `load_mission(root)` is the convenience integration entry point. Tests accompany the slice.
 2. Implemented — motion: millimetre-state kinematics; previous actions apply next tick.
-   Retains fractional metres at 2.3 m/s. World currently runs with zero current.
+   Retains fractional metres at 2.3 m/s. Configured current is now enabled by default;
+   `current_enabled=False` supplies an explicit zero-current control for regression tests.
 3. Implemented — own sensors, range-limited synthetic contacts, low-battery injection and
    motors-off hotel load versus powered cruise drain. Power ratios are simulation assumptions.
 4. Implemented — physical radio: range checks at send/delivery, directed link-off,
@@ -25,12 +27,33 @@
 5. Implemented — loop and scenario integration: events -> motion using previous actions -> radio delivery
    -> boat steps in ID order, then shore -> broadcasts -> evaluator/snapshot.
    No same-tick radio delivery. Reset reconstructs all state, queues and random generators.
-6. Partial — mode-dependent energy implemented; fixed current/tide flip and SENTINEL drift
-   physics still pending. Agent safety return and powered station correction are integrated.
+6. Implemented basic fixed-current/tide reversal and SENTINEL drift/correction, with hotel
+   versus powered energy. Agent return uses measured current; hull calibration is deferred.
 7. AIS replay once Franco supplies the private clip and core is green. No CSV in git.
 8. Cue/triage work only after features 1–25 are green and a full video exists.
 
-## PR #12 energy review follow-up
+## Current/tide milestone (current branch)
+
+- Uniform current is loaded from B's energy config; bearing is the direction water flows
+  toward. Runtime vectors are integer mm/s, reversed once at tide_flip_s.
+- Motion integrates the old vector up to the reversal instant, splitting a tick if needed;
+  sensors at that instant report the new vector. No one-tick-early reversal.
+- World passes measured current to each agent and applies the same projected-current
+  safety rule for the scripted low-battery injection. The agent still owns return decisions.
+- SENTINEL drifts with motors off, then A's hysteresis commands powered correction.
+  Tests verify both energy rates and station distance under the configured field.
+- Synthetic contact SOG/course are already ground-relative and are NOT given extra drift.
+- Default seed-1 run at evaluate: 01 is UNAVAILABLE, 02/04 PATROL, 03/05 SENTINEL.
+  This is one scenario check, not a benchmark or a promise for other phases/seeds.
+- Old zero-current regressions explicitly disable current; they remain as control cases.
+- Validation: 128 tests pass in the full local suite; lint and targeted formatting pass.
+  Separately ran all 14 C bridge compatibility cases from origin/c/sim-bridge `986cc45`,
+  including the full tape schema check and localhost WebSocket test, against this world.
+  No server/web files changed. These remote-branch checks are not part of the 128 count.
+  Calibrated propulsion, wind, real forecasts, cross-OS validation and final seeded metrics
+  remain deferred. No real-hull savings or complete contact story is claimed.
+
+## PR #12 energy review follow-up (zero-current control)
 
 - Javier confirmed seven segments and real-scene integration; #12 is merged.
 - Added `hotel_load_permille=100` as a chosen simulation input, not calibrated hull power.
@@ -42,8 +65,8 @@
   does not erase the sweeper's energy limit or magically close every gap.
 - `/shore` uses A's merged `ShoreNode.picture(t_ms, speed)`; world.shore_view is raw diagnostics.
   Distinguish picture seconds/original report time from raw ms/local receipt time.
-- Current/tide physics and a calibrated power curve remain deferred. Do not claim real-hull
-  savings, full energy realism, or a completed contact story.
+- At this prior checkpoint current/tide was deferred; the next section's status table
+  and current/tide milestone above reflect the latest branch. Hull calibration remains deferred.
 - Validation: full local suite 118 passing; lint and targeted formatting checks pass.
   Includes full seed-1 evaluation plus reset/re-run, fractional drain, correction-load and
   delivered ShoreNode.picture energy checks.
@@ -58,15 +81,15 @@
 | Physical radio and agent-owned multi-hop | Implemented; loss/link/rejoin/staleness tested |
 | Console tick API / issue #8 | Implemented; C must wire the real bridge to this API |
 | Motors-off hotel load / SENTINEL energy | Implemented in this follow-up; chosen ratio, not hull data |
-| Fixed current/tide and drift-and-correct physics | Next B task; not implemented |
+| Fixed current/tide and drift-and-correct physics | Implemented on b/current-tide; chosen fixed field |
 | Warm-state phases, shared channel fairness, final metrics | Needs coordination with Franco |
 | AIS replay | Blocked on Franco supplying private clip |
 | Cue/triage | Gated behind main features and full video |
 | Contact response/operator policy | A/C integration pending; world synthetic contact tape exists |
 
 This is progress by deliverable, not a claim that timed team milestones or the whole
-console demo are complete. Next: current/tide and mode integration, then a full contact run
-with Javier and Alexandru when their phases land. Do not start triage yet.
+console demo are complete. Next: full bridge/contact integration with Javier/Alexandru as
+those phases land, and baseline/warm-state coordination with Franco. Do not start triage yet.
 
 ## Real-core integration milestone
 
@@ -123,8 +146,8 @@ with Javier and Alexandru when their phases land. Do not start triage yet.
 - Real movement/auction/return and shore decision transport are integrated; contact response
   awaits Javier's later phase. Keep both real-core tests and stand-in physics tests.
 - Default `python -m world` uses exercise controllers. `--controller core` runs real agents.
-- Full current/tide integration and calibrated energy remain unimplemented. Motors-off hotel
-  load is now modelled with a chosen ratio, not measured hull savings.
+- Fixed current/tide and motors-off energy are now implemented with chosen inputs;
+  real forecasts, hull-calibrated power and tide-aware waiting are not.
 - Motion quantizes to millimetres per tick; fractional millimetres are not carried.
 - Contact course vectors use trig once, quantized to mm/s. Cross-OS equality is unverified;
   explicit integer vectors are the fallback if CI finds differences.
@@ -132,10 +155,9 @@ with Javier and Alexandru when their phases land. Do not start triage yet.
   state; a complete replay digest belongs to the integrated run logger.
 - All five boats have initial positions, but the two sweepers move in the exercise controller;
   pickets and relay hold station. Tests also exercise all five moving.
-- Low-battery injection caps charge at the agent's zero-current return threshold
+- Low-battery injection caps charge at the agent's measured-current return threshold
   (home travel + reserve, times safety factor), not an arbitrary near-empty battery.
-  Update this calculation alongside current integration; zero-current actual-agent return
-  and task reallocation are now covered by the 7,300 s integration test.
+  Tests cover zero, aiding and opposing vectors. This is not a forecast-based route planner.
 - Refined energy model (hotel/propulsion calibration), ECO, DORMANT and tide-aware waiting.
 - Land/bridge/collision avoidance, waves, wind, autopilot dynamics and real current forecasts.
 - Track correlation: synthetic track IDs stand in for cross-boat association, per contract.

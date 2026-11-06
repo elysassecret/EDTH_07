@@ -19,7 +19,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def connected_world():
-    world = World(ROOT, seed=42, agent_factory=Agent, shore_factory=ShoreNode)
+    # Zero-current control isolates packet timing/topology; current physics has its own tests.
+    world = World(
+        ROOT, seed=42, agent_factory=Agent, shore_factory=ShoreNode, current_enabled=False
+    )
     world.radio_config = replace(world.radio_config, loss_permille=0)
     world.reset()
     return world

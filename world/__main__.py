@@ -21,10 +21,19 @@ class ExerciseBoat:
         self.index = 0
         self.stationary = not any(task.id.startswith("seg:") for task in self.tasks)
         self.returning = False
+        self.driving = False
 
     def step(self, t, own, seen, inbox):
         point = (own.x, own.y)
-        home_ms = dist(point, self.shore) * 1_000_000 // self.params.speed_mm_s
+        distance = dist(point, self.shore)
+        along = (
+            (own.cur_x * (self.shore[0] - point[0]) + own.cur_y * (self.shore[1] - point[1]))
+            // distance
+            if distance
+            else 0
+        )
+        ground = max(self.params.speed_mm_s + along, self.params.speed_mm_s // 4)
+        home_ms = distance * 1_000_000 // ground
         budget = own.batt * self.params.endurance_ms // 1000
         if (
             budget
@@ -36,7 +45,14 @@ class ExerciseBoat:
                 return Action(UNAVAILABLE, None, 0), []
             return Action(RETURNING, self.shore, self.params.speed_mm_s), []
         if self.stationary:
-            return Action(SENTINEL, self.waypoints[0], self.params.speed_mm_s), []
+            offset = dist(point, self.waypoints[0])
+            if offset > self.params.sentinel_radius_m:
+                self.driving = True
+            elif offset <= 100:
+                self.driving = False
+            return Action(
+                SENTINEL, self.waypoints[0] if self.driving else None, self.params.speed_mm_s
+            ), []
         if dist(point, self.waypoints[self.index]) <= 2:
             self.index = (self.index + 1) % len(self.waypoints)
         return Action(PATROL, self.waypoints[self.index], self.params.speed_mm_s), []

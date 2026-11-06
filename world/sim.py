@@ -16,6 +16,7 @@ from typing import Protocol
 from contract.constants import PATROL, UNAVAILABLE
 from contract.geo import dist, to_lonlat, to_xy
 from contract.mission import Action, Detection, Mission, Own, Params, load_params
+from world.current import Current
 from world.motion import Boat
 from world.radio import Radio, RadioConfig
 from world.routes import load_scene
@@ -43,6 +44,7 @@ class World:
         seed: int = 1,
         agent_factory: AgentFactory | None = None,
         shore_factory: ShoreFactory | None = None,
+        current_enabled: bool = True,
     ):
         self.root = Path(root)
         self.seed = seed
@@ -57,7 +59,11 @@ class World:
                 return tomllib.load(handle)
 
         self.boat_config = config("config/boat.toml")
-        self.hotel_load_permille = config("config/energy.toml")["hotel_load_permille"]
+        energy = config("config/energy.toml")
+        self.current = Current.from_config(energy)
+        if not current_enabled:
+            self.current = Current((0, 0), self.current.flip_ms)
+        self.hotel_load_permille = energy["hotel_load_permille"]
         if (
             not isinstance(self.hotel_load_permille, int)
             or not 1 <= self.hotel_load_permille <= 1000
@@ -145,11 +151,23 @@ class World:
                 raise ValueError("reset marker is valid only at time zero")
         elif kind == "battery_low":
             boat = self.boats[event["boat"]]
-            home_ms = dist(boat.point, self.mission.shore) * 1_000_000 // self.params.speed_mm_s
+            distance = dist(boat.point, self.mission.shore)
+            current = self.current.at(self.t)
+            along = (
+                (
+                    current[0] * (self.mission.shore[0] - boat.point[0])
+                    + current[1] * (self.mission.shore[1] - boat.point[1])
+                )
+                // distance
+                if distance
+                else 0
+            )
+            ground = max(self.params.speed_mm_s + along, self.params.speed_mm_s // 4)
+            home_ms = distance * 1_000_000 // ground
             threshold = (
                 (home_ms + self.params.reserve_ms) * self.params.return_safety_permille // 1000
             )
-            # Match the current zero-current safety rule, retaining a feasible home budget.
+            # Same measured-current rule as the agent; this remains a chosen injection.
             boat.charge_ms = min(boat.charge_ms, threshold)
         elif kind == "boat_off":
             self.boats[event.get("boat", event.get("a"))].enabled = False
@@ -218,7 +236,13 @@ class World:
             self._apply(event)
         for boat, state in sorted(self.boats.items()):
             before = (state.x_mm, state.y_mm)
-            state.advance(self.actions[boat], dt, hotel_load_permille=self.hotel_load_permille)
+            for duration, current in self.current.intervals(self.t - dt, self.t):
+                state.advance(
+                    self.actions[boat],
+                    duration,
+                    current=current,
+                    hotel_load_permille=self.hotel_load_permille,
+                )
             dx, dy = state.x_mm - before[0], state.y_mm - before[1]
             self.telemetry[boat]["sog"] = isqrt(dx * dx + dy * dy) * 1000 // dt if dt else 0
             if dx or dy:
@@ -235,7 +259,7 @@ class World:
             if boat in self.nodes:
                 action, outbox = self.nodes[boat].step(
                     self.t,
-                    state.own(),
+                    state.own(self.current.at(self.t)),
                     observe(state.point, self.contacts, self.boat_config["r_detect_m"]),
                     inbox.get(boat, []),
                 )
@@ -322,7 +346,7 @@ class World:
             "boats": [
                 {
                     "id": boat,
-                    **asdict(state.own()),
+                    **asdict(state.own(self.current.at(self.t))),
                     "enabled": state.enabled,
                     "action": asdict(self.actions[boat]),
                     "mode": self.actions[boat].mode,
@@ -337,6 +361,11 @@ class World:
                 asdict(contact.detection()) for _, contact in sorted(self.contacts.items())
             ],
             "events": deepcopy(self.events),
+            "current": {
+                "east_mm_s": self.current.at(self.t)[0],
+                "north_mm_s": self.current.at(self.t)[1],
+                "flip_ms": self.current.flip_ms,
+            },
         }
 
     def state_hash(self) -> str:
@@ -355,6 +384,7 @@ class World:
             "shore_reports": self.shore_reports,
             "sample_visit_ms": self.sample_visit_ms,
             "telemetry": self.telemetry,
+            "current_config": asdict(self.current),
         }
         return hashlib.sha256(
             json.dumps(state, sort_keys=True, separators=(",", ":")).encode()

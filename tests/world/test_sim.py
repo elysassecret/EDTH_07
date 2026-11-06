@@ -44,7 +44,9 @@ class TestShore:
 
 
 def world():
-    return World(ROOT, seed=42, agent_factory=TestNode, shore_factory=TestShore)
+    return World(
+        ROOT, seed=42, agent_factory=TestNode, shore_factory=TestShore, current_enabled=False
+    )
 
 
 def test_motion_retains_fractional_metres_and_does_not_overshoot():
