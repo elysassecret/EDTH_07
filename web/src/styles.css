@@ -186,3 +186,23 @@ button.on.eval { border-color: #be8cff; color: #e6d6ff; }
 a.btn { flex: 1; text-align: center; font-size: 14px; color: var(--text); background: #223040; border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; text-decoration: none; }
 .evalpanel .eval-headline { font-size: 14px; margin: 4px 0 8px; }
 .evalpanel .eval-headline .muted { font-size: 11px; }
+/* U1 decision dock: fixed bottom-right, the loudest element. No flashing (only alarms flash). */
+.dock { position: fixed; right: 16px; bottom: 16px; z-index: 20; width: 420px; max-width: calc(100vw - 32px);
+  background: #1b2633; border: 3px solid var(--warning); border-radius: 6px; padding: 12px 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
+.dock.delegated { border-color: var(--friend); }
+.dock.late { border-color: var(--alarm); }
+.dock-head { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; letter-spacing: 0.4px; }
+.dock.held .dock-tier { color: var(--warning); }
+.dock.delegated .dock-tier { color: var(--friend); }
+.dock.late .dock-tier { color: #ff8a80; }
+.dock-badge { white-space: nowrap; background: var(--warning); color: #10161c; border-radius: 10px; padding: 1px 8px; font-size: 13px; }
+.dock-wait { white-space: nowrap; margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.dock-what { font-size: 20px; font-weight: 700; margin: 8px 0 6px; }
+.dock-why { font-size: 15px; margin-bottom: 4px; }
+.dock-sub { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+.dock .buttons { display: flex; gap: 10px; }
+.dock .act { font-size: 18px; padding: 10px 14px; }
+.dock-queue { margin: 8px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+.dock-idle { position: fixed; right: 16px; bottom: 16px; z-index: 20; font-size: 14px; color: var(--muted);
+  background: rgba(24, 35, 46, 0.9); border: 1px solid var(--line); border-radius: 14px; padding: 4px 12px; }
