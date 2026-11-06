@@ -13,7 +13,8 @@ uv run pytest -q tests/world
 The default uses explicitly labelled fixed-route stand-ins, **not Javier's swarm**.
 `--controller core` uses the merged `agent.core.Agent` and `agent.shore.ShoreNode`.
 The merged agent now moves boats, returns on low battery and runs the slotted auction.
-Shore decision transport is merged; contact detection/response policy is a later agent phase. The world does not
+Boat contact detection/response and shore decision transport are merged; the shore contact
+list, automatic decision cards and contact alerts remain a later agent phase. The world does not
 substitute exercise behaviour for missing agent features.
 Both modes print a final truth snapshot and physical-state hash; neither is an evaluation
 result. Core mode also prints public agent views and the heartbeats actually received by

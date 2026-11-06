@@ -6,7 +6,7 @@ import pytest
 
 from agent.core import Agent
 from agent.shore import ShoreNode
-from contract.constants import SENTINEL
+from contract.constants import CLAIMED, SENTINEL
 from contract.geo import dist
 from world.current import Current
 from world.sim import World
@@ -111,8 +111,22 @@ def test_real_picket_drifts_then_corrects_with_energy_cost_and_stays_near_statio
 
 def test_full_real_agent_current_run_keeps_tide_and_sensor_inputs_consistent():
     sim = World(ROOT, seed=1, agent_factory=Agent, shore_factory=ShoreNode)
+    local_detectors = set()
+    watchers = set()
+    contact_flags = set()
     for _ in range(14_001):
         sim.step()
+        for boat, node in sim.nodes.items():
+            if any(obs["track"] == "C-07" for obs in node.contacts.own_obs):
+                local_detectors.add(boat)
+            record = node.table.recs.get("contact:C-07")
+            if record is not None and record.state == CLAIMED:
+                watchers.add(record.owner)
+            contact_flags.update(
+                flag
+                for flag, value in node.contacts.flags.get("contact:C-07", {}).items()
+                if value is True
+            )
         if sim.t_ms in (8_999_000, 9_000_000, 9_001_000):
             for boat, node in sim.nodes.items():
                 if boat in sim.positions():
@@ -121,6 +135,10 @@ def test_full_real_agent_current_run_keeps_tide_and_sensor_inputs_consistent():
     assert len(sim.events) == 7
     assert sim.nodes[1].returning
     assert not sim.nodes[5].returning
+    assert 2 in local_detectors  # actual local camera observation, not a forwarded track
+    assert 3 in watchers
+    assert {"dwell", "cannot_hold"} <= contact_flags
+    assert all(node.contacts.watching() is None for node in sim.nodes.values())
     # Every rendered shore battery value still comes from its delivered HB, not truth.
     for boat in sim.shore.picture(sim.t_ms).boats:
         assert boat.batt == sim.shore.boats[boat.id][2]["batt"]

@@ -65,7 +65,8 @@ For the console `/shore` channel, C uses **`sim.shore.picture(sim.t_ms, speed)`*
 Javier's merged ShoreNode. It returns the contract Snapshot, with its display times in
 **seconds**, built from delivered protocol data. Pass sim time in **milliseconds**.
 `sim.shore.command(sim.t_ms, cmd)` handles confirm/stop/approve/decline transport; physical
-injections go to world. Contact behaviour still depends on A's later phase.
+injections go to world. Boat contact behaviour is now merged; contact list, auto decision
+cards and contact alerts in the shore picture still depend on A's next phase.
 
 `shore_view()` is only a raw diagnostic with explicit creation/receipt timestamps in ms;
 it must not become a competing console snapshot builder. Its receipt time differs from
@@ -90,7 +91,8 @@ that is valid fresh data, not a reason to freeze all shore updates for that boat
 
 There is no invented heading, speed, via ID, coverage, or contact data at shore. The current
 raw report is not the full console picture. `ShoreNode.picture/command` now supplies the
-console contract view and decision transport; contact response awaits A's next phase.
+console contract view and decision transport; contact/auto-decision presentation at shore
+awaits A's next phase (boat contact response is already merged).
 Do not source missing fields from truth or treat default
 contract values as measured observations. Decision answers stay with A/C, not world.
 

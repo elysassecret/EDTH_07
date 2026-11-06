@@ -2,9 +2,9 @@
 
 ## Agreed scope
 
-- Routes/loop/API landed via PR #12; hotel-load energy is in PR #14.
-- Branch `b/current-tide` builds on that energy commit to integrate the configured current.
-  GitHub still reports #14 open at last check; this branch preserves its changes.
+- Routes/loop/API landed via PR #12; hotel-load energy landed via PR #14.
+- PRs #14 and #15 (boat contact policy) merged after combined local validation.
+  Branch `b/current-tide` is rebased on main `32a7c54`; current changes stay in B's folders.
 - Simeone owns the deterministic loop in `world/sim.py`; server wraps it (coordinate with Alexandru).
 - Start with basic kinematic motion and a simple battery model; record deferred realism here.
 - Agent owns return decisions and networking (forwarding, dedupe, retries, expiry, hop limit).
@@ -43,11 +43,16 @@
 - SENTINEL drifts with motors off, then A's hysteresis commands powered correction.
   Tests verify both energy rates and station distance under the configured field.
 - Synthetic contact SOG/course are already ground-relative and are NOT given extra drift.
-- Default seed-1 run at evaluate: 01 is UNAVAILABLE, 02/04 PATROL, 03/05 SENTINEL.
-  This is one scenario check, not a benchmark or a promise for other phases/seeds.
+- With main's boat contact phase, seed 1 detects C-07 locally on 02 at 7,859 s; 03 claims
+  watch at 8,052 s; dwell/cannot_hold flags are produced. At evaluate: 01 is UNAVAILABLE,
+  02/04 PATROL, 03/05 SENTINEL. This is one scenario check, not a benchmark or promise
+  for other seeds. The full-world test asserts local detection, watcher, flags and release.
+- Shore picture still has no contacts: #15 explicitly leaves shore contact/decision/alert
+  presentation for A's next phase. The console contact story is therefore NOT complete.
 - Old zero-current regressions explicitly disable current; they remain as control cases.
-- Validation: 128 tests pass in the full local suite; lint and targeted formatting pass.
-  Separately ran all 14 C bridge compatibility cases from origin/c/sim-bridge `986cc45`,
+- Post-merge validation against main `32a7c54`: 130 tests pass in the full local suite;
+  lint and targeted formatting pass. No merge conflicts or interface failures found.
+  Separately re-ran all 14 C bridge compatibility cases from origin/c/sim-bridge `986cc45`,
   including the full tape schema check and localhost WebSocket test, against this world.
   No server/web files changed. These remote-branch checks are not part of the 128 count.
   Calibrated propulsion, wind, real forecasts, cross-OS validation and final seeded metrics
@@ -85,7 +90,7 @@
 | Warm-state phases, shared channel fairness, final metrics | Needs coordination with Franco |
 | AIS replay | Blocked on Franco supplying private clip |
 | Cue/triage | Gated behind main features and full video |
-| Contact response/operator policy | A/C integration pending; world synthetic contact tape exists |
+| Contact response/operator policy | Boat policy tested with current; shore contact/decision picture still pending |
 
 This is progress by deliverable, not a claim that timed team milestones or the whole
 console demo are complete. Next: full bridge/contact integration with Javier/Alexandru as
@@ -143,8 +148,9 @@ those phases land, and baseline/warm-state coordination with Franco. Do not star
 
 ## Deferred / not implemented
 
-- Real movement/auction/return and shore decision transport are integrated; contact response
-  awaits Javier's later phase. Keep both real-core tests and stand-in physics tests.
+- Real movement/auction/return, boat contact policy and shore decision transport are integrated;
+  shore contact/auto-decision/alert presentation awaits A's next phase. Keep both real-core
+  tests and stand-in physics tests.
 - Default `python -m world` uses exercise controllers. `--controller core` runs real agents.
 - Fixed current/tide and motors-off energy are now implemented with chosen inputs;
   real forecasts, hull-calibrated power and tide-aware waiting are not.
