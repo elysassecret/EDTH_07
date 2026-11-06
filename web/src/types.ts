@@ -10,6 +10,7 @@ export type Mode =
 
 export interface Boat extends C.Boat {
   hdg?: number; // degrees true
+  sog?: number; // mm/s (contract PR #10)
   sog_kn?: number;
   role_text?: string;
   via?: number | null; // next hop toward shore, 0 = shore

@@ -786,7 +786,8 @@ class MockWorld:
             "link": LINK_WORD[link[0]], "tour": tasks, "roles": tasks,
             "last_heard": int(self.t),
             # console extras (not in contract yet)
-            "hdg": round(b.hdg), "sog_kn": round(b.sog / KN, 1), "role_text": self._role(b, tasks),
+            "hdg": round(b.hdg), "sog": round(b.sog * 1000), "sog_kn": round(b.sog / KN, 1),
+            "role_text": self._role(b, tasks),
             "via": 0 if via == "shore" else via, "heard": True,
         }
 

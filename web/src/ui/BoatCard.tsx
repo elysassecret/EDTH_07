@@ -54,7 +54,7 @@ export function BoatCard({ b, snap, staleAfter }: { b: Boat; snap: Snapshot; sta
         <dt>Link</dt>
         <dd className={b.link === "none" ? "warn" : ""}>{linkText(b)}</dd>
         <dt>Course</dt>
-        <dd>{b.hdg !== undefined ? `${deg(b.hdg)} · ${(b.sog_kn ?? 0).toFixed(1)} kn` : "n/a"}</dd>
+        <dd>{b.hdg !== undefined ? `${deg(b.hdg)} · ${(b.sog !== undefined ? b.sog / 514.444 : (b.sog_kn ?? 0)).toFixed(1)} kn` : "n/a"}</dd>
         <dt>Tasks</dt>
         <dd className="tasks">{b.tour.length ? b.tour.join(" ") : "none"}</dd>
       </dl>

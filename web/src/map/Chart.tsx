@@ -14,6 +14,7 @@ import { dur } from "../format";
 import type { Boat, Contact } from "../types";
 import { boxBounds, boxGeo, cableLabels, cablesGeo, laneGeo, type Label } from "./scene";
 import * as T from "./theme";
+import { commsLayers } from "./comms";
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -81,6 +82,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const conn = useStore((s) => s.conn);
   const selected = useStore((s) => s.selected);
   const selectedContact = useStore((s) => s.selectedContact);
+  const showComms = useStore((s) => s.showComms);
 
   useEffect(() => {
     if (!el.current) return;
@@ -150,8 +152,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   }, [satellite, loaded]);
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact) });
-  }, [snap, scene, conn, selected, selectedContact]);
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms) });
+  }, [snap, scene, conn, selected, selectedContact, showComms]);
 
   return <div ref={el} className="chart" />;
 }
@@ -162,6 +164,7 @@ function buildLayers(
   frozen: boolean,
   selected: number | null,
   selectedContact: string | null,
+  showComms: boolean,
 ): Layer[] {
   const layers: Layer[] = [];
   const labels: Label[] = cableLabels();
@@ -184,6 +187,8 @@ function buildLayers(
     }
     labels.push({ pos: scene.shore, text: "Korsør (shore)", kind: "station" });
   }
+
+  if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
 
   if (snap) {
     const staleAfter = scene?.stale_after_s ?? 60;
