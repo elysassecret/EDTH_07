@@ -193,3 +193,29 @@ def test_issue_25_peer_cut_survives_shore_link_restore():
     assert links[(1, 4)] == "cut"
     assert links.get((0, 4)) != "cut"
     assert s.scene_msg()["home_m"] > 0
+
+
+def test_place_contact_snaps_to_a_cable_sample_and_stays_truth_only(tmp_path):
+    from server.replay import replay
+
+    s = SimSource(1, runs_dir=tmp_path)
+    run_to(s, 60)
+    res = s.command({"cmd": "inject", "kind": "contact_start", "lat": 55.42, "lon": 10.95})
+    assert res["ok"] and res["placed"] == "X-01" and res["on"].startswith("seg:")
+    assert s.command({"cmd": "inject", "kind": "contact_start", "lat": 55.3,
+                      "lon": 11.0, "ais": True})["placed"] == "X-02"
+    s.step(2_000)  # applied at the next tick
+    truth = {c["track"]: c for c in s.snapshot("truth")["contacts"]}
+    assert {"X-01", "X-02"} <= set(truth) and truth["X-02"]["ais"] is True
+    x, y = truth["X-01"]["x"], truth["X-01"]["y"]
+    gap = min(((p.point[0] - x) ** 2 + (p.point[1] - y) ** 2) ** 0.5 for p in s.world.scene.samples)
+    assert gap <= 5  # on a cable sample (lon/lat round trip and the first second of drift)
+    run_to(s, 180)
+    assert "X-01" not in json.dumps(s.snapshot("shore"))
+    s.close()
+    assert replay(s.log.path).ok
+
+
+def test_boat_restore_waits_for_world_support():
+    res = SimSource(1).command({"cmd": "inject", "kind": "boat_restore", "a": 3})
+    assert res["ok"] is False and "#34" in res["error"]

@@ -27,7 +27,7 @@ from pathlib import Path
 from agent.core import HOME_M, Agent
 from agent.shore import ShoreNode
 from contract.constants import SHORE
-from contract.geo import to_lonlat
+from contract.geo import to_lonlat, to_xy
 from contract.tasks import from_wire, merge
 from contract.views import Boat, Contact, ContactFlags, Event, Link, Snapshot, TaskView
 from server.alerts import AlertBook
@@ -91,6 +91,10 @@ class SimSource:
         schema = Snapshot.model_fields["schema_version"].default
         self.log = RunLog.open_new(runs_dir, seed, schema, self.t0_utc) if runs_dir else None
         self._logged_events = 0
+        self._placed = 0  # synthetic contacts placed from the console (X-01, X-02, ...)
+        self._contact_defaults = next(
+            (e for e in tape if e.get("kind") == "contact_start"), {"ais": False, "sog_kn": 0.0,
+                                                                     "class": "unknown"})
         self.world.step()  # t = 0 processed, so every view is defined from the first frame
         self._after_tick()
         self._flush()
@@ -199,6 +203,10 @@ class SimSource:
                     return {"ok": False, "error": "decision id missing"}
                 ok = self.world.shore.command(self.world.t_ms, {"cmd": cmd, "id": msg["id"]})
                 return {"ok": bool(ok)} if ok else {"ok": False, "error": "not a shore command"}
+            if cmd == "inject" and msg.get("kind") == "contact_start":
+                return self._place_contact(msg)
+            if cmd == "inject" and msg.get("kind") == "boat_restore":
+                return {"ok": False, "error": "boat_restore needs world support (issue #34)"}
             if cmd == "inject":
                 kind, a = msg.get("kind"), int(msg["a"])
                 if kind not in INJECT_KINDS:
@@ -225,6 +233,26 @@ class SimSource:
         except (KeyError, ValueError, TypeError) as e:
             return {"ok": False, "error": f"bad command: {e}"}
         return {"ok": False, "error": f"unknown cmd {cmd!r}"}
+
+    def _place_contact(self, msg: dict) -> dict:
+        """Feature 13: a synthetic contact where the judge clicked, snapped to the nearest
+        cable sample. Speed, class and AIS default to the scripted C-07's (scenarios/fixed.toml).
+        Truth only: the shore learns of it only if a boat sees it."""
+        lat, lon = float(msg["lat"]), float(msg["lon"])
+        x, y = to_xy(lat, lon)
+        samples = self.world.scene.samples
+        i = min(range(len(samples)),
+                key=lambda k: ((samples[k].point[0] - x) ** 2 + (samples[k].point[1] - y) ** 2, k))
+        s = samples[i]
+        slon, slat = to_lonlat(*s.point)
+        self._placed += 1
+        d = self._contact_defaults
+        cid = f"X-{self._placed:02d}"
+        self.world.inject({"kind": "contact_start", "id": cid, "lat": slat, "lon": slon,
+                           "ais": bool(msg.get("ais", d.get("ais", False))),
+                           "sog_kn": float(d.get("sog_kn", 0.0)), "class": str(d.get("class")),
+                           "course": 0})
+        return {"ok": True, "placed": cid, "on": s.task, "offset_m": s.offset_m}
 
     # ---- views
     def _exercise_events(self) -> list[Event]:

@@ -174,6 +174,12 @@ export function Chart({ satellite, onSatelliteState }: Props) {
       onClick: (info) => {
         const o = info.object as { id?: unknown } | undefined;
         const st = useStore.getState();
+        if (st.placing && info.coordinate) {
+          const [lon, lat] = info.coordinate as [number, number];
+          st.send({ cmd: "inject", kind: "contact_start", lat, lon, ais: st.placing.ais });
+          st.setPlacing(null);
+          return;
+        }
         if (o && typeof o.id === "number") st.select(o.id);
         else if (o && typeof o.id === "string") st.selectContact(o.id);
         else { st.select(null); st.selectContact(null); }

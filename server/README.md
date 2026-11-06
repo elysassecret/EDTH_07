@@ -58,6 +58,12 @@ decision cards, "cannot hold" at 9200 s, link back at 10 800 s. Every number in 
 input, not a sim result. Snapshots validate against `contract/views.py`
 (`tests/server/test_mock_feed.py`).
 
+Exercise injections on the real sim (`inject`): `battery_low`, `boat_off`, `link_off`/`link_on`
+(any boat, any directed link) and `contact_start` with `lat`/`lon` (and optional `ais`): a
+synthetic contact snapped to the nearest cable sample, with C-07's scripted speed and class;
+truth only, so the shore learns of it only if a boat sees it. `boat_restore` waits for world
+support (issue #34).
+
 Messages (JSON): `scene` once on connect (segment geometry, stations, `revisit_target_s` from
 `config/run.toml`), then contract snapshots at
 10 Hz, and an `ack` for every command. Commands: the contract's `confirm/stop/approve/decline`

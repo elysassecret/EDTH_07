@@ -94,8 +94,15 @@ export function InjectPanel({ onClose }: { onClose: () => void }) {
   const [both, setBoth] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
   const [result, setResult] = useState<string>("");
+  const placing = useStore((s) => s.placing);
+  const setPlacing = useStore((s) => s.setPlacing);
+  const [ais, setAis] = useState(false);
   useEffect(() => {
-    if (lastAck?.cmd === "inject") setResult(lastAck.ok ? " · accepted" : ` · rejected: ${lastAck.error ?? ""}`);
+    if (lastAck?.cmd !== "inject") return;
+    if (lastAck.ok && lastAck.placed) {
+      setSent(`Placed ${lastAck.placed} on ${lastAck.on} (snapped to the nearest cable sample)`);
+      setResult(" · truth only: the shore sees it only if a boat does");
+    } else setResult(lastAck.ok ? " · accepted" : ` · rejected: ${lastAck.error ?? ""}`);
   }, [lastAck]);
   if (!snap) return null;
   const ids = [...new Set(snap.boats.map((x) => x.id))].sort((x, y) => x - y);
@@ -143,6 +150,15 @@ export function InjectPanel({ onClose }: { onClose: () => void }) {
       <div className="row">
         <button disabled={frozen} onClick={() => link("link_off")}>Cut link</button>
         <button disabled={frozen} onClick={() => link("link_on")}>Restore link</button>
+      </div>
+      <div className="row">
+        <button disabled={frozen} className={placing ? "on" : ""} onClick={() => setPlacing(placing ? null : { ais })}>
+          {placing ? "Click on the chart… (cancel)" : "Place synthetic contact"}
+        </button>
+        <label className="check"><input type="checkbox" checked={ais} onChange={(e) => setAis(e.target.checked)} /> AIS on</label>
+      </div>
+      <div className="row">
+        <button disabled title="Needs world support: issue #34">Bring boat back (needs #34)</button>
       </div>
       <div className="muted small">
         {other === "shore" ? `One way: ${usv(boat)} → shore (shore can still reach the boat).` : both ? "Both directions." : `One way: ${usv(boat)} → ${name(other)}.`}
