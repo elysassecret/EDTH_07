@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+runs/
+data/ais-clip-box.csv
+data/warm_state*.json
+.pytest_cache/
+.hypothesis/
+*.egg-info/

@@ -1,0 +1,54 @@
+# config/default.toml -- chosen test inputs, not measured capabilities.
+# Every number the simulation uses lives here and is hashed into each run log.
+
+[scene]
+file = "data/scene-coordinates.json"   # lines clipped to the 25 x 10 km box
+scenario_lines = ["HVDC_Storebaelt_I", "MV_60kV_Sprogo_Funen", "Great_Belt_1_fibre"]
+line_letters = { HVDC_Storebaelt_I = "H", MV_60kV_Sprogo_Funen = "M", Great_Belt_1_fibre = "G" }
+shore = [55.3316, 11.1303]             # Korsor naval station (OSM way 29224838)
+relay_station = [55.405, 10.975]       # 1.1 km west of the lane centreline
+picket_n = [55.4578, 10.9081]          # on HVDC, 1.5 km west of lane
+picket_s = [55.3543, 11.0135]          # on Great Belt 1, 1.5 km west of lane
+segment_max_m = 5000
+sample_step_m = 100
+cable_near_m = 500                     # "over a cable" for the dwell rule (public lines are coarse)
+
+[boat]
+speed_mps = 2.3            # sensitivity 3.0
+endurance_s = 25200
+reserve_s = 1800
+r_verify_m = 500
+r_detect_m = { dusk = 2000, ship_day = 5000, small_day = 1500, night_unlit = 500 }
+keep_in_view_m = 2000
+standoff_m = 1852
+standoff_floor_m = 500
+ais_class_a_m = 20000
+ais_class_b_m = 8000
+dwell_s = 180              # loiter time before a dark contact is opened
+dwell_sog_kn = 1.0
+arrive_m = 60
+
+[radio]
+boat_m = 8000              # sensitivity 4000
+shore_m = 14000
+shore_ais_m = 20000
+delay_s = [0.25, 1.0]
+loss = 0.05
+max_hops = 4
+max_bytes = 6000
+
+[agent]
+sweep = true               # static mode: false (scouts hold their start points)
+repair = true              # repair-off mode: false (no seg/pick re-auction after reset)
+rebalance_ratio = 1.25
+cycle_max_s = 21600
+
+[run]
+horizon_s = 14400
+evaluate_s = 14000
+revisit_target_s = 12000   # confirm Friday
+warm_s = 10800             # headless warm-up before t = 0, identical across modes
+tick_s = 1
+seeds = [1, 2, 3, 4, 5]
+snapshot_every_s = 10
+hash_every_s = 60

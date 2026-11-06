@@ -1,0 +1,33 @@
+== Segments (clipped public approximate lines, <= 5000 m) ==
+  seg:H:0   HVDC_Storebaelt_I       3.34 km   34 samples
+  seg:H:1   HVDC_Storebaelt_I       3.34 km   34 samples
+  seg:H:2   HVDC_Storebaelt_I       3.34 km   34 samples
+  seg:M:0   MV_60kV_Sprogo_Funen    3.30 km   34 samples
+  seg:G:0   Great_Belt_1_fibre      3.43 km   35 samples
+  seg:G:1   Great_Belt_1_fibre      3.43 km   35 samples
+  seg:G:2   Great_Belt_1_fibre      3.43 km   35 samples
+  total 23.6 km, 241 samples at 100 m
+== Stations ==
+  shore (Korsor) in box=False lane offset 5.84 km | relay station  12.8 km, picket N  19.9 km, picket S   7.8 km
+  relay station  in box=True  lane offset 1.12 km | shore (Korsor)  12.8 km, picket N   7.2 km, picket S   6.1 km
+  picket N       in box=True  lane offset 1.45 km | shore (Korsor)  19.9 km, relay station   7.2 km, picket S  13.3 km
+  picket S       in box=True  lane offset 1.50 km | shore (Korsor)   7.8 km, relay station   6.1 km, picket N  13.3 km
+== Radio graph at the stations (boat 8000 m, shore 14000 m) ==
+  hops from shore: {0: 0, 1: 1, 2: 2, 3: 2, 4: 1, 5: 1} | links: [(0, 1), (0, 4), (0, 5), (1, 4), (1, 5), (2, 3), (2, 5), (3, 5), (4, 5)]
+== Return limit per boat (endurance - reserve - trip home at the farthest point of its tour) ==
+  boat 1: farthest point  14.1 km from Korsor -> return rule fires by t =  17277 s at 2.3 m/s
+  boat 2: farthest point  21.4 km from Korsor -> return rule fires by t =  14115 s at 2.3 m/s
+  boat 3: farthest point  19.9 km from Korsor -> return rule fires by t =  14768 s at 2.3 m/s
+  boat 4: farthest point   7.8 km from Korsor -> return rule fires by t =  20008 s at 2.3 m/s
+  boat 5: farthest point  12.8 km from Korsor -> return rule fires by t =  17849 s at 2.3 m/s
+== Pre-event worst age at 2.3 m/s (seed 1, t = 7199 s): 10396 s; per segment {'seg:H:0': 7191, 'seg:H:1': 1434, 'seg:H:2': 2886, 'seg:M:0': 5952, 'seg:G:0': 2621, 'seg:G:1': 1135, 'seg:G:2': 10396}
+   km overdue against 12000 s target: 0.0
+== Pre-event worst age at 3.0 m/s (seed 1, t = 7199 s): 8033 s; per segment {'seg:H:0': 3107, 'seg:H:1': 1892, 'seg:H:2': 880, 'seg:M:0': 8033, 'seg:G:0': 6207, 'seg:G:1': 5068, 'seg:G:2': 3791}
+   km overdue against 12000 s target: 0.0
+== Chart check (by eye): stations and C-07 in WGS84 ==
+  shore (Korsor) 55.33160 N 11.13030 E
+  relay station  55.40500 N 10.97500 E
+  picket N       55.45780 N 10.90810 E
+  picket S       55.35430 N 11.01350 E
+  C-07           55.45050 N 10.87060 E
+No water mask is loaded: confirm every station is water on a chart before the demo.
