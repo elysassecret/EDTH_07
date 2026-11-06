@@ -16,6 +16,8 @@ import { boxBounds, boxGeo, cableLabels, cablesGeo, laneGeo, type Label } from "
 import { GEO_FILES, depthLabels, infraLabels, loadGeo, type GeoFile, type GeoName, type LineLabel } from "./geo";
 import * as T from "./theme";
 import { commsLayers } from "./comms";
+import { evaluatorLayers } from "./evaluator";
+import type { EvalData } from "../types";
 import { segAges, type Band } from "../coverage";
 import { hmShort } from "../format";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
@@ -151,6 +153,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const selectedContact = useStore((s) => s.selectedContact);
   const showComms = useStore((s) => s.showComms);
   const hoverDecision = useStore((s) => s.hoverDecision);
+  const evalData = useStore((s) => s.evalData);
 
   useEffect(() => {
     if (!el.current) return;
@@ -230,8 +233,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   );
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText) });
-  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText]);
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData) });
+  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData]);
 
   const credits = [...new Set(GEO_FILES.map((n) => geo[n]?.credit).filter((c): c is string => !!c))];
   if (satellite) credits.push("Contains modified Copernicus Sentinel data");
@@ -255,6 +258,7 @@ function buildLayers(
   showComms: boolean,
   hoverDecision: string | null,
   geoText: LineLabel[],
+  evalData: EvalData | null,
 ): Layer[] {
   const layers: Layer[] = [];
   if (geoText.length) {
@@ -387,5 +391,6 @@ function buildLayers(
       outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   );
+  if (evalData) layers.push(...evaluatorLayers(evalData)); // evaluator view only, on top
   return layers;
 }

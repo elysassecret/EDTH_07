@@ -81,3 +81,18 @@ export type Command =
 
 export const T0_FALLBACK = "2026-11-03T10:15:00Z"; // scenarios/fixed.toml ais_t0 (UTC, unverified)
 export const t0Of = (s: { t0_utc?: string } | null) => s?.t0_utc ?? T0_FALLBACK;
+
+/** Evaluator comparison, only on /truth frames (server/evaluator.py). Never on /shore. */
+export interface EvalData {
+  t: number;
+  boats: {
+    id: number; true: LonLat; shore: LonLat | null; offset_m: number | null; shore_age_s: number | null;
+    true_link: string | null; shore_link: string | null; true_mode: string | null; shore_mode: string | null;
+  }[];
+  contacts: { id: string; track: string | null; pos: LonLat; ais: boolean | null; on_shore: boolean }[];
+  links: { a: number; b: number; true: string; shore: string }[];
+  seg_age: Record<string, { shore: number | null; true: number | null }>;
+}
+
+/** ?operator in the URL: the watch officer's screen, no evaluator or truth controls. */
+export const OPERATOR_MODE = new URLSearchParams(window.location.search).has("operator");

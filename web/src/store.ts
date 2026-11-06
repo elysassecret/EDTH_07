@@ -2,7 +2,7 @@
 // N5: if no snapshot arrives for FEED_LOST_MS, the display is marked frozen (red banner).
 // N6: the socket reconnects by itself; no page reload needed.
 import { create } from "zustand";
-import type { Ack, Command, SceneMsg, Snapshot } from "./types";
+import { OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Snapshot } from "./types";
 
 const FEED_LOST_MS = 2000;
 
@@ -24,6 +24,11 @@ interface State {
   setHoverDecision: (id: string | null) => void;
   showComms: boolean; // feature 21 overlay toggle
   toggleComms: () => void;
+  // Evaluator view: a second socket to /truth, open only while this is on. Off by default,
+  // never available in operator mode (?operator).
+  evalOn: boolean;
+  evalData: EvalData | null;
+  toggleEval: () => void;
   setChannel: (c: Channel) => void;
   send: (c: Command) => boolean;
 }
@@ -53,6 +58,14 @@ export const useStore = create<State>((set, get) => ({
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
+  evalOn: false,
+  evalData: null,
+  toggleEval: () => {
+    const on = !get().evalOn && !OPERATOR_MODE;
+    set({ evalOn: on, evalData: null });
+    if (on) connectEval();
+    else disconnectEval();
+  },
   setChannel: (c) => {
     if (c === get().channel) return;
     set({ channel: c, snap: null });
@@ -103,3 +116,32 @@ window.setInterval(() => {
     useStore.setState({ conn: "lost" });
   }
 }, 250);
+
+// ---- evaluator socket (/truth), separate from the operator's channel
+let evalWs: WebSocket | null = null;
+let evalTimer: number | undefined;
+
+function connectEval(): void {
+  window.clearTimeout(evalTimer);
+  disconnectEval();
+  const sock = new WebSocket(feedUrl("truth"));
+  evalWs = sock;
+  sock.onmessage = (ev) => {
+    const msg = JSON.parse(String(ev.data)) as { eval?: EvalData };
+    if (msg.eval && useStore.getState().evalOn) useStore.setState({ evalData: msg.eval });
+  };
+  sock.onclose = () => {
+    if (evalWs !== sock) return;
+    useStore.setState({ evalData: null });
+    if (useStore.getState().evalOn) evalTimer = window.setTimeout(connectEval, 1000);
+  };
+}
+
+function disconnectEval(): void {
+  window.clearTimeout(evalTimer);
+  if (evalWs) {
+    evalWs.onclose = null;
+    evalWs.close();
+    evalWs = null;
+  }
+}

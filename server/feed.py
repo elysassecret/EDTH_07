@@ -25,6 +25,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from server.evaluator import compare
+
 ROOT = Path(__file__).resolve().parents[1]
 WEB_DIST = ROOT / "web" / "dist"
 log = logging.getLogger("feed")
@@ -33,13 +35,15 @@ log = logging.getLogger("feed")
 class Feed:
     """Owns one source, steps it at a fixed real rate and broadcasts to clients."""
 
-    def __init__(self, factory: Callable[[int], Any], seed: int, hz: float = 10.0):
+    def __init__(self, factory: Callable[[int], Any], seed: int, hz: float = 10.0,
+                 start_paused: bool = False):
         self.factory = factory
         self.seed = seed
         self.hz = hz
         self.world = factory(seed)
         self.clients: dict = {}  # connection -> channel
-        self.paused = False
+        self.start_paused = start_paused  # demo: every (re)start waits for "Run"
+        self.paused = start_paused
         self.speed_override: int | None = None
 
     def handle_command(self, msg: dict) -> dict:
@@ -50,6 +54,7 @@ class Feed:
                 self.seed = int(msg.get("seed", self.seed))
                 getattr(self.world, "close", lambda: None)()  # e.g. finish the run log
                 self.world = self.factory(self.seed)
+                self.paused = self.paused or self.start_paused
                 return {"ok": True}
             if cmd == "pause":
                 self.paused = bool(msg.get("on", not self.paused))
@@ -92,19 +97,30 @@ class Feed:
     def _speed(self) -> int:
         return 0 if self.paused else (self.speed_override or self.world.speed())
 
-    def _frame(self, channel: str, speed: int) -> str:
+    def _snap(self, channel: str, speed: int) -> dict:
         out = self.world.snapshot(channel, speed)
         # console extras (feature 25): who sets the warp, and whether auto-warp is slowed
         out["warp_mode"] = ("paused" if self.paused else
                             "manual" if self.speed_override else "auto")
         out["near_event"] = out["warp_mode"] == "auto" and bool(self.world.near_event())
-        return json.dumps(out)
+        return out
+
+    def _frames(self, speed: int) -> dict[str, dict]:
+        """Both channels. Only /truth carries "eval" (shore belief next to truth): the
+        operator's /shore picture never does."""
+        shore = self._snap("shore", speed)
+        truth = self._snap("truth", speed)
+        truth["eval"] = compare(shore, truth)
+        return {"shore": shore, "truth": truth}
+
+    def _frame(self, channel: str, speed: int) -> str:
+        return json.dumps(self._frames(speed)[channel])
 
     def tick(self) -> dict[str, str]:
         """One frame: advance the source and render both channels (no I/O, testable)."""
         speed = self._speed()
         self.world.step(int(speed * 1000 / self.hz))
-        return {ch: self._frame(ch, speed) for ch in ("shore", "truth")}
+        return {ch: json.dumps(snap) for ch, snap in self._frames(speed).items()}
 
     async def run(self) -> None:
         period = 1.0 / self.hz
@@ -140,10 +156,11 @@ def _static(connection, request):
 
 
 async def serve(factory: Callable[[int], Any], host: str, port: int, seed: int, hz: float = 10.0,
-                ready=None, serve_web: bool = False, name: str = "feed") -> None:
+                ready=None, serve_web: bool = False, name: str = "feed",
+                start_paused: bool = False) -> None:
     from websockets.asyncio.server import serve as ws_serve
 
-    feed = Feed(factory, seed, hz)
+    feed = Feed(factory, seed, hz, start_paused)
     extra = {"process_request": _static} if serve_web else {}
     async with ws_serve(feed.handler, host, port, **extra) as server:
         bound = server.sockets[0].getsockname()[1]
