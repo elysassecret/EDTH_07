@@ -34,8 +34,11 @@ export function commsLayers(snap: Snapshot, shore: LonLat | null, frozen: boolea
   const broken = segs.filter((s) => s.link.state !== "up");
 
   // each boat's next hop toward shore (via), drawn brighter on top of the plain links
+  // A peer-linked boat never routes straight to shore (via 0): the shore's path guess can
+  // treat a one-way link as two-way, so that line would contradict the cut it sits on.
   const routes = snap.boats
     .filter((b: Boat) => b.link !== "none" && b.via !== null && b.via !== undefined && pos.has(b.via))
+    .filter((b: Boat) => (b.link === "direct") === (b.via === 0))
     .map((b) => ({ from: [b.lon, b.lat] as LonLat, to: pos.get(b.via as number)! }));
 
   const mid = (s: Seg): LonLat => [(s.from[0] + s.to[0]) / 2, (s.from[1] + s.to[1]) / 2];

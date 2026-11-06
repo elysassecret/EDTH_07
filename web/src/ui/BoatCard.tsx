@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { ContactList } from "./ContactList";
 import { DecisionPanel } from "./DecisionPanel";
 import { deg, dur, hm, hhmm } from "../format";
+import { roleText } from "../roles";
 import { t0Of, type Boat, type Snapshot } from "../types";
 
 const LIVE_S = 5; // reports younger than this read "LIVE"
@@ -15,6 +16,7 @@ const MODE_WORD: Record<string, string> = {
 
 function linkText(b: Boat): string {
   if (b.link === "direct") return "Direct to shore";
+  // via 0 on a peer link means the shore could not work out the path: say only "Via peer"
   if (b.link === "peer") return b.via ? `Via USV ${String(b.via).padStart(2, "0")}` : "Via peer";
   return "NO LINK";
 }
@@ -43,7 +45,7 @@ export function BoatCard({ b, snap, staleAfter }: { b: Boat; snap: Snapshot; sta
           {frozen ? "FROZEN" : neverHeard ? "NEVER HEARD" : age <= LIVE_S ? "LIVE" : `LAST SEEN ${dur(age)} AGO`}
         </span>
       </div>
-      <div className="role">{b.role_text ?? (b.roles.join(", ") || "No task")}</div>
+      <div className="role">{roleText(b)}</div>
       <dl>
         <dt>Battery</dt>
         <dd>

@@ -108,3 +108,30 @@ def test_websocket_serves_sim():
             task.cancel()
 
     asyncio.run(go())
+
+
+def _shore_links(s: SimSource) -> dict[tuple[int, int], str]:
+    return {(lk["a"], lk["b"]): lk["state"] for lk in s.snapshot("shore")["links"]}
+
+
+def test_shore_link_down_only_if_once_direct_and_exercise_cut_is_crossed():
+    s = SimSource(1)
+    run_to(s, 7_400)
+    links = _shore_links(s)
+    never_direct = [b for b in s.world.mission.boats if b not in s.world.shore.direct]
+    assert never_direct, "seed 1 has boats that only ever talk through a peer"
+    assert not any((0, b) in links for b in never_direct)
+    assert links[(0, 4)] == "cut"  # scripted link_off 4 -> shore at 7320 s
+    run_to(s, 11_000)  # scripted link_on at 10 800 s
+    assert _shore_links(s).get((0, 4)) != "cut"
+
+
+def test_injected_boat_link_cut_is_crossed():
+    s = SimSource(1)
+    run_to(s, 60)
+    assert s.command({"cmd": "inject", "kind": "link_off", "a": 3, "b": 2})["ok"]
+    s.step(2_000)
+    assert _shore_links(s)[(2, 3)] == "cut"
+    assert s.command({"cmd": "inject", "kind": "link_on", "a": 3, "b": 2})["ok"]
+    s.step(2_000)
+    assert _shore_links(s).get((2, 3)) != "cut"
