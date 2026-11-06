@@ -1,0 +1,8 @@
+file = "data/scene-coordinates.json"
+scenario_lines = ["HVDC_Storebaelt_I", "MV_60kV_Sprogo_Funen", "Great_Belt_1_fibre"]
+shore = [55.3316, 11.1303]      # Korsor
+relay_station = [55.405, 10.975]
+picket_n = [55.4578, 10.9081]
+picket_s = [55.3543, 11.0135]
+segment_max_m = 5000
+sample_step_m = 100

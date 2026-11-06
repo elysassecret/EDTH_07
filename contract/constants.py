@@ -1,0 +1,18 @@
+"""Timing constants in sim milliseconds. Source: Challenge07BuildPlan.md. Owner: A."""
+HEARTBEAT = 5_000
+PEER_STALE = 20_000
+LEASE = 60_000
+SLOT = 12_000
+DEPUTY_GRACE = 10_000
+REBALANCE = 300_000
+SHORE_SILENCE = 30_000
+CONTACT_STALE = 60_000
+SHADOW_CAP = 1_800_000
+CUE_TTL = 180_000
+CYCLE_MAX = 21_600_000  # 6 h
+
+RELEASED, CLAIMED, VETOED = 0, 1, 2
+
+# Boat modes (energy modes from Challenge07FeaturePriorities.md section 2)
+PATROL, ECO, SENTINEL, DORMANT, SHADOWING, RETURNING, UNAVAILABLE = (
+    "PATROL", "ECO", "SENTINEL", "DORMANT", "SHADOWING", "RETURNING", "UNAVAILABLE")

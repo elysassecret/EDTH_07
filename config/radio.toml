@@ -1,0 +1,5 @@
+boat_m = 8000              # sensitivity 4000
+shore_m = 14000
+delay_s = [0.25, 1.0]
+loss = 0.05
+max_hops = 4
