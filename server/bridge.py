@@ -24,7 +24,7 @@ import tomllib
 from collections import deque
 from pathlib import Path
 
-from agent.core import Agent
+from agent.core import HOME_M, Agent
 from agent.shore import ShoreNode
 from contract.constants import SHORE
 from contract.geo import to_lonlat
@@ -172,6 +172,7 @@ class SimSource:
             "stale_after_s": self.ui["stale_after_s"],
             "horizon_s": self.horizon_ms // 1000,
             "revisit_target_s": self.revisit_target_s,
+            "home_m": HOME_M,  # agent's "at the shore station" radius: docked boats sit inside it
         }
 
     def snapshot(self, channel: str = "shore", speed: int | None = None) -> dict:

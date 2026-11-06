@@ -51,7 +51,8 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 | Radio link up | thin blue line between two boats, or boat and Korsør |
 | Route to shore | thicker bright blue line from each boat to its next hop (`via`) |
 | Decision route | dashed white line to where an open decision would send the boat; brighter while the mouse is on its card |
-| Link cut | red dashed line, red ✕ and "LINK CUT" (grey dashed = link down) |
+| Link cut | red dashed line, red ✕ and both ends named, e.g. "USV 01–USV 04 CUT" or "USV 04–shore CUT" (grey dashed = link down) |
+| Docked USV | hollow ring and "NN DOCKED" next to Korsør (UNAVAILABLE inside the agents' home radius); card chip DOCKED |
 | Cables | magenta (power) / violet (data); scenario cables thicker |
 | Shipping lane | grey dashed (measured from one day of AIS) |
 | Box | white dotted |
