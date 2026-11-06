@@ -17,6 +17,14 @@
 - World owns physical motion, sensor visibility, battery/current and radio delivery.
 - Edit only B's folders, tests/world and config/{scene,boat,radio,energy}.toml.
 
+## Current follow-ups
+
+- #34: `boat_restore` implemented on b/boat-restore, preserving position, battery and agent
+  identity; both `a`/`boat` aliases, exercise logs and resumed heartbeats tested. Full suite:
+  195 passing on the current base. C still needs to enable the bridge/UI kind after merge.
+- #28: next, deterministic seeded cable starting positions, identical across comparison
+  modes. Historical visit ages must not be fabricated; coordinate validation with D's #27.
+
 ## Ordered delivery
 
 1. Implemented — routes: `load_scene(root)` returns immutable Scene with Mission, boundary and samples;

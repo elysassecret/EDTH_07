@@ -138,7 +138,10 @@ class World:
             raise ValueError("injection time must be an unprocessed tick boundary")
         self.event_seq += 1
         queued = {**deepcopy(event), "origin": "injected", "exercise": True}
-        if queued.get("kind") in ("battery_low", "boat_off") and "boat" not in queued:
+        if (
+            queued.get("kind") in ("battery_low", "boat_off", "boat_restore")
+            and "boat" not in queued
+        ):
             queued["boat"] = queued["a"]
         self.pending.append((when, self.event_seq, queued))
         self.pending.sort(key=lambda item: (item[0], item[1]))
@@ -169,8 +172,8 @@ class World:
             )
             # Same measured-current rule as the agent; this remains a chosen injection.
             boat.charge_ms = min(boat.charge_ms, threshold)
-        elif kind == "boat_off":
-            self.boats[event.get("boat", event.get("a"))].enabled = False
+        elif kind in ("boat_off", "boat_restore"):
+            self.boats[event.get("boat", event.get("a"))].enabled = kind == "boat_restore"
         elif kind in ("link_off", "link_on"):
             dst = 0 if event["b"] == "shore" else int(event["b"])
             self.radio.link(int(event["a"]), dst, kind == "link_on")
@@ -205,6 +208,7 @@ class World:
                     in (
                         "battery_low",
                         "boat_off",
+                        "boat_restore",
                         "link_off",
                         "link_on",
                         "contact_start",
