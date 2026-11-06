@@ -46,25 +46,35 @@ export function ExerciseBanner() {
   );
 }
 
+type Row = { t: number; text: string; exercise?: boolean; key: string };
+
+/** Story = narrator lines (server/narrator.py, from /shore frames only); Log = raw events. */
 export function EventLog() {
   const snap = useStore((s) => s.snap);
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"story" | "log">("story");
   if (!snap) return null;
   const t0 = t0Of(snap);
-  const events = [...snap.events].reverse();
-  const shown = open ? events : events.slice(0, 1);
+  const story: Row[] = [...(snap.narration ?? [])].reverse().map((n, i) => ({ ...n, key: `n${n.t}-${i}` }));
+  const log: Row[] = [...snap.events].reverse().map((e, i) => ({
+    t: e.t, text: e.text.replace(/^EXERCISE: /, ""), exercise: e.exercise, key: `e${e.t}-${e.kind}-${i}`,
+  }));
+  const rows = tab === "story" ? story : log;
+  const shown = open ? rows : rows.slice(0, tab === "story" ? 2 : 1);
   return (
     <div className={`eventlog ${open ? "open" : ""}`}>
-      <button className="more" onClick={() => setOpen((v) => !v)}>
-        {open ? "Hide event log" : `Event log · ${events.length}`}
-      </button>
-      {events.length === 0 && <div className="muted">No events yet.</div>}
+      <div className="tabs">
+        <button className={tab === "story" ? "on" : ""} onClick={() => setTab("story")}>What changed · {story.length}</button>
+        <button className={tab === "log" ? "on" : ""} onClick={() => setTab("log")}>Event log · {log.length}</button>
+        <button className="more" onClick={() => setOpen((v) => !v)}>{open ? "Less" : "More"}</button>
+      </div>
+      {rows.length === 0 && <div className="muted">{tab === "story" ? "Nothing has changed yet." : "No events yet."}</div>}
       <ol>
-        {shown.map((e, i) => (
-          <li key={`${e.t}-${e.kind}-${i}`} className={e.exercise ? "ex" : ""}>
-            <span className="at">{utc(t0, e.t)}</span>
-            {e.exercise && <span className="chip ex">EXERCISE</span>}
-            <span>{e.text.replace(/^EXERCISE: /, "")}</span>
+        {shown.map((r) => (
+          <li key={r.key} className={r.exercise ? "ex" : ""}>
+            <span className="at">{utc(t0, r.t)}</span>
+            {r.exercise && <span className="chip ex">EXERCISE</span>}
+            <span>{r.text}</span>
           </li>
         ))}
       </ol>
