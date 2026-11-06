@@ -1,0 +1,11 @@
+# Challenge 02: triage for vessel activity near subsea cables (secondary for us)
+
+Design and prototype a triage layer for vessel activity near subsea cables. Starting with simple anchor-drag indicators (slowing, dwelling, heading changes, and track geometry over a cable), score and rank vessel-days so that genuine threats appear near the top of an operator's review queue. Each alert should show the evidence behind its score. The solution should catch documented cable-cut events while substantially reducing the number of alerts operators need to review each day. Teams will be judged on how highly they rank held-out events and the daily alert volume at the chosen threshold. Explainability will be a tiebreaker.
+
+## Context
+A rule-based detector alerted before 2 of 6 documented Baltic cable cuts. During the replay period, it also flagged roughly 1 in 25 vessel-days near cables, about 170 alerts per day. Those alerts were not systematically reviewed, so the false-alarm rate is unknown. Teams can use historical Baltic AIS data from the Danish Maritime Authority and public cable and pipeline routes from EMODnet. The dates and vessels associated with documented cuts will be held out for evaluation. Teams may build on the existing drag indicators and add features that help distinguish concerning behavior from routine vessel activity. A useful submission includes a ranked list of vessel-days, an explanation for each high-ranking alert, and an estimate of how much daily review volume its chosen threshold would create.
+
+## Operational scenario
+A fictitious Baltic maritime monitoring team watches vessel traffic near critical subsea cables. Its existing detector produces around 170 alerts a day, far more than analysts can examine promptly. At the start of each shift, an analyst opens a ranked queue. For each vessel-day, the system shows the relevant track segment, its position relative to a cable, the behaviors that raised the score, and a short explanation. The analyst reviews the highest-ranking cases first and decides which warrant further investigation.
+
+**Our plan:** build "02-lite" inside the 07 product only after features 1–25 work. See [../FEATURE_PRIORITIES.md](../FEATURE_PRIORITIES.md) section 4.

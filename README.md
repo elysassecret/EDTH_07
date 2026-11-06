@@ -3,7 +3,7 @@ Swarm Coordination for Collaborative Missions | Challenge 7 · EDTH Copenhagen 2
 
 A swarm brain for five patrol USVs over Great Belt cables, plus the shore operator's console.
 
-**Start here: [docs/PLAN.md](docs/PLAN.md)** for roles, what to do right now, and the branch rules.
+**Start here: [docs/PLAN.md](docs/PLAN.md)** for roles, what to do right now, and the branch rules. Everything else to read: [docs/README.md](docs/README.md).
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate

@@ -1,0 +1,370 @@
+{
+ "date_of_ais": "2026-11-03",
+ "box": {
+  "name": "Great_Belt_bridge_to_HVDC",
+  "center": {
+   "lat": 55.405,
+   "lon": 10.965
+  },
+  "long_axis_bearing_deg": 165,
+  "length_km": 25,
+  "width_km": 10,
+  "local_frame": "u km along long axis (+SSE), v km across (+WSW), origin at box centre; projection equirectangular about lat 55.40 lon 11.00, kx=63.212 ky=111.190 km/deg",
+  "corners_wgs84": {
+   "NE": {
+    "lat": 55.52523,
+    "lon": 10.99022
+   },
+   "NW": {
+    "lat": 55.50195,
+    "lon": 10.83742
+   },
+   "SW": {
+    "lat": 55.28477,
+    "lon": 10.93978
+   },
+   "SE": {
+    "lat": 55.30805,
+    "lon": 11.09258
+   }
+  }
+ },
+ "cables": {
+  "HVDC_Storebaelt_I": {
+   "kind": "power",
+   "voltage_kv": 400,
+   "source": "OSM way 207775098",
+   "accuracy": "approximate; few-vertex public line, not a surveyed route",
+   "lat_lon": [
+    [
+     55.41806,
+     10.70822
+    ],
+    [
+     55.42086,
+     10.7187
+    ],
+    [
+     55.49007,
+     11.0763
+    ],
+    [
+     55.49518,
+     11.17435
+    ],
+    [
+     55.49527,
+     11.17643
+    ]
+   ],
+   "length_total_km": 31.0,
+   "length_in_box_km": 10.0
+  },
+  "MV_60kV_Sprogo_Funen": {
+   "kind": "power",
+   "voltage_kv": 60,
+   "source": "OSM way 991202806",
+   "accuracy": "approximate; few-vertex public line, not a surveyed route",
+   "lat_lon": [
+    [
+     55.32901,
+     10.96396
+    ],
+    [
+     55.3285,
+     10.96373
+    ],
+    [
+     55.32173,
+     10.96095
+    ],
+    [
+     55.29434,
+     10.88527
+    ],
+    [
+     55.29304,
+     10.85484
+    ]
+   ],
+   "length_total_km": 8.4,
+   "length_in_box_km": 3.3
+  },
+  "Great_Belt_1_fibre": {
+   "kind": "data",
+   "voltage_kv": null,
+   "source": "OSM way 1355358824",
+   "accuracy": "approximate; few-vertex public line, not a surveyed route",
+   "lat_lon": [
+    [
+     55.32495,
+     10.81591
+    ],
+    [
+     55.33775,
+     10.8773
+    ],
+    [
+     55.35249,
+     10.92027
+    ],
+    [
+     55.35559,
+     11.08874
+    ]
+   ],
+   "length_total_km": 18.0,
+   "length_in_box_km": 10.3
+  },
+  "Great_Belt_2_fibre": {
+   "kind": "data",
+   "voltage_kv": null,
+   "source": "OSM way 1355358827",
+   "accuracy": "approximate; few-vertex public line, not a surveyed route",
+   "lat_lon": [
+    [
+     55.40016,
+     10.75043
+    ],
+    [
+     55.45744,
+     10.89503
+    ],
+    [
+     55.48218,
+     10.9305
+    ],
+    [
+     55.64957,
+     11.03691
+    ]
+   ],
+   "length_total_km": 34.5,
+   "length_in_box_km": 10.4
+  },
+  "GC3_fibre_schematic": {
+   "kind": "data",
+   "voltage_kv": null,
+   "source": "TeleGeography cable-geo (schematic)",
+   "accuracy": "approximate; few-vertex public line, not a surveyed route",
+   "lat_lon": [
+    [
+     55.32605,
+     11.14939
+    ],
+    [
+     55.33458,
+     11.02507
+    ],
+    [
+     55.32442,
+     10.79958
+    ]
+   ],
+   "length_total_km": 22.2,
+   "length_in_box_km": 10.4
+  }
+ },
+ "lane_measured_from_ais": {
+  "method": "median across-box offset of cargo and tanker vessels moving over 4 kn, 2.5 km bins, 2026-11-03 (one day)",
+  "centreline": [
+   {
+    "u_km": -15.0,
+    "v_median_km": 2.705,
+    "v_p5_km": 2.245,
+    "v_p95_km": 3.547,
+    "width_p5_p95_km": 1.302,
+    "n_vessels": 60,
+    "lat": 55.52901,
+    "lon": 10.86225
+   },
+   {
+    "u_km": -12.5,
+    "v_median_km": 2.24,
+    "v_p5_km": 1.796,
+    "v_p95_km": 3.149,
+    "width_p5_p95_km": 1.352,
+    "n_vessels": 60,
+    "lat": 55.50838,
+    "lon": 10.87959
+   },
+   {
+    "u_km": -10.0,
+    "v_median_km": 1.523,
+    "v_p5_km": 1.071,
+    "v_p95_km": 2.374,
+    "width_p5_p95_km": 1.302,
+    "n_vessels": 60,
+    "lat": 55.48833,
+    "lon": 10.90078
+   },
+   {
+    "u_km": -7.5,
+    "v_median_km": 0.721,
+    "v_p5_km": 0.209,
+    "v_p95_km": 1.596,
+    "width_p5_p95_km": 1.387,
+    "n_vessels": 59,
+    "lat": 55.46848,
+    "lon": 10.92327
+   },
+   {
+    "u_km": -5.0,
+    "v_median_km": -0.091,
+    "v_p5_km": -0.685,
+    "v_p95_km": 0.751,
+    "width_p5_p95_km": 1.436,
+    "n_vessels": 59,
+    "lat": 55.44865,
+    "lon": 10.94592
+   },
+   {
+    "u_km": -2.5,
+    "v_median_km": -0.924,
+    "v_p5_km": -1.498,
+    "v_p95_km": -0.086,
+    "width_p5_p95_km": 1.412,
+    "n_vessels": 59,
+    "lat": 55.42887,
+    "lon": 10.96888
+   },
+   {
+    "u_km": 0.0,
+    "v_median_km": -1.732,
+    "v_p5_km": -2.23,
+    "v_p95_km": -0.963,
+    "width_p5_p95_km": 1.267,
+    "n_vessels": 58,
+    "lat": 55.40903,
+    "lon": 10.99146
+   },
+   {
+    "u_km": 2.5,
+    "v_median_km": -2.587,
+    "v_p5_km": -3.051,
+    "v_p95_km": -1.843,
+    "width_p5_p95_km": 1.208,
+    "n_vessels": 59,
+    "lat": 55.3893,
+    "lon": 11.01476
+   },
+   {
+    "u_km": 5.0,
+    "v_median_km": -3.353,
+    "v_p5_km": -3.588,
+    "v_p95_km": -2.545,
+    "width_p5_p95_km": 1.043,
+    "n_vessels": 59,
+    "lat": 55.36937,
+    "lon": 11.03671
+   },
+   {
+    "u_km": 7.5,
+    "v_median_km": -2.732,
+    "v_p5_km": -3.003,
+    "v_p95_km": -2.158,
+    "width_p5_p95_km": 0.845,
+    "n_vessels": 60,
+    "lat": 55.34621,
+    "lon": 11.03746
+   },
+   {
+    "u_km": 10.0,
+    "v_median_km": -2.111,
+    "v_p5_km": -2.448,
+    "v_p95_km": -1.534,
+    "width_p5_p95_km": 0.914,
+    "n_vessels": 60,
+    "lat": 55.32304,
+    "lon": 11.03821
+   },
+   {
+    "u_km": 12.5,
+    "v_median_km": -2.091,
+    "v_p5_km": -3.351,
+    "v_p95_km": -1.433,
+    "width_p5_p95_km": 1.919,
+    "n_vessels": 61,
+    "lat": 55.30128,
+    "lon": 11.04812
+   },
+   {
+    "u_km": 15.0,
+    "v_median_km": -2.468,
+    "v_p5_km": -6.842,
+    "v_p95_km": -1.878,
+    "width_p5_p95_km": 4.963,
+    "n_vessels": 61,
+    "lat": 55.28044,
+    "lon": 11.06413
+   }
+  ],
+  "length_in_box_km": 26.0
+ },
+ "shore_sites": {
+  "Flaadestation_Korsoer_naval_base": {
+   "lat": 55.331567,
+   "lon": 11.13032,
+   "u_km": 10.59,
+   "v_km": -7.98,
+   "inside_box": false,
+   "max_dist_to_box_km": 26.5,
+   "share_of_box_within_8km": 0.149
+  },
+  "Sprogoe_island_approx": {
+   "lat": 55.335,
+   "lon": 10.968,
+   "u_km": 7.57,
+   "v_km": 1.83,
+   "inside_box": true,
+   "max_dist_to_box_km": 21.2,
+   "share_of_box_within_8km": 0.476
+  },
+  "Slipshavn_naval_barracks": {
+   "lat": 55.286117,
+   "lon": 10.825736,
+   "u_km": 10.49,
+   "v_km": 11.92,
+   "inside_box": false,
+   "max_dist_to_box_km": 28.5,
+   "share_of_box_within_8km": 0.026
+  }
+ },
+ "context": {
+  "emodnet_unnamed_active_pipeline_corridor": "EMODnet pipelines layer, status Active, source note Doc, no name or medium; drawn as a closed outline about 55.39-55.44 N across the Belt; treat as unverified context"
+ },
+ "licences": {
+  "OSM": "ODbL, attribute OpenStreetMap contributors; share-alike applies if a derived database is distributed",
+  "TeleGeography": "reuse terms not verified; used only as a cross-check",
+  "AIS": "Danish Maritime Authority; must not be combined to identify persons"
+ },
+ "lane_cable_points_lat_lon": {
+  "HVDC_Storebaelt_I": [
+   55.46213,
+   10.93052
+  ],
+  "Great_Belt_1_fibre": [
+   55.35473,
+   11.03718
+  ]
+ },
+ "route_lengths_km": {
+  "plan_schematic": 83,
+  "lane_plus_three_scenario_cables": 49.6,
+  "lane_plus_all_five_lines": 70.4
+ },
+ "cue_filter_recommended": {
+  "rule": "SOG under 3 kn or predicted crossing over 1.0 km from lane centreline, on any cable",
+  "crossings_per_day_all_lines": 33,
+  "crossings_per_day_three_scenario_cables": 9,
+  "note": "measured on one day, 2026-11-03"
+ },
+ "clip": {
+  "file": "ais-clip-box.csv",
+  "date": "2026-11-03",
+  "rows": 61408,
+  "vessels": 85,
+  "time_zone": "not stated by source; treat as UTC, unverified",
+  "thinning": "none; duplicates removed"
+ }
+}
