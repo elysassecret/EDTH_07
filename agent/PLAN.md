@@ -17,7 +17,7 @@ This file is the single brief for `agent/`, `contract/`, `tests/agent/`, `tests/
    ```
 4. **Folders you may edit:** `agent/`, `contract/`, `tests/agent/`, `tests/contract/`, `config/agent.toml`. Nothing else. If something outside is needed, write it down for Javier.
 5. **`contract/` freezes Fri 21:00.** After that, any change to `contract/` needs a PR approved by A, B and C. Phase 0 must therefore be complete and reviewed before 21:00.
-6. **Stop and ask Javier** when you meet any item marked **DECIDE** that is still open, or when B's `world/` or C's `server/` does something this plan does not describe. Do not guess an interface with another owner.
+6. The interface decisions in section 5.7 are settled; follow them. **Stop and ask Javier** only when B's `world/` or C's `server/` does something this plan does not describe, or contradicts a row in 5.7. Do not guess an interface with another owner.
 7. Hard rules (from `CLAUDE.md`, enforced by tests):
    - `agent/` imports only `contract/` and the standard library (`numpy` is allowed but not needed). Never `world/`, `eval/`, `server/`, `ais/`.
    - No `time.time()`, no `datetime.now()`, no module `random`, no `hash()` of strings, no iteration over a `set` without `sorted()`. Time is the integer argument `t` in sim milliseconds.
@@ -115,7 +115,7 @@ The pseudocode only releases `pick` on a `seg` win. A boat that wins `relay` kee
 - Stagger periodic sends by boat ID (`(t + me * 1_000) // HEARTBEAT`) so five heartbeats do not all land in the same tick.
 - Contact "free" rule: the docs say "not the last cable owner", which is ambiguous. Use **"not the last sweeper"**: I own a `seg` and no other live boat owns any `seg`. Taking one sweeper off a single cable is fine, because its segments are released and re-auctioned (F6).
 
-### F8. Who forwards radio messages is undecided (DECIDE with B before 21:00)
+### F8. Who forwards radio messages was undefined (decided: D-1 in 5.7)
 `docs/PLAN.md` gives B "peer hops, store-and-forward, dedupe by msg_id" (step 19), while the agent pseudocode calls `forward(new)`. If both forward, traffic doubles and hop counts lie; if neither does, the relay boat does nothing.
 **Recommendation:** `world/radio.py` (B) is the physical layer only: one broadcast reaches every node in range, with delay, loss and link-off. **Forwarding, dedupe, hop limit, expiry and retry live in `agent/net.py` (A)**, because on a real boat the boat computer routes, not the radio, and it keeps any global routing table out of the sim (no hidden coordinator). B's step 19 shrinks by about 2 h; A's grows by about 2 h. Fallback if B disagrees: B forwards, and `agent/net.py` keeps only encode/decode, dedupe and expiry.
 
@@ -240,26 +240,40 @@ class Action:
     target: tuple[int, int] | None       # None = motors off, drift
     speed_mm_s: int
 
-def load_params(root: str = ".") -> Params   # tomllib over config/boat.toml, energy.toml, agent.toml, run.toml
+def load_params(root: str = ".") -> Params   # tomllib over config/boat.toml, energy.toml, agent.toml, run.toml,
+                                             # plus the first failure event time in scenarios/fixed.toml (D-8)
+```
+`config/agent.toml` after Phase 0 (seconds and knots-free units in the file, converted to ms and mm/s by `load_params`):
+```toml
+policy = "elysa"            # elysa | off | static  (the one key that differs between baseline modes)
+rebalance_ratio = 1.25
+seg_lease_s = 3600          # F4: lease for seg and pick; relay and contact use LEASE (60 s)
+role_penalty_s = 12000      # F3: picket bidding on a cable, or sweeper bidding on a contact
+loiter_sog_mm_s = 515       # about 1 kn; slower no-AIS tracks near a cable start the dwell clock
 ```
 B builds `Mission` in `world/routes.py` from the scene (B owns geometry and segmenting). The agent receives it at construction.
 
 ### 5.6 `contract/views.py` (edit, with C at 20:30)
 Pydantic v2 models for the snapshot and commands, plus `contract/export.py` so `uv run python -m contract.export` writes `contract/schema.json` (C generates TypeScript from it). Start from the docstring already in `views.py`; add `lon, lat` beside `x, y` on boats and contacts (MapLibre needs them). Fields A needs C to accept: boat `mode`, `link` (`direct` | `peer` | `none`), `last_heard`, `tour`, `roles`; contact `watcher`, `flags`, `first_seen`, `last_seen`, `seen_by`; decision `id, task, dec, state` (`pending`, `approved`, `declined`, `delivered`, `expired`). Bump `SCHEMA_VERSION` to 1 at freeze.
 
-### 5.7 Open decisions for Javier to settle at the 19:15 contract session
+### 5.7 Interface decisions (taken by A, Fri 6 Nov)
 
-| # | Decide with | Question | Recommendation |
-|---|---|---|---|
-| D-1 | B | Who forwards (F8) | Agent forwards; world is physical layer only |
-| D-2 | B | Who decides "return home" | Agent decides from `Own.batt` and `Own.cur_*`; world only drains battery and applies the `battery_low` event |
-| D-3 | B | Detections carry the sim track ID | Yes; disclose "correlation is assumed" |
-| D-4 | B | Units and frame | int metres in `contract/geo.py` frame; int ms; battery permille |
-| D-5 | B | Who builds `Mission` | B in `world/routes.py` |
-| D-6 | B, D | World calling convention | Each tick: world steps boats in ID order, then the shore node; each gets the bytes delivered this tick; each returned byte string is broadcast once from that node at `t` |
-| D-7 | C | Shore protocol code | A ships `agent/shore.py` (`ShoreNode`); C's server wraps it, so C never re-implements encoding, dedupe or retries |
-| D-8 | D | Baseline switch | One key, `policy` in `config/agent.toml`: `elysa`, `off`, `static` (section 7.11) |
-| D-9 | A, B, C | F1, F2 contract fixes, CMD kind, reserved HB `head` | Accept before freeze |
+A took these so Phase 0 can start without waiting. They are A's position for the 19:15 contract session: B, C or D may object **before the 21:00 freeze**, and only then. If someone objects, Javier rewrites the row and Sonnet follows the new row. Sonnet treats every row below as settled.
+
+| # | With | Decision | Why | If they object |
+|---|---|---|---|---|
+| D-1 | B | **The agent forwards.** `world/radio.py` is the physical layer only: one broadcast reaches every node in range after a delay, or is lost, or is blocked by link-off. Flooding, dedupe by `msg_id`, the 4-hop limit, expiry and retries live in `agent/net.py` | On a real boat the computer routes, not the radio; keeps any global routing table out of the sim (no hidden coordinator); makes the relay role real. B's step 19 shrinks by about 2 h | B forwards; `agent/net.py` keeps only encode/decode, dedupe and expiry, and never re-broadcasts |
+| D-2 | B | **The agent decides "return home"** (7.6) from `Own.batt` and `Own.cur_x/cur_y`. The world only drains the battery by mode and applies `battery_low` by setting the charge low enough for the rule to fire | Returning is an automatic-safety action of the boat; the brain must own it to release its tasks at once | B's world sends a `return` flag in `Own`; the agent obeys it and releases tasks the same way |
+| D-3 | B | **Detections carry the sim's track ID** (`"C-07"`) | Correlating camera tracks across boats is out of scope this weekend; disclose "track correlation assumed" | None needed |
+| D-4 | B, C | **Units:** int metres in the `contract/geo.py` frame (x east, y north, origin 55.40 N 11.00 E); int ms; battery permille; speeds mm/s; courses whole degrees. `lon, lat` floats only in the snapshot, for the map | One frame and integer maths for determinism across OSs (N2) | None needed |
+| D-5 | B | **B builds `Mission`** in `world/routes.py` from the scene, using `contract/mission.py`. Until it exists, A's harness uses the scene-like mission in 8.1 | B owns geometry and segmenting; agent must not import `world/` | None needed |
+| D-6 | B, D | **Tick order** (1 s ticks, `t` in ms): 1 apply scripted events at `t`; 2 move boats using the actions from the previous tick; 3 deliver radio messages due at or before `t`; 4 step boats in ID order, then the shore node, each with only its own sensors and its delivered bytes; 5 broadcast every returned byte string from that node with send time `t` (so nothing arrives before `t + 250 ms`, in practice the next tick); 6 evaluator and snapshot | Matches the core loop in the technical notes; deterministic; no message reaches anyone in the tick it was sent | Any order works if it is fixed and written down; A adapts `harness.py` to match |
+| D-7 | C | **A ships `agent/shore.py` (`ShoreNode`).** C's server steps it like a boat, forwards operator commands with `ShoreNode.command()`, and builds the `/shore` snapshot from `ShoreNode.picture()` | C never re-implements encoding, dedupe, retries or merge; one protocol implementation | C sends VETO and CMD envelopes with `contract/messages.py` directly; `ShoreNode` keeps only `picture()` |
+| D-8 | D | **One key, `policy`** in `config/agent.toml`: `elysa`, `off`, `static` (7.11). `repair_off_after_ms` is the time of the first failure event (`battery_low`, `link_off` or `boat_off`) in `scenarios/fixed.toml`, read by `load_params`, identical across modes | F4 says the config diff between modes is exactly one key | D picks another key name; behaviour unchanged |
+| D-9 | B, C | **Contract changes accepted now:** F1 merge key, F2 absorbing VETOED, the `CMD` kind, the optional HB `head` field reserved for C's evidence chain, `contract/geo.py`, `contract/mission.py` | Cheaper to fix before the freeze than after it | Any one may be dropped except F1, which a test (D5) requires |
+
+Short version for the team chat (paste as is):
+> A here. Contract proposals for the 19:15 session, details in agent/PLAN.md section 5.7 (PR #3). 1) Boats do the forwarding, the radio sim is physical only (B: your store-and-forward step gets ~2 h shorter). 2) The boat decides when to go home; the world just drains the battery. 3) Sim track IDs stand in for correlation. 4) Int metres, int ms, permille, one projection in contract/geo.py. 5) B builds Mission in world/routes.py. 6) Tick order: events, move, deliver, boats in ID order then shore, broadcast. 7) C: use ShoreNode for the shore side. 8) D: baseline switch is one key, `policy`. 9) Merge key and Stop fixes go in before the freeze. Object before 21:00 or these stand.
 
 ---
 
@@ -515,7 +529,7 @@ Times are the team schedule from `docs/PLAN.md`; hours are judgement estimates.
 
 | Phase | When | Branch | Build | Done check |
 |---|---|---|---|---|
-| **0 Contract** | Fri 19:15–21:00 | `a/contract` | Section 5 in full; D5, C1; resolve D-1…D-9 with Javier, B, C | Smoke + contract tests green; B and C approve the PR before 21:00; `python -m contract.export` writes `schema.json` |
+| **0 Contract** | Fri 19:15–21:00 | `a/contract` | Section 5 in full, following the decisions in 5.7; D5, C1 | Smoke + contract tests green; B and C approve the PR before 21:00; `python -m contract.export` writes `schema.json` |
 | **1 Core** | Fri 21:00–24:00 | `a/core` | `net.py`, `table.py`, `core.py` skeleton (HB, REC re-advertise, inbox handling, `view()`), `shore.py` heartbeat only, `tests/agent/harness.py` | N1–N4, T1–T3, DT, RL green; in the harness five agents converge on one table |
 | **2 Auction** | Sat 08:00–12:00 | `a/auction` | `tour.py`, `auction.py`, return rule, `policy` switch, integration with B's world (first real run around 11:00) | G1, P0–P3, P6 green; **core-fallback (Sat 12:00) runs end to end with B's world** |
 | **3 Robustness** | Sat 12:00–15:00 | `a/robust` | Quorum, cycle cap, `energy_ok`, two leases, rebalance with F5 | P4, P5, P9, R0 green |
