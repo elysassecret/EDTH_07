@@ -211,7 +211,7 @@ class Bridge:
             n = max(1, self.speed_now() // FPS)
             for _ in range(n):
                 self.sim.step()
-                if self.sim.t >= self.sim.horizon_ms + 3_600_000:
+                if self.sim.t >= self.sim.horizon_ms:
                     self.paused = True
                     break
         self.frame += 1

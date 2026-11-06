@@ -92,12 +92,12 @@ class Shore:
                     self.boats[q] = {"x": x, "y": y, "mode": mode, "batt": batt, "tour": tour, "pick": pick,
                                      "relay": relay, "path": "relay", "t": t_obs, "via": f"boat {b}", "head": None,
                                      "reports": []}
-            for tup in p.get("recs", []):
-                self._merge(Rec.from_tup(tup), t)
             for cid, obs in sorted(p.get("contacts", {}).items()):
                 cur = self.contacts.get(cid)
                 if cur is None or obs["t"] > cur["t"]:
                     self.contacts[cid] = obs
+            for tup in p.get("recs", []):
+                self._merge(Rec.from_tup(tup), t)
             for task, g in sorted(p.get("cues", {}).items()):
                 if task not in self.cues:
                     self.cues[task] = g
