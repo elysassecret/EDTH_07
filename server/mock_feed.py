@@ -16,6 +16,7 @@ Geometry comes from data/scene-coordinates.json and config/*.toml.
 Deterministic: the world never reads the wall clock and only uses its own seeded Random.
 Same seed + same command list at the same sim times -> byte-identical snapshots.
 Times in snapshots are sim seconds since t0 (t0_utc is the wall-clock label for t = 0).
+Every point list (trail, route, segments, stations) is [lon, lat].
 """
 
 from __future__ import annotations
@@ -126,6 +127,12 @@ def dist_along(pts: list[tuple[float, float]], i: int) -> float:
 
 def r6(v: float) -> float:
     return round(v, 6)
+
+
+def lonlat(p: tuple[float, float]) -> list[float]:
+    """Local metres -> [lon, lat], the GeoJSON/MapLibre order used for every point list."""
+    lat, lon = to_ll(*p)
+    return [r6(lon), r6(lat)]
 
 
 # ---------------------------------------------------------------- scene
@@ -369,7 +376,7 @@ class MockWorld:
             "id": did, "tier": tier, "kind": kind, "text": text, "boat": boat,
             "contact": contact, "actions": actions, "created": round(self.t, 1),
             "status": "waiting" if tier == "held" else "active",
-            "route": [list(map(r6, to_ll(*p))) for p in route] if route else None,
+            "route": [lonlat(p) for p in route] if route else None,
         }
         return did
 
@@ -469,7 +476,8 @@ class MockWorld:
                 if o["contact"] == c.id and o["status"] == "waiting":
                     o["status"] = "withdrawn"
         if d["kind"] == "close_look" and cmd == "approve" and c and d["route"]:
-            self._goto(b, to_xy(*d["route"][-1]), "close", "SHADOWING")
+            lon, lat = d["route"][-1]
+            self._goto(b, to_xy(lat, lon), "close", "SHADOWING")
         return {"ok": True}
 
     def _inject(self, msg: dict) -> dict:
@@ -822,10 +830,10 @@ class MockWorld:
     def scene_msg(self) -> dict:
         return {
             "type": "scene", "schema_version": SCHEMA_VERSION, "source": "mock", "t0_utc": T0_UTC,
-            "segments": {k: [list(map(r6, to_ll(*p))) for p in v[::5] + [v[-1]]]
+            "segments": {k: [lonlat(p) for p in v[::5] + [v[-1]]]
                          for k, v in self.sc.segments.items()},
-            "stations": {k: list(map(r6, to_ll(*p))) for k, p in self.sc.stations.items()},
-            "shore": list(map(r6, to_ll(*self.sc.shore))),
+            "stations": {k: lonlat(p) for k, p in self.sc.stations.items()},
+            "shore": lonlat(self.sc.shore),
             "stale_after_s": self.sc.ui["stale_after_s"],
             "horizon_s": 14400,
         }
@@ -867,7 +875,7 @@ class MockWorld:
                 else None,
                 # console extras (not in contract yet)
                 "name": c.name, "source": src, "sog_kn": round(c.sog / KN, 1),
-                "trail": [list(map(r6, to_ll(*q))) for q in c.trail],
+                "trail": [lonlat(q) for q in c.trail],
                 "name_status": c.name_status if not c.ais else "AIS",
                 "anchor_status": c.anchor_status,
             }

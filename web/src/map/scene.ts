@@ -2,7 +2,7 @@
 // Public approximate cable routes (few-vertex OSM lines), not surveyed routes.
 import raw from "../../../data/scene-coordinates.json";
 import type { Feature, FeatureCollection } from "geojson";
-import type { LatLon } from "../types";
+type LatLon = [number, number]; // data/scene-coordinates.json stores [lat, lon]
 
 interface SceneFile {
   box: { corners_wgs84: Record<"NW" | "NE" | "SE" | "SW", { lat: number; lon: number }> };
