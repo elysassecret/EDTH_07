@@ -57,7 +57,12 @@ def table(results) -> str:
         for cid, v in r.get("detect_s", {}).items():
             det.setdefault((r["mode"], cid), []).append(v)
     for (m, cid), vals in sorted(det.items()):
-        lines.append(f"| Loiter start to detection, {cid}, {m} (s) | " + fmt_stat(vals, "{:.0f}") + " |")
+        n = sum(1 for r in results if r["mode"] == m and cid in r.get("contacts_scripted", [cid]))
+        lines.append(f"| Loiter start to detection, {cid}, {m} (s) | " + fmt_stat(vals, "{:.0f}")
+                     + f", detected in {len(vals)} of {n} seeds |")
+    for m in modes:
+        if not any(k[0] == m for k in det):
+            lines.append(f"| Loiter start to detection, {m} | not detected in any seed |")
     iv = {}
     for r in results:
         for cid, v in r.get("in_view_s", {}).items():

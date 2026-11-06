@@ -145,8 +145,16 @@ def can_bid(a, task: str, t: int) -> bool:
             return False
         return a.mode == PATROL and not i_am_relay(a) and not owns(a, "seg") and not a.pick
     if k == "relay":
-        # no quorum here on purpose: the side that lost its shore path is the side that needs a relay
-        return relay_mod.shore_age(a, t) > SHORE_SILENCE and spare_s(a) >= 3600 and a.mode not in (SHADOWING,)
+        # no quorum here on purpose: the side that lost its shore path is the side that needs a relay.
+        # But a relay with nobody to relay for is pointless, and a cable scout leaves relay duty to an
+        # idle or picket boat when one is alive in its group.
+        peers = live_peers(a, t)
+        if not peers or a.mode in (SHADOWING,):
+            return False
+        if owns(a, "seg") and any(not a.peers.get(b, {}).get("tour") and a.peers.get(b, {}).get("mode") == PATROL
+                                  and not a.peers.get(b, {}).get("relay") for b in peers):
+            return False
+        return relay_mod.shore_age(a, t) > SHORE_SILENCE and spare_s(a) >= 3600
     if k == "contact":
         return (a.mode in (PATROL, HOLDING) and not i_am_relay(a) and not i_am_last_cable_owner(a, t)
                 and spare_s(a) >= a.shadow_cap_ms / 1000 and contact_speed(a, task) <= a.V)

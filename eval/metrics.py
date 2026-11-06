@@ -56,7 +56,8 @@ class Metrics:
             self.all_owned_t = t
         if t > self.first_event_t:
             self.worst_post = max(self.worst_post, int((t - self.last_visit).max()))
-        for cid, v in sorted(self.sim.vessels.items()):
+        for vid, v in sorted(self.sim.vessels.items()):
+            cid = f"contact:{vid}"
             if cid not in self.dwell_start:
                 self.dwell_start[cid] = v.t_start
         for b, ag in sorted(self.sim.agents.items()):
@@ -138,6 +139,7 @@ class Metrics:
             "lane_crossings_post_event": len(post),
             "lane_crossings_in_view": sum(1 for c in post if c["in_view"]),
             "detect_s": {cid: (tt - self.dwell_start.get(cid, tt)) // 1000 for cid, tt in sorted(self.detect_t.items())},
+            "contacts_scripted": sorted(self.dwell_start),
             "in_view_s": {cid: (tt - self.dwell_start.get(cid, tt)) // 1000 for cid, tt in sorted(self.in_view_t.items())},
             "operator_actions": len(self.sim.shore.actions),
             "hours_post_event": round((t - T) / 3_600_000, 2),
