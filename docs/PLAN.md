@@ -9,14 +9,14 @@ Detail lives in this folder: [BUILD_PLAN.md](BUILD_PLAN.md) (algorithms, step nu
 
 ## 1. Roles
 
-**A = Javier** (`emermelada`) · **B = Simone** · **C = Alexandru** (`zytzev`) · **D = Franco**. Simone and Franco: put your GitHub username in `.github/CODEOWNERS` (one of you is `FearedLynx`). Whoever is not in the `elysassecret` org yet needs an invite.
+**A = Javier** (`emermelada`) · **B = Simeone** · **C = Alexandru** (`zytzev`) · **D = Franco**. Simeone and Franco: put your GitHub username in `.github/CODEOWNERS` (one of you is `FearedLynx`). Whoever is not in the `elysassecret` org yet needs an invite.
 
 | Slot | Name | Owns (folders) | One-line job | Features | ~Hours |
 |---|---|---|---|---|---|
 | **A: Swarm brain** | **Javier** | `agent/`, `contract/`, `tests/agent/`, `config/agent.toml` | The logic on every boat: task table, merge, auction, relay, contact, energy modes | 5, 6 (reassign), 8, 9, 10, 14 (logic), 16 (bids) | ~23 |
-| **B: World & data** | **Simone** | `world/`, `ais/`, `triage/`, `scenarios/`, `tests/world/`, `config/scene, boat, radio, energy` | The simulated sea: scene, motion, battery and current, sensors, radio; AIS replay; later the 02 score | 1, 2 (routes), 6 (battery), 7, 15, 16 (drift), 26 | ~22 |
+| **B: World & data** | **Simeone** | `world/`, `ais/`, `triage/`, `scenarios/`, `tests/world/`, `config/scene, boat, radio, energy` | The simulated sea: scene, motion, battery and current, sensors, radio; AIS replay; later the 02 score | 1, 2 (routes), 6 (battery), 7, 15, 16 (drift), 26 | ~22 |
 | **C: Operator console** | **Alexandru** | `web/`, `server/`, `evidence/`, `tests/server/`, `config/ui.json` | What the watch officer sees and clicks; the WebSocket bridge; failure-injection controls; the video recording | 13 (UI), 17–25, 28 | ~23 |
-| **D: Proof & pitch** | **Franco** | `eval/`, `tools/`, `deck/`, `tests/smoke, eval, story/`, `requirements.txt`, `config/run.toml`, `.github/workflows/` | Metrics, three-mode baseline, scorecard, tests; mentor log; the deck and business slides; repo admin | 3, 4, 11 (check), 12 | ~24 |
+| **D: Proof & pitch** | **Franco** | `eval/`, `tools/`, `deck/`, `tests/smoke, eval, story/`, `pyproject.toml`, `config/run.toml`, `.github/workflows/` | Metrics, three-mode baseline, scorecard, tests; mentor log; the deck and business slides; repo admin | 3, 4, 11 (check), 12 | ~24 |
 
 **Balance changes from the build plan:**
 - Real-scene tests R1–R3 move from B to D.
@@ -32,15 +32,15 @@ Detail lives in this folder: [BUILD_PLAN.md](BUILD_PLAN.md) (algorithms, step nu
 1. Accept the org invite. Clone the repo:
    ```bash
    gh repo clone elysassecret/EDTH_07 && cd EDTH_07
-   python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-   pytest -q tests/smoke
+   uv sync
+   uv run pytest -q tests/smoke
    ```
 2. `data/scene-coordinates.json` is already in the repo. Get `ais-clip-box.csv` from Franco and put it in `data/`. It is gitignored; **never commit it**.
-3. Simone and Franco: put your GitHub username in `.github/CODEOWNERS`.
+3. Simeone and Franco: put your GitHub username in `.github/CODEOWNERS`.
 
 **A, Javier: 19:15–21:00:** with B, finish and **freeze `contract/`** (constants, messages, tasks; views with C at 20:30). **21:00–24:00:** `agent/table.py` and `agent/core.py`: record store, merge, heartbeat, per-boat lease. Done when the merge tests pass (commutative, associative, idempotent).
 
-**B, Simone: 19:15–21:00:** with A on `contract/`; check every number in `config/`. **21:00–24:00:** `world/routes.py` and `world/motion.py`: load the scene, local metres, ≤5 km segments, five boats moving at 2.3 m/s. Done when there are 6 segments, ~23.5 km, and the boats move.
+**B, Simeone: 19:15–21:00:** with A on `contract/`; check every number in `config/`. **21:00–24:00:** `world/routes.py` and `world/motion.py`: load the scene, local metres, ≤5 km segments, five boats moving at 2.3 m/s. Done when there are 6 segments, ~23.5 km, and the boats move.
 
 **C, Alexandru: 19:15–21:00:**
 - Do the mentor round with D. Show a paper sketch of the console and ask what a watch officer needs.
@@ -66,7 +66,7 @@ Detail lives in this folder: [BUILD_PLAN.md](BUILD_PLAN.md) (algorithms, step nu
 5. **Merge small and often:** a PR to `main` at least every 2–3 hours and at every milestone. Before opening a PR, update your branch:
    ```bash
    git fetch origin && git rebase origin/main
-   pytest -q tests/smoke
+   uv run pytest -q tests/smoke
    ```
 6. **`main` is protected:** PR only, smoke tests must pass (GitHub Action), no force-push. D turns this on in the repo settings.
 7. **Tags:** D tags `core-fallback` at Sat 12:00 and `final` at Sun 10:00. A tagged version must always run from a clean clone.

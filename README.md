@@ -6,9 +6,8 @@ A swarm brain for five patrol USVs over Great Belt cables, plus the shore operat
 **Start here: [docs/PLAN.md](docs/PLAN.md)** for roles, what to do right now, and the branch rules. Everything else to read: [docs/README.md](docs/README.md).
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pytest -q tests/smoke
+uv sync
+uv run pytest -q tests/smoke
 ```
 
 | Folder | Owner | What |

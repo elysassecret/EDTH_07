@@ -1,8 +1,0 @@
-# Owner: D. Ask D before adding a package.
-numpy
-shapely
-websockets
-pytest
-hypothesis
-pandas
-pyproj

@@ -1,14 +1,14 @@
-# TODO: replace @SIMONE_GITHUB and @FRANCO_GITHUB with real usernames (one of them is probably @FearedLynx).
+# TODO: replace @SIMEONE_GITHUB and @FRANCO_GITHUB with real usernames (one of them is probably @FearedLynx).
 # GitHub asks these people to review PRs touching their folders.
 # Replace @emermelada etc. with real GitHub usernames.
-/contract/   @emermelada @SIMONE_GITHUB @zytzev
+/contract/   @emermelada @SIMEONE_GITHUB @zytzev
 /agent/      @emermelada
 /tests/agent/ @emermelada
-/world/      @SIMONE_GITHUB
-/ais/        @SIMONE_GITHUB
-/triage/     @SIMONE_GITHUB
-/scenarios/  @SIMONE_GITHUB
-/tests/world/ @SIMONE_GITHUB
+/world/      @SIMEONE_GITHUB
+/ais/        @SIMEONE_GITHUB
+/triage/     @SIMEONE_GITHUB
+/scenarios/  @SIMEONE_GITHUB
+/tests/world/ @SIMEONE_GITHUB
 /server/     @zytzev
 /web/        @zytzev
 /evidence/   @zytzev
@@ -19,12 +19,14 @@
 /tests/smoke/ @FRANCO_GITHUB
 /tests/eval/ @FRANCO_GITHUB
 /tests/story/ @FRANCO_GITHUB
-/requirements.txt @FRANCO_GITHUB
+/pyproject.toml @FRANCO_GITHUB
+/uv.lock @FRANCO_GITHUB
+/CLAUDE.md @emermelada @SIMEONE_GITHUB @zytzev @FRANCO_GITHUB
 /config/agent.toml @emermelada
-/config/scene.toml @SIMONE_GITHUB
-/config/boat.toml @SIMONE_GITHUB
-/config/radio.toml @SIMONE_GITHUB
-/config/energy.toml @SIMONE_GITHUB
+/config/scene.toml @SIMEONE_GITHUB
+/config/boat.toml @SIMEONE_GITHUB
+/config/radio.toml @SIMEONE_GITHUB
+/config/energy.toml @SIMEONE_GITHUB
 /config/run.toml @FRANCO_GITHUB
 /config/ui.json @zytzev
 /.github/workflows/ @FRANCO_GITHUB
