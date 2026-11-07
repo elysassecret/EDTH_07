@@ -1,7 +1,17 @@
 // Owner: C. Panel layout state (remembered in this browser) and the drag handle (splitter)
 // between a panel and the chart. Rules live in ../panels.ts.
 import { useEffect, useRef, useState } from "react";
-import { PanelBottomOpen, PanelLeftOpen, PanelRightOpen } from "lucide-react";
+import {
+  Activity,
+  Bell,
+  ClipboardCheck,
+  PanelBottomOpen,
+  PanelLeftOpen,
+  PanelRightOpen,
+  Radar,
+} from "lucide-react";
+import { staleBoat, usv } from "../console-model";
+import { useStore } from "../store";
 import { create } from "zustand";
 import {
   DEFAULT_LAYOUT,
@@ -152,41 +162,129 @@ export function Splitter({
 }
 
 /**
- * A closed panel leaves a slim tab on the same edge it closed to: click it to bring the panel
- * back at its last size. Left and right tabs run the full height with the name written
- * vertically; the bottom tab is a thin bar across the window.
+ * A collapsed panel stays on screen as a narrow icon sidebar on its own edge: the minimum to keep
+ * an eye on, and one click to expand. Fleet: one numbered dot per boat (dashed when its report
+ * is old). Attention: decisions waiting, unacknowledged alerts, contacts. Timeline: event count.
  */
-export function EdgeTab({
-  side,
-  name,
-  count,
-  onOpen,
+function RailButton({
+  label,
+  onClick,
+  children,
+  tone = "",
+  pressed,
 }: {
-  side: "left" | "right" | "bottom";
-  name: string;
-  count?: number;
-  onOpen: () => void;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  tone?: string;
+  pressed?: boolean;
 }) {
-  const Icon = side === "left" ? PanelLeftOpen : side === "right" ? PanelRightOpen : PanelBottomOpen;
-  const vertical = side !== "bottom";
   return (
     <button
       type="button"
-      onClick={onOpen}
-      aria-label={`Show ${name.toLowerCase()}${count !== undefined ? `, ${count}` : ""}`}
-      title={`Show ${name.toLowerCase()}`}
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={pressed}
+      title={label}
       className={[
-        "group flex shrink-0 items-center gap-2 bg-muted/40 text-sm text-muted-foreground transition-colors",
-        "hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
-        vertical ? "w-9 flex-col py-3" : "h-8 w-full border-t px-4",
-        side === "left" ? "border-r" : side === "right" ? "border-l" : "",
+        "relative grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors",
+        "hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+        tone,
       ].join(" ")}
     >
-      <Icon className="size-4 shrink-0" />
-      <span className={vertical ? "font-medium [writing-mode:vertical-rl]" : "font-medium"}>{name}</span>
-      {count !== undefined && (
-        <span className="rounded-full border px-1.5 text-xs tabular-nums">{count}</span>
-      )}
+      {children}
+    </button>
+  );
+}
+
+function Count({ n, tone = "" }: { n: number; tone?: string }) {
+  return (
+    <span
+      className={`absolute -right-1 -top-1 min-w-4 rounded-full border bg-background px-1 text-center text-[10px] leading-4 tabular-nums ${tone}`}
+    >
+      {n}
+    </span>
+  );
+}
+
+export function FleetRail({ onExpand }: { onExpand: () => void }) {
+  const snap = useStore((s) => s.snap);
+  const scene = useStore((s) => s.scene);
+  const conn = useStore((s) => s.conn);
+  const selected = useStore((s) => s.selected);
+  const select = useStore((s) => s.select);
+  const boats = [...(snap?.boats ?? [])].sort((a, b) => a.id - b.id);
+  return (
+    <nav aria-label="Fleet sidebar" className="flex w-12 shrink-0 flex-col items-center gap-2 overflow-y-auto border-r bg-muted/20 py-2">
+      <RailButton label="Expand fleet panel" onClick={onExpand}>
+        <PanelLeftOpen className="size-4" />
+      </RailButton>
+      {boats.map((b) => {
+        const stale = snap ? staleBoat(b, snap, scene, conn) : true;
+        const away = b.mode === "UNAVAILABLE" || b.mode === "RETURNING";
+        return (
+          <RailButton
+            key={b.id}
+            label={`${usv(b.id)} · ${b.mode}${stale ? " · report old" : ""}`}
+            onClick={() => select(selected === b.id ? null : b.id)}
+            pressed={selected === b.id}
+            tone={selected === b.id ? "bg-muted text-foreground" : ""}
+          >
+            <span
+              className={[
+                "grid size-7 place-items-center rounded-full border-2 text-xs font-semibold tabular-nums",
+                stale ? "border-dashed border-muted-foreground/60" : away ? "border-muted-foreground" : "border-sky-400 text-foreground",
+              ].join(" ")}
+            >
+              {String(b.id).padStart(2, "0")}
+            </span>
+          </RailButton>
+        );
+      })}
+    </nav>
+  );
+}
+
+export function AttentionRail({ onExpand }: { onExpand: () => void }) {
+  const snap = useStore((s) => s.snap);
+  const decisions = snap?.decisions.filter((d) => d.state === "pending").length ?? 0;
+  const alerts = snap?.alerts.filter((a) => !a.ack) ?? [];
+  const alarm = alerts.some((a) => a.level === "alarm");
+  const contacts = snap?.contacts.length ?? 0;
+  return (
+    <nav aria-label="Attention sidebar" className="flex w-12 shrink-0 flex-col items-center gap-3 border-l bg-muted/20 py-2">
+      <RailButton label="Expand attention panel" onClick={onExpand}>
+        <PanelRightOpen className="size-4" />
+      </RailButton>
+      <RailButton label={`Decisions waiting: ${decisions}`} onClick={onExpand} tone={decisions ? "text-amber-600 dark:text-amber-300" : ""}>
+        <ClipboardCheck className="size-5" />
+        <Count n={decisions} tone={decisions ? "border-amber-400" : ""} />
+      </RailButton>
+      <RailButton label={`Alerts not acknowledged: ${alerts.length}${alarm ? " (alarm)" : ""}`} onClick={onExpand} tone={alarm ? "text-red-500" : alerts.length ? "text-foreground" : ""}>
+        <Bell className="size-5" />
+        <Count n={alerts.length} tone={alarm ? "border-red-500" : ""} />
+      </RailButton>
+      <RailButton label={`Contacts reported: ${contacts}`} onClick={onExpand}>
+        <Radar className="size-5" />
+        <Count n={contacts} />
+      </RailButton>
+    </nav>
+  );
+}
+
+export function TimelineRail({ onExpand }: { onExpand: () => void }) {
+  const n = useStore((s) => s.snap?.events.length ?? 0);
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      aria-label={`Expand event timeline, ${n} events`}
+      title="Expand event timeline"
+      className="flex h-7 w-full shrink-0 items-center gap-2 border-t bg-muted/20 px-3 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+    >
+      <PanelBottomOpen className="size-4" />
+      <Activity className="size-4" />
+      <span className="tabular-nums">{n}</span>
     </button>
   );
 }

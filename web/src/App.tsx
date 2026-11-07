@@ -1,7 +1,6 @@
 // Live console in the shadcn presentation from web/template. No synthetic template model.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity,
   Keyboard,
   Menu,
   PanelLeftClose,
@@ -79,7 +78,7 @@ import {
   PriorityAlert,
 } from "./ui/LiveTools";
 import { ChartNotices, CoverageLine, StatusDetails } from "./ui/LiveStatus";
-import { EdgeTab, Splitter, useLayout, useViewport } from "./ui/Panels";
+import { AttentionRail, FleetRail, Splitter, TimelineRail, useLayout, useViewport } from "./ui/Panels";
 import { fit, inline, roomFor } from "./panels";
 
 export function App() {
@@ -387,13 +386,6 @@ export function App() {
             <Button variant="ghost" size="sm" aria-expanded={details} onClick={() => setDetails(!details)}>
               {details ? "Hide details" : "Details"}
             </Button>
-            {/* narrow windows: panels live in drawers; wide windows: a closed panel leaves an edge tab */}
-            {!inlineNow.fleet && (
-              <Button variant="outline" size="sm" onClick={openFleet}><ShipIcon />Fleet · {snap?.boats.length ?? 0}</Button>
-            )}
-            {!inlineNow.attention && (
-              <Button variant="outline" size="sm" onClick={openAttention}>Attention · {open.length}</Button>
-            )}
             <Button variant="ghost" size="sm" onClick={() => setPanel("help")}>
               <Keyboard />
               Help
@@ -406,9 +398,8 @@ export function App() {
           </div>
         )}
         <main id="main" className="flex min-h-0 flex-1" tabIndex={-1}>
-          {inlineNow.fleet && !layout.fleet.open && (
-            <EdgeTab side="left" name="Fleet" count={snap?.boats.length ?? 0} onOpen={openFleet} />
-          )}
+          {/* collapsed (or a narrow window): an icon sidebar stays; expanding in a narrow window opens a drawer */}
+          {!(inlineNow.fleet && layout.fleet.open) && <FleetRail onExpand={openFleet} />}
           {drawn.fleet > 0 && (
             <div className="relative hidden min-h-0 shrink-0 border-r min-[1440px]:flex" style={{ width: drawn.fleet }}>
               <aside
@@ -419,7 +410,7 @@ export function App() {
                   <h2 className="font-semibold">Fleet overview</h2>
                   <span className="flex items-center gap-1">
                     <Badge variant="outline">{snap?.boats.length ?? 0}</Badge>
-                    <Button variant="ghost" size="icon" className="size-7" aria-label="Hide fleet panel" title="Hide (the tab on the left edge brings it back)" onClick={() => showPanel("fleet", false)}>
+                    <Button variant="ghost" size="icon" className="size-7" aria-label="Collapse fleet panel" title="Collapse to the icon sidebar" onClick={() => showPanel("fleet", false)}>
                       <PanelLeftClose />
                     </Button>
                   </span>
@@ -446,7 +437,7 @@ export function App() {
               >
                 <div className="flex items-center justify-between gap-2 py-1">
                   <h2 className="font-semibold">Operator attention</h2>
-                  <Button variant="ghost" size="icon" className="size-7" aria-label="Hide attention panel" title="Hide (the tab on the right edge brings it back)" onClick={() => showPanel("attention", false)}>
+                  <Button variant="ghost" size="icon" className="size-7" aria-label="Collapse attention panel" title="Collapse to the icon sidebar" onClick={() => showPanel("attention", false)}>
                     <PanelRightClose />
                   </Button>
                 </div>
@@ -454,14 +445,12 @@ export function App() {
               </aside>
             </div>
           )}
-          {inlineNow.attention && !layout.attention.open && (
-            <EdgeTab side="right" name="Attention" count={open.length} onOpen={openAttention} />
-          )}
+          {!(inlineNow.attention && layout.attention.open) && <AttentionRail onExpand={openAttention} />}
         </main>
         {drawn.timeline > 0 ? (
           <EventTimeline height={drawn.timeline} room={roomFor("timeline", vp.w, vp.h, drawn)} />
         ) : (
-          <EdgeTab side="bottom" name="Event timeline" count={snap?.events.length ?? 0} onOpen={() => showPanel("timeline", true)} />
+          <TimelineRail onExpand={() => showPanel("timeline", true)} />
         )}
         <Sheet
           open={drawer !== null}
@@ -668,8 +657,4 @@ export function App() {
       </div>
     </TooltipProvider>
   );
-}
-
-function ShipIcon() {
-  return <Activity className="size-4" />;
 }

@@ -131,19 +131,25 @@ says how many exercise conditions are in effect, for example "2 in effect".
 - Synthetic contacts are truth only and are never listed on the officer's screen.
 - The list comes from the real simulator (`exercises` in the snapshot, `server/bridge.py`). The
   mock feed does not send it.
-## Panels: resize, hide, bring back
+## Panels: resize, collapse to an icon sidebar
 
 The fleet list (left), the attention workspace (right) and the event timeline (bottom) can be
 resized by dragging their edge next to the chart.
 - Each panel stops at its maximum, and never takes the space the chart needs (the chart keeps
   at least 360 px wide; the timeline takes at most half the window height).
-- Drag a panel below its smallest size and it holds there; push on and it closes, and the
-  chart gets the space. The hide icon in each panel header does the same.
-- A closed panel leaves a slim tab on the edge it closed to (Fleet on the left, Attention on
-  the right, Event timeline along the bottom). Click it to bring the panel back at the size it
-  had. In narrow windows the side panels stay drawers, opened from the buttons above the chart. Selecting a boat or contact opens the attention panel again.
+- Drag a panel below its smallest size and it holds there; push on and it **collapses to a
+  narrow icon sidebar** on the same edge, and the chart gets the space. The collapse icon in each
+  panel header does the same. Nothing disappears:
+  - Fleet sidebar: one numbered dot per boat (dashed when its report is old). Click a dot to
+    select the boat.
+  - Attention sidebar: decisions waiting, alerts not acknowledged (red with an alarm), contacts,
+    each with its count.
+  - Timeline: a thin bar with the event count.
+  The expand icon at the top of a sidebar (or any of its counts) brings the panel back at its
+  last size. In narrow windows the sidebars stay and open the panel as a drawer; there are no
+  panel buttons in the top bar.
 - Keyboard: focus the edge (Tab), then arrow keys resize (Shift = bigger steps), Home =
-  smallest, End = largest allowed, Enter hides. Double-click an edge for the default size.
+  smallest, End = largest allowed, Enter collapses. Double-click an edge for the default size.
 - Sizes are remembered in this browser. **View settings → Reset panel sizes** restores them.
 - Rules and limits: `src/panels.ts` (tested in `src/panels.test.ts`).
 
