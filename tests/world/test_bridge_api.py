@@ -156,4 +156,6 @@ def test_seed1_truth_and_shore_snapshots_carry_sensor_ranges_and_contact_standof
         b.detect_m == 5000 and b.keep_in_view_m == 2000 and b.verify_m == 500
         for b in shore.boats
     )
-    assert any(c.track == "S-01" and c.standoff_m == 1852 for c in shore.contacts)
+    # S-01 has AIS: the boats keep the 1 nm ring only round no-AIS contacts (Agent.avoid, #69),
+    # so the shore reports 0 for it rather than a ring nobody keeps
+    assert any(c.track == "S-01" and c.standoff_m == 0 for c in shore.contacts)

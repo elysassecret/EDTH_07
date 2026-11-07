@@ -24,6 +24,15 @@ if TYPE_CHECKING:
     from agent.core import Agent
 
 
+WHY_MAX = 120  # characters of a reason the shore shows
+
+
+def hm(ms_: int) -> str:
+    """A duration (ms) as hours and minutes."""
+    m = ms_ // 60_000
+    return f"{m // 60} h {m % 60:02d} m" if m >= 60 else f"{m} m"
+
+
 def ms(metres: int, speed_mm_s: int) -> int:
     return metres * 1_000_000 // speed_mm_s
 
@@ -60,7 +69,7 @@ class Auction:
             if bs[0][1] != self.a.me:
                 continue
             dep = bs[1][1] if len(bs) > 1 and kind(task) in ("relay", "contact") else 0
-            self.a.claim(task, bs[0][0], dep)
+            self.a.claim(task, bs[0][0], dep, self.reason(task, t, bs))
 
     def take_over(self, t: int) -> None:
         """Deputy (PLAN 7.10): when the owner of a relay or contact I am deputy for goes past
@@ -72,9 +81,43 @@ class Auction:
                     or a.table.lease_ok(r.owner, task, t)):
                 continue
             if self.can_bid(task, t):
-                a.claim(task, self.cost(task), 0)
+                silent = (t - a.table.last_hb.get(r.owner, 0)) // 1000
+                a.claim(task, self.cost(task), 0, f"USV {a.me:02d}: named backup, USV {r.owner:02d} "
+                        f"silent {silent} s [deputy takeover]")
             else:
                 a.release(task)
+
+    # why (#86): a reason the shore can show, from facts this boat has when it claims --------
+    def reason(self, task: str, t: int, bids: list[tuple[int, int]]) -> str:
+        a = self.a
+        lead = (f"USV {a.me:02d}: cheapest of {len(bids)} bids at {hm(bids[0][0])}"
+                if len(bids) > 1 else f"USV {a.me:02d}: only bid, {hm(bids[0][0])}")
+        others = " (" + ", ".join(f"USV {b:02d} {hm(c)}" for c, b in bids[1:3]) + ")"
+        facts = f"; {self.reach_ms(task) // 60_000} min away, battery {a.batt // 10}%"
+        tag = f" [{self.why_open(task, t)}]"
+        text = lead + (others if len(bids) > 1 else "") + facts + tag
+        return text if len(text) <= WHY_MAX else lead + facts + tag
+
+    def why_open(self, task: str, t: int) -> str:
+        """Which rule made the task open, as this boat sees it before claiming."""
+        a, r, k = self.a, self.a.table.recs[task], kind(task)
+        if k == "contact":
+            return "contact: nearest free boat"
+        if k == "relay":
+            silent = f" {(t - a.shore_t) // 1000} s" if a.shore_t >= 0 else ""
+            return f"relay: no shore path{silent}"
+        if r.state == CLAIMED:
+            return "lease expired"
+        p = a.peers.get(r.owner, (0, {}))[1]
+        if r.owner and p.get("mode") in (RETURNING, UNAVAILABLE):
+            return "battery return"
+        if r.owner and any(kind(x) in ("relay", "contact") for x in p.get("roles", [])):
+            return "handed over"
+        if r.owner == a.me:
+            return "back to my own task"
+        if r.owner:
+            return "rebalance"
+        return "open task"
 
     # cost and eligibility ------------------------------------------------------------------
     def cycle_after(self, task: str) -> int:
