@@ -130,6 +130,8 @@ class Feed:
         out["warp_mode"] = ("paused" if self.paused else
                             "manual" if self.speed_override else "auto")
         out["near_event"] = out["warp_mode"] == "auto" and bool(self.world.near_event())
+        # the warp the officer chose, kept while paused so the speed menu does not snap to Auto
+        out["warp_set"] = self.speed_override or "auto"
         return out
 
     def _new_narrator(self) -> Narrator:

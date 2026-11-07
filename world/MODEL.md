@@ -15,7 +15,6 @@ Owner: Simeone (B). Every number below comes directly from `config/boat.toml`, `
 | **Current & Tide Flip** | `current_mps = 0.5`, `current_dir_deg = 345`, `tide_flip_s = 9000`, `sentinel_radius_m = 300` | A uniform 0.5 m/s current flows toward 345° and reverses once at 9,000 s (2.5 h), pushing drifting `SENTINEL` boats until they exceed 300 m from station and drive back under power. |
 | **Great Belt Scene & Samples** | `segment_max_m = 5000`, `sample_step_m = 100`, `lane_half_m = 750`, `revisit_target_s = 12000` | The three Great Belt cables split into 7 segments (23.60 km total, 241 samples spaced every 100 m) with a 12,000 s (3 h 20 m) revisit target and a 750 m half-width shipping-lane keep-out band for stations. |
 | **AIS Reception Radii** | `ais_class_a_m = 20000` (20 km), `ais_class_b_m = 8000` (8 km) | Class A and Class B AIS reception ranges are configured at 20 km and 8 km (evaluator-only in the core baseline; boat-side replay is gated under #52). |
-
 | **Shore launch** | `launch_gap_s = 60` | With `World(launch=True)` (the console default) every boat starts docked at Korsør with no task and is switched on 60 s after the previous one, in a seeded order; the agents decide who goes where. |
 | **Battery swap** | `swap_s = 600`, `dock_m = 50` | A boat docked at Korsør (within 50 m, agent mode `UNAVAILABLE`) gets a full battery after 10 min; logged as `swap_start` and `battery_swap`. A team assumption, not a measured time. |
 

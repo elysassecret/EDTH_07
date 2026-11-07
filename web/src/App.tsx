@@ -110,6 +110,13 @@ export function App() {
   >("checking");
   const [tab, setTab] = useState("attention");
   const [drawer, setDrawer] = useState<"fleet" | "attention" | null>(null);
+  // the drawer that is open, or was last open: while a drawer closes it must keep its side and
+  // content, or it slides out the opposite way it came in (fleet: in from the left, out to the left)
+  const [lastDrawer, setLastDrawer] = useState<"fleet" | "attention">("attention");
+  useEffect(() => {
+    if (drawer) setLastDrawer(drawer);
+  }, [drawer]);
+  const shown = drawer ?? lastDrawer;
   const [details, setDetails] = useState(false);
   const [wall, setWall] = useState(() => new Date());
   const flow = useDecisionFlow();
@@ -219,8 +226,10 @@ export function App() {
   const exercises = snap?.exercises?.length ?? 0;
   const source = snap?.source ?? scene?.source;
   const paused = snap?.speed === 0 || snap?.warp_mode === "paused";
-  const speedValue =
-    snap?.warp_mode === "auto" || !snap || paused ? "auto" : String(snap.speed);
+  // the chosen warp (kept while paused); older servers without warp_set: as before
+  const speedValue = snap?.warp_set !== undefined
+    ? String(snap.warp_set)
+    : snap?.warp_mode === "auto" || !snap || paused ? "auto" : String(snap.speed);
   const speeds = [
     ...new Set([
       1,
@@ -228,6 +237,7 @@ export function App() {
       60,
       240,
       ...(snap && snap.speed > 0 ? [snap.speed] : []),
+      ...(typeof snap?.warp_set === "number" ? [snap.warp_set] : []),
     ]),
   ].sort((a, b) => a - b);
   const attention = (
@@ -459,12 +469,12 @@ export function App() {
           }}
         >
           <SheetContent
-            side={drawer === "fleet" ? "left" : "right"}
+            side={shown === "fleet" ? "left" : "right"}
             className="overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
           >
             <SheetHeader>
               <SheetTitle>
-                {drawer === "fleet" ? "Fleet overview" : "Operator attention"}
+                {shown === "fleet" ? "Fleet overview" : "Operator attention"}
               </SheetTitle>
               <SheetDescription>
                 {channel === "shore"
@@ -474,7 +484,7 @@ export function App() {
               </SheetDescription>
             </SheetHeader>
             <div className="px-4 pb-4">
-              {drawer === "fleet" ? <FleetOverview /> : attention}
+              {shown === "fleet" ? <FleetOverview /> : attention}
             </div>
           </SheetContent>
         </Sheet>
