@@ -107,6 +107,7 @@ Re-time the final full take after choosing the accepted revision. C owns the can
 | AIS vessel also on a USV camera | green square + thin yellow ring, "AIS+CAM" |
 | Camera-only contact | yellow quatrefoil (four lobes), "NO AIS" label, lines to the USVs that see it |
 | Stale contact | grey, at its last known position, "LAST SEEN mm:ss AGO" |
+| Could be within | grey dashed circle around a stale boat or moving contact: age × speed since its last report, labelled "USV 02, 03 could be within 2.3 km". Boats use the model cruise speed (`config/boat.toml`, current not included); contacts their last reported speed. Never drawn from truth (`src/uncertainty.ts`) |
 | Course vector | line to where the contact will be in 6 minutes |
 | Radio link up | thin blue line between two boats, or boat and Korsør |
 | Route to shore | thicker bright blue line from each boat to its next hop (`via`) |
@@ -171,6 +172,7 @@ src/ui/LiveTools.tsx    alerts, digest, exercise/reset, reports, connection cont
 src/console-model.ts   live-data selectors shared by panels and transport guards
 src/ui/*.tsx           prior console panels retained for reference; App uses Live*
 src/coverage.ts     segment ages and bands against the revisit target
+src/uncertainty.ts  "could be within" circles for stale reports (age × speed)
 src/roles.ts        plain role words from task IDs (Cable sweep, Lane picket N, Relay)
 src/store.ts        WebSocket + Zustand store + feed-lost watchdog
 src/types.ts        contract types + console extras

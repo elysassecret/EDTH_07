@@ -20,6 +20,7 @@ import { evaluatorLayers } from "./evaluator";
 import type { EvalData } from "../types";
 import { segAges, type Band } from "../coverage";
 import { isDocked } from "../roles";
+import { spreadLabels, spreads, type Spread } from "../uncertainty";
 import { hmShort } from "../format";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import type { Decision } from "../types";
@@ -358,6 +359,18 @@ function buildLayers(
 
   if (snap && scene) layers.push(...coverageLayers(snap, scene, frozen));
   if (snap && scene && showRings && !frozen) layers.push(...ringLayers(snap, scene));
+  if (snap && scene) {
+    // roadmap item 4: area a stale boat or contact could have reached since its last report
+    const sp = spreads(snap, scene, frozen);
+    layers.push(new PathLayer<Spread, PathStyleExtensionProps<Spread>>({
+      id: "uncertainty", data: sp, getPath: (d) => circle(d.lon, d.lat, d.r_m, 96),
+      getColor: T.c(T.STALE, 220), getWidth: 2, widthUnits: "pixels",
+      getDashArray: [3, 3], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
+    }));
+    for (const { s: d, text } of spreadLabels(sp)) {
+      labels.push({ pos: offset(d.lon, d.lat, 0, d.r_m), text, kind: "spread" });
+    }
+  }
   if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
   if (snap) layers.push(...ghostRoutes(snap, hoverDecision));
 
@@ -463,10 +476,10 @@ function buildLayers(
       getColor: (d) =>
         d.kind === "cable" ? [215, 160, 205, 230]
           : d.kind === "dark" ? T.c(T.UNKNOWN)
-            : d.kind === "boat-stale" || d.kind === "stale" || d.kind === "docked" ? T.c(T.STALE)
+            : d.kind === "boat-stale" || d.kind === "stale" || d.kind === "docked" || d.kind === "spread" ? T.c(T.STALE)
               : T.c(T.TEXT, 235),
       getPixelOffset: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10]
-        : d.kind === "docked" ? [-48, -12] : [0, 16]),
+        : d.kind === "docked" ? [-48, -12] : d.kind === "spread" ? [0, -10] : [0, 16]),
       outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   );

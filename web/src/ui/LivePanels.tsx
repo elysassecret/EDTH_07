@@ -41,6 +41,7 @@ import {
 import { segName } from "../coverage";
 import { deg, dur, hhmm, hm, utc } from "../format";
 import { roleText } from "../roles";
+import { spreadText as spreadOf } from "../uncertainty";
 import { useStore } from "../store";
 import { t0Of } from "../types";
 import { Fps } from "./Fps";
@@ -227,6 +228,12 @@ export function SelectedContext() {
                 ? "Never heard"
                 : `${utc(t0Of(snap), boat.last_heard)} · ${dur(age)} ago`}
             </dd>
+            {spreadOf(snap, scene, "boat", usv(boat.id)) && (
+              <>
+                <dt className="text-muted-foreground">Could be within</dt>
+                <dd>{spreadOf(snap, scene, "boat", usv(boat.id))}</dd>
+              </>
+            )}
             <dt className="text-muted-foreground">Link</dt>
             <dd>{linkText(boat)}</dd>
             <dt className="text-muted-foreground">Energy budget</dt>
@@ -299,6 +306,8 @@ export function SelectedContext() {
           <p className="text-sm">
             Last observed {utc(t0Of(snap), contact.last_seen)} ·{" "}
             {dur(snap.t - contact.last_seen)} ago.
+            {spreadOf(snap, scene, "contact", contact.track) &&
+              ` Could be within ${spreadOf(snap, scene, "contact", contact.track)} of that place.`}
           </p>
           <p className="text-sm">
             Seen by{" "}
