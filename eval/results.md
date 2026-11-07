@@ -60,11 +60,11 @@ uv run python -m eval.run_batch --radio 4000 --out runs/radio4000
 
 **What repair did not do.**
 - The worst sample age matches `off` in 24 of 30 seeds: repair gives work to a boat that still has to sail there, and assignment alone closes nothing.
-- The gain over the whole period is small, 0.3 km in the median. The end-of-run figure is larger partly because segments only cross the 12,000 s target late in the mission.
-- Lane crossings in view do not improve: `off` keeps 9 of 9 in all 30 seeds, because the pickets stay put. `elysa` keeps 9 of 9 in 27 seeds, 8 in 2 and 7 in 1. Repair can only cost here.
-- Fewer boats cannot close the gap. A boat left with four segments needs over 3 h for a loop, near the 12,000 s target.
+- The gain over the whole period is small, 0.3 km in the median. Both modes show 0.0 km overdue at 9,000 s, so they only part late: 3.3 vs 3.0 km at 12,000 s, then 6.5 vs 3.3 km at 14,000 s. The result depends on when the run is scored, and this tape ends 6,800 s after the failure.
+- Lane crossings in view do not improve: `off` keeps 9 of 9 in all 30 seeds, because every one of the 9 falls within 1.8 km of a picket and the pickets stay put. `elysa` keeps 9 of 9 in 27 seeds, 8 in 2 and 7 in 1. Repair can only cost here.
+- Fewer boats cannot close the gap. The four-segment loop a repair hands to one boat is 25.4 km, 11,043 s at 2.3 m/s before any current, close to the 12,000 s target.
 
-**Detection is a distribution, and mostly a miss.** With `elysa`, a boat saw the dark contact in 10 of 30 seeds, 0 to 1,691 s after it appeared. In 20 of 30 no boat came within camera range before it left. A watcher had it in view in 8 of 30 seeds, 192 to 1,809 s after it appeared. Detection depends on where the sweeper is in its loop. `off` matches `elysa` up to T + 120 s by construction.
+**Detection is a distribution, and mostly a miss.** With `elysa`, a boat saw the dark contact in 10 of 30 seeds, 0 to 1,691 s after it appeared. In 20 of 30 no boat came within camera range before it left. A watcher had it in view in 8 of 30 seeds, 192 to 1,809 s after it appeared. Detection depends on where the sweeper is in its loop. It was identical in `off` and `elysa` in all 30 seeds: repair does not change who finds the contact, only who takes it afterwards.
 
 **Static detects for a poor reason.** `static` sees the contact in 5 of 5 seeds only because boat 2's station is about 1.1 km from it. That is a coincidence of the scenario, not coverage. Static also means no sweeping and no reassignment, not "never moves": a boat that sees a candidate still holds it.
 
@@ -72,7 +72,7 @@ uv run python -m eval.run_batch --radio 4000 --out runs/radio4000
 
 **4 km radio.** No boat detected the contact in any of 5 seeds with `off` or `elysa`. Cause not established yet.
 
-**Crossings do not separate the modes.** All 9 real crossings in the window happen near a picket. This metric shows no gain from repair in this geometry and should not be presented as one.
+**Crossings do not separate the modes.** This metric shows no gain from repair in this geometry and should not be presented as one.
 
 ## Checks
 
