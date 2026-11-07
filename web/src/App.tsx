@@ -9,10 +9,18 @@ import { CoverageBox } from "./ui/Coverage";
 import { EventLog, ExerciseBanner, InjectPanel, WarpControl } from "./ui/Demo";
 import { OPERATOR_MODE, t0Of } from "./types";
 import { EvalBanner } from "./ui/EvalPanel";
+import { EvidencePanel } from "./ui/Evidence";
+import { DecisionDock } from "./ui/DecisionPanel";
+import { Digest } from "./ui/Digest";
+import { StatusLine } from "./ui/StatusLine";
+import { HelpOverlay, Shortcuts } from "./ui/Shortcuts";
 
-function TopBar({ sat, satState, onSat, inject, onInject }: {
-  sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void; inject: boolean; onInject: () => void;
-}) {
+function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void }) {
+  const panel = useStore((s) => s.panel);
+  const setPanel = useStore((s) => s.setPanel);
+  const inject = panel === "inject";
+  const evidence = panel === "evidence";
+  const menu = panel === "menu";
   const snap = useStore((s) => s.snap);
   const channel = useStore((s) => s.channel);
   const setChannel = useStore((s) => s.setChannel);
@@ -25,19 +33,36 @@ function TopBar({ sat, satState, onSat, inject, onInject }: {
       </div>
       <WarpControl />
       <div className="controls">
-        {!OPERATOR_MODE && <EvalToggle />}
-        {!OPERATOR_MODE && <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
-          {channel === "shore" ? "View: SHORE (delivered)" : "View: TRUTH (evaluator)"}
-        </button>}
-        <CommsToggle />
-        <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
-        <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
-          title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
-          {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
-        </button>
+        <button className={menu ? "on" : ""} aria-expanded={menu} onClick={() => setPanel("menu")}>View ▾</button>
+        <button onClick={() => setPanel("help")} title="Keyboard shortcuts (?)">?</button>
+        {menu && (
+          <div className="viewmenu" role="menu">
+            {!OPERATOR_MODE && <EvalToggle />}
+            {!OPERATOR_MODE && <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
+              {channel === "shore" ? "Channel: SHORE (delivered)" : "Channel: TRUTH (evaluator)"}
+            </button>}
+            <CommsToggle />
+            <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
+              title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
+              {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
+            </button>
+            <DisplayToggle />
+            <button onClick={() => setPanel("inject")} className={inject ? "on" : ""}>Exercise controls</button>
+            <button onClick={() => setPanel("evidence")} className={evidence ? "on" : ""}>Evidence</button>
+          </div>
+        )}
       </div>
+      <StatusLine />
     </header>
   );
+}
+
+const NEXT = { dusk: "night", night: "day", day: "dusk" } as const;
+
+function DisplayToggle() {
+  const d = useStore((s) => s.display);
+  const set = useStore((s) => s.setDisplay);
+  return <button onClick={() => set(NEXT[d])} title="Day, dusk and night display (feature 33)">Display: {d.toUpperCase()}</button>;
 }
 
 function EvalToggle() {
@@ -74,24 +99,31 @@ export function App() {
   const [sat, setSat] = useState(false);
   const [satState, setSatState] = useState<"none" | "ready" | "checking">("checking");
   const onSatState = useCallback((s: "none" | "ready") => setSatState(s), []);
-  const [inject, setInject] = useState(false);
+  const panel = useStore((st) => st.panel);
+  const setPanel = useStore((st) => st.setPanel);
+  const display = useStore((st) => st.display);
   return (
-    <div className="app">
-      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} inject={inject} onInject={() => setInject((v) => !v)} />
+    <div className="app" data-display={display}>
+      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} />
+      <Shortcuts />
       <FeedBanner />
       <TruthBanner />
       <EvalBanner />
       <ExerciseBanner />
       <AlertStrip />
+      <Digest />
       <main>
         <div className="chart-wrap">
           <Chart satellite={sat} onSatelliteState={onSatState} />
           <CoverageBox />
           <EventLog />
-          {inject && <InjectPanel onClose={() => setInject(false)} />}
+          {panel === "inject" && <InjectPanel onClose={() => setPanel(null)} />}
+          {panel === "evidence" && <EvidencePanel onClose={() => setPanel(null)} />}
+          {panel === "help" && <HelpOverlay />}
         </div>
         <FleetPanel />
       </main>
+      <DecisionDock />
     </div>
   );
 }

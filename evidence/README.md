@@ -15,6 +15,16 @@ uv run python -m evidence.verify runs/<run>.evidence.jsonl # "chain OK" or the f
 Demo: open the evidence file, change one number in one line, run verify again. It names the
 chain and record, e.g. `usv-02: record 5 was changed after it was written (hash differs)`.
 
+One-click incident report (console button **Evidence**, or the command line):
+
+```bash
+uv run python -m evidence.report runs/<run>.jsonl --from 7000 --to 9600   # writes <run>.report.md
+```
+
+The console's Evidence panel downloads the report for the last 30 sim-minutes or the whole run
+(`/api/report.md`), and runs the tamper demo (`/api/tamper-demo`): it changes one character of
+one record in a copy, and the check names that record.
+
 ## How it works (60 seconds)
 
 - Each record holds the hash of the record before it and its own SHA-256 over all its fields
@@ -35,7 +45,7 @@ chain and record, e.g. `usv-02: record 5 was changed after it was written (hash 
 - It shows if a record was changed after it was written. It does not show the sensor was right.
   No claim on admissibility; never say "court-ready", "tamper-proof" or "blockchain".
 - The boats don't sign their own records yet. That needs chain heads in heartbeats (`agent/`,
-  Javier). Today the shore signs what it received.
+  Javier, issue #37). Today the shore signs what it received.
 - Records from the shore picture are sampled every run-log snapshot (10 sim-s), so not every
   heartbeat appears.
-- The one-click incident report (the second half of feature 28) is not built.
+- Boat-side signing is issue #37 (Javier).

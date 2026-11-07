@@ -81,7 +81,7 @@ Never say "suspicious", "hostile", "detects dark ships", "coverage restored", "c
   contact and no pending decisions, so the Confirm/Stop and Approve/Decline cards and the contact
   symbol never appear. Options: skip the card beat, or record it from `--mock` where the top bar
   says **MOCK FEED** and say "mock feed" in the narration. Needs Javier (A) for the real thing.
-- **seg:M:0 shows "none reported since start".** The shore never credits a visit to that
+- **seg:M:0 shows "none since start" (shore-reported).** The shore never credits a visit to that
   segment (issue #22), so the headline names it. That is what the shore knows; don't explain it
   away on camera.
 - "Cannot hold" and "Name NOT READ, Anchor NOT SEEN" only exist in the mock.

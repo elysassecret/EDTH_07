@@ -49,7 +49,7 @@ function coverageLayers(snap: NonNullable<ReturnType<typeof useStore.getState>["
     new TextLayer<(typeof segs)[number]>({
       id: "coverage-age", data: segs, getPosition: (a) => a.path[Math.floor(a.path.length / 2)],
       getText: (a) => `${a.id.slice(4)} ${a.age === null ? "no visit" : hmShort(a.age)}`,
-      getSize: 11, getColor: (a) => [...BAND_RGB[a.band], 255], getPixelOffset: [0, -14],
+      getSize: 14, getColor: (a) => [...BAND_RGB[a.band], 255], getPixelOffset: [0, -14],
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   ];
@@ -271,7 +271,7 @@ function buildLayers(
   if (geoText.length) {
     layers.push(new TextLayer<LineLabel>({
       id: "geo-labels", data: geoText, getPosition: (d) => d.pos, getText: (d) => d.text,
-      getSize: (d) => (d.kind === "depth" ? 10 : 12),
+      getSize: 14,
       getColor: (d) => (d.kind === "depth" ? [120, 150, 175, 220] : [200, 200, 188, 230]),
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }));
@@ -399,7 +399,7 @@ function buildLayers(
   layers.push(
     new TextLayer<Label>({
       id: "labels", data: labels, getPosition: (d) => d.pos, getText: (d) => d.text,
-      fontFamily: FONT, characterSet: "auto", getSize: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? 15 : 13),
+      fontFamily: FONT, characterSet: "auto", getSize: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? 16 : 14),
       getColor: (d) =>
         d.kind === "cable" ? [215, 160, 205, 230]
           : d.kind === "dark" ? T.c(T.UNKNOWN)

@@ -98,6 +98,16 @@ export interface EvalData {
   contacts: { id: string; track: string | null; pos: LonLat; ais: boolean | null; on_shore: boolean }[];
   links: { a: number; b: number; true: string; shore: string }[];
   seg_age: Record<string, { shore: number | null; true: number | null }>;
+  /** True cable km past the revisit target (real sim only; null on the mock). */
+  cable_overdue: { target_s: number; overdue_km: number; never_visited_km: number; total_km: number } | null;
+}
+
+/** Hook for D's three-mode scorecard (eval/), sent on /truth as "scorecard" when a source
+ * offers it. Not built here: the console only shows what eval/ supplies. */
+export interface Scorecard {
+  source: string; // e.g. "eval/run_batch.py"
+  seeds: number[];
+  rows: { mode: string; metric: string; median: number; min: number; max: number; unit: string }[];
 }
 
 /** ?operator in the URL: the watch officer's screen, no evaluator or truth controls. */

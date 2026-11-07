@@ -29,7 +29,7 @@ export function evaluatorLayers(ev: EvalData): Layer[] {
     new TextLayer<B>({
       id: "eval-offset-label", data: moved.filter((b) => (b.offset_m ?? 0) >= LABEL_FROM_M),
       getPosition: (b) => b.true, getText: (b) => `true ${String(b.id).padStart(2, "0")} · ${b.offset_m} m off`,
-      getSize: 11, getColor: [...TRUTH, 255], getPixelOffset: [0, 18],
+      getSize: 14, getColor: [...TRUTH, 255], getPixelOffset: [0, 18],
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
     new ScatterplotLayer<C>({
@@ -39,7 +39,7 @@ export function evaluatorLayers(ev: EvalData): Layer[] {
     new TextLayer<C>({
       id: "eval-hidden-label", data: hidden, getPosition: (c) => c.pos,
       getText: (c) => `${c.track ?? c.id} · truth only, not on shore picture`,
-      getSize: 11, getColor: [...TRUTH, 255], getPixelOffset: [0, -18],
+      getSize: 14, getColor: [...TRUTH, 255], getPixelOffset: [0, -18],
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   ];
