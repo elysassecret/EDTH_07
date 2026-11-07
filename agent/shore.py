@@ -87,6 +87,9 @@ class ShoreNode:
             if m.hops == 0:
                 self.direct[m.src] = max(self.direct.get(m.src, 0), m.tc)
             if m.tc > self.boats.get(m.src, (-1, 0, {}))[0]:
+                old = self.boats.get(m.src, (-1, 0, {}))[2].get("health", "")
+                if m.p.get("health", "") != old and m.p.get("health"):
+                    self.log(m.tc, "health", f"USV {m.src:02d}: {m.p['health']}")
                 self.boats[m.src] = (m.tc, m.hops, m.p)
                 head = m.p.get("head")
                 if head and head[0] > self.witnessed.get(m.src, [-2])[0]:

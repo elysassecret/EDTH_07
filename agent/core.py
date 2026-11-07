@@ -12,7 +12,7 @@ from math import isqrt
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from agent.auction import Auction, ms
+from agent.auction import DROPS, Auction, ms
 from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
 from agent.table import Table
@@ -87,6 +87,10 @@ class Agent:
         self.chain = Chain(f"usv-{me:02d}-onboard")
         self.key = demo_key(me)
         self.signed: list = []  # [seq, hash, sig] of the newest signed head
+        self.speed_permille = 1000  # share of cruise speed the boat really makes (#106)
+        self.health = ""  # last health report, "" while progress is to plan
+        self.fails = 0  # failed progress checks in a row
+        self.win: list | None = None  # [t0, start pos, expected dx mm, expected dy mm, last t]
         self.why: dict[str, str] = {}  # task I claimed -> the reason I gave (#86)
         self.peers: dict[int, tuple[int, dict]] = {}  # boat -> (tc, payload) of newest HB
         self.shore_t = -1  # tc of the newest shore heartbeat; -1 = never heard
@@ -116,7 +120,9 @@ class Agent:
     def step(self, t: int, own: Own, seen: tuple[Detection, ...],
              inbox: list[bytes]) -> tuple[Action, list[bytes]]:
         self.t = t
+        prev = self.pos
         self.pos, self.batt, self.cur = (own.x, own.y), own.batt, (own.cur_x, own.cur_y)
+        self.watch_progress(t, prev)
         self.visits.credit(self.pos, t)
         for raw in inbox:
             m = self.net.receive(t, raw)
@@ -190,10 +196,8 @@ class Agent:
     def claim(self, task: str, cost: int, deputy: int, why: str = "") -> None:
         self.why[task] = why
         self.publish(Rec(task, self.table.max_ver(task) + 1, CLAIMED, cost, self.me, deputy))
-        k = kind(task)
-        drop = ("pick",) if k == "seg" else ("seg", "pick") if k in ("relay", "contact") else ()
         for other in self.table.held_by(self.me):
-            if kind(other) in drop:
+            if kind(other) in DROPS.get(kind(task), ()):
                 self.release(other)  # PLAN F6: free the work this boat can no longer do
         self.sync_tour()
 
@@ -238,13 +242,74 @@ class Agent:
         if v.oldest(legs[i][0]) < v.oldest(legs[self.follow.i][0]):
             self.follow.i, self.follow.j = i, 0
 
+    # health check (#106) -------------------------------------------------------------------
+    def v_plan(self) -> int:
+        """The speed to plan with: cruise, or what the boat has really been making since a failed
+        health check. Bids, energy checks and the return rule all use it."""
+        return max(self.params.speed_mm_s * self.speed_permille // 1000, 1)
+
+    def watch_progress(self, t: int, prev: tuple[int, int]) -> None:
+        """Compare the progress the boat makes with what its own command and the current it
+        measures predict (the motion is: speed towards the target, then the current). Explainable
+        rule, not a diagnosis: a shortfall is evidence of a propulsion fault or of more current
+        than measured, not proof of either."""
+        a, p = self.action, self.params
+        moving = a is not None and a.target is not None and a.mode in (PATROL, RETURNING)
+        if not moving or self.win is None:
+            self.win = [t, self.pos, 0, 0, t] if moving else None
+            return
+        dt = t - self.win[4]
+        d = dist(prev, a.target)
+        if d:
+            step = min(a.speed_mm_s * dt // 1000, d * 1000)  # mm the motors should give
+            self.win[2] += (a.target[0] - prev[0]) * step // d + self.cur[0] * dt // 1000
+            self.win[3] += (a.target[1] - prev[1]) * step // d + self.cur[1] * dt // 1000
+        self.win[4] = t
+        if t - self.win[0] < p.health_window_ms:
+            return
+        t0, start, ex, ey, _ = self.win
+        self.win = [t, self.pos, 0, 0, t]
+        e2 = ex * ex + ey * ey
+        if 4 * e2 < (p.speed_mm_s * (t - t0) // 1000) ** 2:
+            return  # turned back or arrived: too little straight progress to judge
+        mx, my = (self.pos[0] - start[0]) * 1000, (self.pos[1] - start[1]) * 1000
+        ratio = (mx * ex + my * ey) * 1000 // e2
+        self.judge(ratio, (t - t0) // 1000)
+
+    def judge(self, ratio: int, window_s: int) -> None:
+        p = self.params
+        if ratio >= p.health_recover_permille:
+            if self.speed_permille != 1000:  # it had replanned: say so once, then plan at cruise
+                self.health, self.speed_permille = "progress back to plan", 1000
+                self.log("health", {"text": self.health})
+            else:
+                self.health = ""
+            self.fails = 0
+            return
+        self.fails = self.fails + 1 if ratio < p.health_min_permille else 0
+        if self.fails < p.health_fails:
+            return
+        self.speed_permille = max(ratio, 100)
+        if self.fails == p.health_fails:
+            self.health = (f"progress below plan: {ratio // 10}% of predicted over {window_s} s; "
+                           "possible propulsion fault or strong current (model estimate)")
+            self.log("health", {"text": self.health, "ratio_permille": ratio})
+            for task in self.table.held_by(self.me):  # what no longer fits at this speed
+                if kind(task) != "contact" and not self.auction.energy_ok(task):
+                    self.release(task)
+        elif self.fails >= p.health_fails + p.health_attempts and not self.returning:
+            self.health = (f"no recovery after {self.fails} checks: releasing everything and "
+                           "going home")
+            self.log("health", {"text": self.health, "ratio_permille": ratio})
+            self.go_home()
+
     # energy --------------------------------------------------------------------------------
     def remaining_ms(self) -> int:
         return self.batt * self.params.endurance_ms // 1000
 
     def return_ms(self, frm: tuple[int, int]) -> int:
         """Time to the shore from a point, with the current this boat measures."""
-        shore, v = self.mission.shore, self.params.speed_mm_s
+        shore, v = self.mission.shore, self.v_plan()
         d = dist(frm, shore)
         if d == 0:
             return 0
@@ -359,7 +424,7 @@ class Agent:
 
     def heartbeat(self) -> dict:
         legs = self.legs()
-        cyc = ms(self.tours.cycle_m(legs), self.params.speed_mm_s) if legs else 0
+        cyc = ms(self.tours.cycle_m(legs), self.v_plan()) if legs else 0
         return {"x": self.pos[0], "y": self.pos[1], "mode": self.mode, "batt": self.batt,
                 "cyc": cyc, "tour": [leg[0] for leg in legs],
                 "roles": self.table.held_by(self.me),
@@ -367,6 +432,7 @@ class Agent:
                 "spd": self.action.speed_mm_s if self.action and self.action.target else 0,
                 "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE),
                 "head": self.head(),
+                **({"health": self.health} if self.health else {}),
                 "det": self.params.r_detect_m, "kiv": self.params.keep_in_view_m}
 
     # evidence (#37) ------------------------------------------------------------------------

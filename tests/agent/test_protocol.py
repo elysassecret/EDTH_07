@@ -156,6 +156,9 @@ def test_shore_shows_why_04_took_the_cables():
     why = s.shore.picture(s.t).tasks["seg:G:0"].why
     assert why.startswith("USV 04") and ("bid" in why or "cheapest" in why), why
     assert why.endswith("[battery return]") and len(why) <= 120, why
+    # #103: travel time, energy left after (estimate) and the dropped role, in the boat's words
+    assert "min away" in why and "battery ~" in why and "drops pick:S" in why, why
+    assert why == s.agents[4].why["seg:G:0"]  # the shore shows exactly what the boat sent
     assert s.shore.picture(s.t).tasks["pick:S"].why == ""  # released: no claim, no reason
 
 
