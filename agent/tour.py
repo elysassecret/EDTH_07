@@ -132,6 +132,8 @@ class Follower:
         self.legs: list[Leg] = []
         self.i = 0  # current leg
         self.j = 0  # next waypoint in that leg
+        # how close counts as arrived at a waypoint; the agent sets the coastline rule (12f)
+        self.arrive = lambda wp: 65 if wp == SPROGO_LANDFALL else ARRIVE_M
 
     def set_legs(self, legs: list[Leg], pos: Point) -> None:
         cur = self.legs[self.i][0] if self.legs else None
@@ -156,7 +158,7 @@ class Follower:
         if not self.legs:
             return None
         wp = self.tours.way(self.legs[self.i])[self.j]
-        if dist(pos, wp) <= (65 if wp == SPROGO_LANDFALL else ARRIVE_M):
+        if dist(pos, wp) <= self.arrive(wp):
             self.skip()
         return self.tours.way(self.legs[self.i])[self.j]
 

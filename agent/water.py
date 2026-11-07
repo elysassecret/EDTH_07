@@ -195,3 +195,55 @@ def home_path(a: Point, home: Point) -> list[Point]:
         out.append(NODES[i])
         i = nxt[i]
     return [*out, home]
+
+
+ACCESS_OUT_M = 25  # an access point sits this far outside the coast margin
+_ACCESS: dict[Point, Point] = {}
+
+
+def access(p: Point) -> Point:
+    """Where a boat goes for a point that lies on land (a cable's landfall): the nearest point
+    just outside the coast margin. A point in water is its own access point. A boat that aims at
+    the landfall itself sees the line clear, then blocked, then clear again as it moves, and
+    turns back and forth forever (seen at Sprogø); aiming here it simply arrives."""
+    if p in _ACCESS:
+        return _ACCESS[p]
+    out = p
+    if on_land(p):
+        best: tuple[int, Point] | None = None
+        for ring, bb in zip(OBSTACLES, BOXES, strict=True):
+            if not (bb[0] <= p[0] <= bb[2] and bb[1] <= p[1] <= bb[3] and _inside(p, ring)):
+                continue
+            for u, v in pairwise(ring):
+                ex, ey = v[0] - u[0], v[1] - u[1]
+                den = ex * ex + ey * ey
+                num = min(max((p[0] - u[0]) * ex + (p[1] - u[1]) * ey, 0), den) if den else 0
+                q = (u[0] + ex * num // den, u[1] + ey * num // den) if den else u
+                cand = (dist(p, q), q)
+                if best is None or cand < best:
+                    best = cand
+        if best is not None:
+            d, q = best
+            for push in range(ACCESS_OUT_M, 10 * ACCESS_OUT_M + 1, ACCESS_OUT_M):
+                out = (q[0] + (q[0] - p[0]) * push // max(d, 1), q[1] + (q[1] - p[1]) * push // max(d, 1))
+                if not on_land(out):
+                    break
+    _ACCESS[p] = out
+    return out
+
+
+def arrive_m(p: Point, arrive: int) -> int:
+    """How close counts as having reached p: as usual in water; for a point on land, as close
+    as its access point plus the usual margin."""
+    return arrive if not on_land(p) else dist(p, access(p)) + arrive
+
+
+def nearest_node(p: Point) -> Point | None:
+    """The nearest water waypoint with a clear line from p, else the nearest at all."""
+    if not NODES:
+        return None
+    order = sorted(range(len(NODES)), key=lambda i: (dist(p, NODES[i]), i))
+    for i in order[:12]:
+        if not blocked(p, NODES[i]):
+            return NODES[i]
+    return NODES[order[0]]

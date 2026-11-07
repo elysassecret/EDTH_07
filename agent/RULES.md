@@ -94,6 +94,14 @@ What the boat does when the return rule (11) fires, and what it does not claim:
     sideways). A boat holding a station with its motors off drives back as soon as the current
     pushes it within the margin. Leaving the Korsør quay or reaching a cable's landfall may cross
     its own coast within 120 m (`EXIT_M`).
+12g. **No looping on a coast.** A cable landfall on land is reached at its access point just off
+    the coast margin (`water.access`), not aimed at directly. The route is planned again only if
+    the boat enters the margin, or is more than 150 m off its planned leg and that line is
+    blocked (`WATER_CORRIDOR_M`). On a planned leg the boat aims up-current by the drift the
+    measured current would give, so its track follows the clear line (`crab`). If for 5 min on
+    the same goal it gets less than a third as far as its speed allows, it logs "stuck", plans
+    again from the nearest water waypoint and, on patrol, skips the cable point it could not
+    reach (`STUCK_MS`). Lines between water waypoints clear the coast by 30 m more than the margin.
 
 ### Back from Korsør (#117)
 
