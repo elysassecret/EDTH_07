@@ -10,3 +10,5 @@ health_min_progress = 0.5   # below this share of the predicted progress the che
 health_recover = 0.8        # back above this share: progress back to plan
 health_fails = 2            # failed checks in a row before the boat reports and replans
 health_attempts = 3         # more failed checks after that: release everything and go home
+# Rejoin (#117): a docked boat whose battery is back to this share (after a swap) bids again
+rejoin_battery = 0.9

@@ -24,8 +24,10 @@ from contract.constants import (
     CONTACT_STALE,
     HEARTBEAT,
     PEER_STALE,
+    RETURNING,
     SHADOW_CAP,
     SHORE,
+    UNAVAILABLE,
     VETOED,
 )
 from contract.geo import dist, to_lonlat
@@ -87,6 +89,9 @@ class ShoreNode:
             if m.hops == 0:
                 self.direct[m.src] = max(self.direct.get(m.src, 0), m.tc)
             if m.tc > self.boats.get(m.src, (-1, 0, {}))[0]:
+                was = self.boats.get(m.src, (-1, 0, {}))[2].get("mode")
+                if was == UNAVAILABLE and m.p.get("mode") not in (UNAVAILABLE, RETURNING, None):
+                    self.log(m.tc, "rejoin", f"USV {m.src:02d} back from Korsør and available")
                 old = self.boats.get(m.src, (-1, 0, {}))[2].get("health", "")
                 if m.p.get("health", "") != old and m.p.get("health"):
                     self.log(m.tc, "health", f"USV {m.src:02d}: {m.p['health']}")

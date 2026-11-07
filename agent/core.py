@@ -134,6 +134,9 @@ class Agent:
         self.update_majority(t)
         self.sync_tour()
         self.contacts.tick(t, seen)
+        if (self.returning and self.batt >= self.params.rejoin_permille
+                and dist(self.pos, self.mission.shore) <= HOME_M):
+            self.rejoin()
         if not self.returning and self.return_due():
             self.go_home()
         if self.may_bid(t):
@@ -166,7 +169,10 @@ class Agent:
             else:
                 self.table.heard(m.src, m.tc)
                 if m.tc > self.peers.get(m.src, (-1, {}))[0]:
+                    was = self.peers.get(m.src, (-1, {}))[1].get("mode")
                     self.peers[m.src] = (m.tc, m.p)
+                    if was == UNAVAILABLE and m.p["mode"] not in (UNAVAILABLE, RETURNING):
+                        self.hand_back(m.src)
                     self.visits.credit((m.p["x"], m.p["y"]), m.tc)
         elif m.kind == "REC":
             for w in m.p["recs"]:
@@ -328,6 +334,27 @@ class Agent:
         self.contacts.holding = None
         for task in self.table.held_by(self.me):
             self.release(task)
+
+    def rejoin(self) -> None:
+        """#117: docked with a fresh battery (a swap at Korsor), the boat is a free boat again.
+        Its heartbeat mode tells peers and the shore at once; it bids in the next round like any
+        idle boat, so the open work (an uncovered picket, released cables) goes first."""
+        self.returning = False
+        self.speed_permille, self.fails, self.health, self.win = 1000, 0, "", None
+        self.log("rejoin", {"batt": self.batt})
+
+    def hand_back(self, b: int) -> None:
+        """#117: a peer is back from Korsor. If I am covering its original work while my own
+        original task stands open, I release its tasks and go back to mine: the original plan,
+        rebuilt by the same auction. Not under off after the failure, nor under static."""
+        if not self.may_bid(self.t):
+            return
+        initial = dict(self.mission.initial)
+        mine_open = any(o == self.me and self.table.is_open(k, self.t) for k, o in initial.items())
+        for task in self.table.held_by(self.me):
+            if mine_open and initial.get(task) == b:
+                self.release(task)
+                self.auction.gave[task] = self.t + REBALANCE  # not straight back to me
 
     def live_peers(self, t: int) -> int:
         return sum(1 for b, tc in self.table.last_hb.items() if b != self.me

@@ -69,6 +69,16 @@ What the boat does when the return rule (11) fires, and what it does not claim:
     failed checks (`health_attempts = 3`): it releases everything and goes home. A shortfall is
     evidence of a problem, not proof of which one.
 
+### Back from Korsør (#117)
+
+12c. **A docked boat whose battery is back to 90 %** (`rejoin_battery = 0.9`, after a battery swap)
+    is a free boat again; its heartbeat tells everyone at once ("USV 01 back from Korsør and
+    available" on the shore). A boat that was covering the returned boat's original tasks while
+    its own original task stood open hands them back and returns to its own task, so the original
+    plan comes back through the normal auction (tag `handed back`). Not under `off` after the
+    failure, nor under `static`. Not modelled yet: planning the round trip home and back into the
+    bids, and taking a cheap task on the way home.
+
 ## Contacts
 
 13. **A cue for a look**: a track with no AIS, slower than about 1 kn (`loiter_sog_mm_s = 515`),
@@ -104,6 +114,7 @@ and getting home, and the role the boat gives up (rule 8). The tag in brackets s
 | `lease expired` | Its owner went silent past its lease (rule 3) |
 | `rebalance` | An overloaded boat handed it over (rule 9) |
 | `handed over` | Its owner took the relay or a contact (rule 8) |
+| `handed back` | Back from Korsør: my original task, released to me by the boat that covered it |
 | `back to my own task` | The boat takes back what it gave up, e.g. its picket after a contact |
 | `contact: nearest free boat` | A new contact (rules 4, 5, 15) |
 | `relay: no shore path N s` | The boat has not heard the shore for N s (rule 7) |
