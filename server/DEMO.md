@@ -10,9 +10,10 @@ pnpm --dir web build                               # once, after any web/ change
 uv run python -m server --serve-web --demo         # real sim, preset in server/demo.toml
 ```
 
-Open **http://localhost:8765/?operator**. `?operator` hides the evaluator and truth switches,
-so the screen is the watch officer's. For the evaluator shots, open a second window without
-`?operator` and turn on **☰ View settings → Evaluator comparison**.
+Open **http://localhost:8765/**. The watch officer's screen is the default: no truth view and no
+evaluator switches. For the evaluator shots, open a second window at
+**http://localhost:8765/?evaluator**: it adds the truth view and starts with the evaluator
+comparison on (☰ View settings → Evaluator comparison turns it off).
 
 Record in a window at least 1440 px wide (full screen 1920×1080 is best): then the fleet column
 shows on the left. Below 1440 px the fleet is behind the **Fleet · 5** button.
@@ -101,7 +102,7 @@ and the times) for the deck notes.
    `tests/server/test_web_static.py` checks the build for web addresses.
 4. **Turn Wi-Fi off** (and unplug any cable). Keep it off until step 10.
 5. Start a stopwatch, run `uv run python -m server --serve-web --demo`, open
-   `http://localhost:8765/?operator`. Stop the watch when the console shows **12:10:00Z** and five
+   `http://localhost:8765/`. Stop the watch when the console shows **12:10:00Z** and five
    USVs. N8 asks for under 30 s; write down the real time.
 6. Press **Run**. By about 0:31 the link 04→shore is crossed; the decision cards, alerts and the
    event timeline all fill in. Nothing on screen may wait for the network.

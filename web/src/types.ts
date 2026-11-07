@@ -114,5 +114,8 @@ export interface Scorecard {
   preliminary?: boolean; // eval prints PRELIMINARY: show the word, never pass it off as final
 }
 
-/** ?operator in the URL: the watch officer's screen, no evaluator or truth controls. */
-export const OPERATOR_MODE = new URLSearchParams(window.location.search).has("operator");
+/** #88 item 8: the watch officer's screen is the default (no truth view, no evaluator controls).
+ * ?evaluator in the URL adds them and turns the evaluator comparison on. ?operator is still
+ * accepted and means the default. */
+export const EVALUATOR_MODE = new URLSearchParams(window.location.search).has("evaluator");
+export const OPERATOR_MODE = !EVALUATOR_MODE;

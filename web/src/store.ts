@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import { createHold, type Held } from "./undo";
 import { actionsFor, decisionRevision } from "./console-model";
-import { OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Scorecard, type Snapshot } from "./types";
+import { EVALUATOR_MODE, OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Scorecard, type Snapshot } from "./types";
 
 const FEED_LOST_MS = 2000;
 
@@ -125,7 +125,7 @@ export const useStore = create<State>((set, get) => ({
   setDigest: (open, lookedAt) => set((s) => ({ digestOpen: open, lastLookT: lookedAt ?? s.lastLookT })),
   placing: null,
   setPlacing: (p) => set({ placing: p }),
-  evalOn: false,
+  evalOn: EVALUATOR_MODE, // ?evaluator turns the comparison on at load (#88)
   evalData: null,
   scorecard: null,
   toggleEval: () => {
@@ -264,3 +264,6 @@ const hold = createHold({
   },
   onChange: (h) => useStore.setState({ held: h }),
 });
+
+// ?evaluator: the comparison starts on, so open its /truth socket now (after the store exists).
+if (EVALUATOR_MODE) connectEval();
