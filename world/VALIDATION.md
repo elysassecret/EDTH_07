@@ -4,7 +4,21 @@ This records checks performed in this development session, not a final scorecard
 Do not use the figures below as coverage improvement, real-hull performance or a claim
 that the complete contact demo/video is delivered.
 
-## Latest acceptance checkpoint: main b50da01
+## Current release-candidate handoff: main 86806cb (#72)
+
+See [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md) for reproducible commands, input fingerprints,
+scene/warm-up notes and human gates. The full existing Python suite passed (273 tests);
+three new real-scene approve/decline/stop integration cases passed separately. A clean
+cached checkout installed and built offline, and a real-sim browser check blocked external
+HTTP and exercised pause/feed-loss/reconnect on this Mac only. Physical Wi-Fi-off and two
+laptops remain untested. The clean root web test command fails by collecting the standalone
+template's Playwright suite; C has the reproduction on #73. No final metric claim is made.
+
+#70 has resolved bridge/UI restore and command-log replay (#63), plus truth-only scorecard
+loading (#59). No B-owned implementation defect was exposed. AIS/triage remain gated;
+private transfer and the full accepted video are not confirmed by this handoff.
+
+## Historical acceptance checkpoint: main b50da01
 
 All **270 tests passed** on this Mac, including the slow real-world story and fairness
 cases. Lint passed. A new world-only regression replays a seeded sequence of boat off /
@@ -17,9 +31,9 @@ are now merged. The old missing-contact/gap observations below describe earlier 
 not unresolved assertions about current main. Final seeded scorecards still need D's
 acceptance; passing tests is not permission to put preliminary figures on slides.
 
-World boat_restore is merged, but the current bridge still rejects that command: #63
-tracks C's enablement. The new regression deliberately replays World.inject payloads, not
-pretends server command replay can accept restore already. Python 3.12 stays pinned;
+At this historical checkpoint World boat_restore was merged but the bridge rejected it;
+#63 tracked C's enablement. That regression deliberately replayed World.inject payloads.
+This limitation is now resolved by #70; the current server restore/replay test passes. Python 3.12 stays pinned;
 world/README documents Franco's reported Windows installation workaround (#51).
 No fresh Windows run, full uploaded video or two-laptop offline test is claimed here.
 
@@ -117,11 +131,11 @@ semantics and the headline before final claims; see #22. B did not edit their co
 | Delivered shore contacts / automatic decisions | A, #17 | Resolved by #42; current slow story tests pass |
 | Directed next-hop semantics | A, #21 | Resolved by #35; current routing checks pass |
 | Shore versus truth coverage meaning | A+D, #22 | Per-sample implementation merged #38; latest suite passes |
-| Restore through dashboard/command replay | C, #63 | World supports it; bridge rejection must be removed |
+| Restore through dashboard/command replay | C, #63 | Resolved by #70; tested on main 86806cb |
 | Warm-state, policy definition, channel fairness, metrics | D with A/B, #19 | Varied phases, full eval/, final median/range |
 | Static baseline semantics | A+D, #19 | #35 fixes scout hold; D owns final baseline interpretation |
 | AIS replay | Private clip from D, #19 | Clip is unavailable to B; never commit CSV |
-| Offline land/satellite assets | D, #9 | Coastline placeholder and missing Sentinel image |
+| Offline land/satellite assets | D, #9 | Land/infra present and rendered; optional Sentinel assets absent |
 | Full video | C/team | Record actual completed story; upload and check signed out |
 | Two laptops / cross-platform determinism | Team | Actually run clean clones offline on both machines |
 
