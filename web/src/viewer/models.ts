@@ -42,33 +42,129 @@ const glass = new T.MeshPhysicalMaterial({
   metalness: 0.4,
   clearcoat: 1,
 });
+
+// USV specific materials matching the CAD reference & screenshots
+const marineBlue = paint("#2b5c7f", 0.42, 0.15),
+  keelBlue = paint("#244e6b", 0.45, 0.12),
+  cabinSilver = paint("#c5ccd3", 0.35, 0.35),
+  cabinTop = paint("#b8c0c8", 0.4, 0.3),
+  sprayWhite = paint("#dde4e9", 0.35, 0.1),
+  deckPad = paint("#20282e", 0.85, 0.05),
+  hatchGrey = paint("#525e66", 0.55, 0.18),
+  latchRed = paint("#d93535", 0.35, 0.1),
+  jetSteel = paint("#85939e", 0.28, 0.72),
+  jetNozzle = paint("#454e55", 0.4, 0.6),
+  radomeWhite = paint("#edf2f6", 0.22, 0.05),
+  mastBlack = paint("#192025", 0.7, 0.2),
+  visorTint = new T.MeshPhysicalMaterial({
+    color: "#12191f",
+    roughness: 0.1,
+    metalness: 0.45,
+    clearcoat: 1,
+  });
+
 function box(
   group: T.Group,
   size: number[],
   position: number[],
   material: T.Material,
+  rotation?: number[],
 ) {
   const m = new T.Mesh(new T.BoxGeometry(size[0], size[1], size[2]), material);
+  m.position.set(position[0], position[1], position[2]);
+  if (rotation) m.rotation.set(rotation[0], rotation[1], rotation[2]);
+  group.add(m);
+  return m;
+}
+
+function cylinder(
+  group: T.Group,
+  radiusTop: number,
+  radiusBottom: number,
+  height: number,
+  segments: number,
+  position: number[],
+  rotation: number[] | null,
+  material: T.Material,
+) {
+  const m = new T.Mesh(
+    new T.CylinderGeometry(radiusTop, radiusBottom, height, segments),
+    material,
+  );
+  m.position.set(position[0], position[1], position[2]);
+  if (rotation) m.rotation.set(rotation[0], rotation[1], rotation[2]);
+  group.add(m);
+  return m;
+}
+
+function sphere(
+  group: T.Group,
+  radius: number,
+  position: number[],
+  material: T.Material,
+  segments = 12,
+) {
+  const m = new T.Mesh(new T.SphereGeometry(radius, segments, segments), material);
   m.position.set(position[0], position[1], position[2]);
   group.add(m);
   return m;
 }
+
 function tube(
   group: T.Group,
   a: T.Vector3,
   b: T.Vector3,
   radius: number,
   material: T.Material,
+  segments = 8,
 ) {
   const delta = b.clone().sub(a);
   const m = new T.Mesh(
-    new T.CylinderGeometry(radius, radius, delta.length(), 8),
+    new T.CylinderGeometry(radius, radius, delta.length(), segments),
     material,
   );
   m.position.copy(a).add(b).multiplyScalar(0.5);
   m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), delta.normalize());
   group.add(m);
+  return m;
 }
+
+function usvHullPlanform(scaleX = 1, scaleZ = 1) {
+  const s = new T.Shape();
+  s.moveTo(0, 2.65 * scaleZ);
+  s.lineTo(0.96 * scaleX, 2.65 * scaleZ);
+  s.lineTo(1.05 * scaleX, 1.2 * scaleZ);
+  s.lineTo(1.04 * scaleX, 0.0 * scaleZ);
+  s.quadraticCurveTo(
+    1.0 * scaleX,
+    -1.1 * scaleZ,
+    0.72 * scaleX,
+    -1.8 * scaleZ,
+  );
+  s.quadraticCurveTo(
+    0.38 * scaleX,
+    -2.35 * scaleZ,
+    0,
+    -2.75 * scaleZ,
+  );
+  s.quadraticCurveTo(
+    -0.38 * scaleX,
+    -2.35 * scaleZ,
+    -0.72 * scaleX,
+    -1.8 * scaleZ,
+  );
+  s.quadraticCurveTo(
+    -1.0 * scaleX,
+    -1.1 * scaleZ,
+    -1.04 * scaleX,
+    0.0 * scaleZ,
+  );
+  s.lineTo(-1.05 * scaleX, 1.2 * scaleZ);
+  s.lineTo(-0.96 * scaleX, 2.65 * scaleZ);
+  s.closePath();
+  return s;
+}
+
 function hull(length: number, width: number, depth: number) {
   const s = new T.Shape();
   s.moveTo(-width / 2, -length / 2);
@@ -88,80 +184,166 @@ function hull(length: number, width: number, depth: number) {
   g.rotateX(-Math.PI / 2);
   return g;
 }
+
 /** Full 3D display proxy, not calibrated hull dimensions or a new dynamics model. */
 export function usvModel() {
   const g = new T.Group();
-  for (const x of [-1.05, 1.05]) {
-    const pontoon = new T.Mesh(hull(6.4, 0.72, 0.68), white);
-    pontoon.position.set(x, -0.3, 0);
-    g.add(pontoon);
-    const stripe = new T.Mesh(hull(6.45, 0.75, 0.13), rubber);
-    stripe.position.set(x, 0.15, 0);
-    g.add(stripe);
-    box(g, [0.48, 0.35, 0.65], [x, -0.15, 3], navy);
-    const prop = new T.Mesh(new T.CylinderGeometry(0.2, 0.2, 0.16, 12), steel);
-    prop.rotation.x = Math.PI / 2;
-    prop.position.set(x, -0.18, 3.4);
-    g.add(prop);
+
+  // 1. Deep-V monohull topsides & deck
+  const upperHullGeom = new T.ExtrudeGeometry(usvHullPlanform(1.0, 1.0), {
+    depth: 0.52,
+    bevelEnabled: true,
+    bevelThickness: 0.08,
+    bevelSize: 0.05,
+    bevelSegments: 2,
+    curveSegments: 16,
+  });
+  upperHullGeom.rotateX(-Math.PI / 2);
+  const upperHull = new T.Mesh(upperHullGeom, marineBlue);
+  upperHull.position.set(0, -0.05, 0);
+  g.add(upperHull);
+
+  // Deep-V lower hull deadrise
+  const lowerHullGeom = new T.ExtrudeGeometry(usvHullPlanform(0.88, 0.96), {
+    depth: 0.35,
+    bevelEnabled: true,
+    bevelThickness: 0.06,
+    bevelSize: 0.06,
+    bevelSegments: 2,
+    curveSegments: 16,
+  });
+  lowerHullGeom.rotateX(-Math.PI / 2);
+  const lowerHull = new T.Mesh(lowerHullGeom, keelBlue);
+  lowerHull.position.set(0, -0.32, 0.05);
+  g.add(lowerHull);
+
+  // Centerline keel skeg strip
+  box(g, [0.06, 0.12, 3.8], [0, -0.36, 0.5], mastBlack);
+
+  // 2. Waterline chine spray rails (Crisp White/Silver)
+  const sprayRailGeom = new T.ExtrudeGeometry(usvHullPlanform(1.04, 1.01), {
+    depth: 0.06,
+    bevelEnabled: false,
+    curveSegments: 16,
+  });
+  sprayRailGeom.rotateX(-Math.PI / 2);
+  const sprayRail = new T.Mesh(sprayRailGeom, sprayWhite);
+  sprayRail.position.set(0, 0.02, 0);
+  g.add(sprayRail);
+
+  // 3. Gunwale rub-rail bumper (Black rubber)
+  const gunwaleGeom = new T.ExtrudeGeometry(usvHullPlanform(1.055, 1.005), {
+    depth: 0.07,
+    bevelEnabled: false,
+    curveSegments: 16,
+  });
+  gunwaleGeom.rotateX(-Math.PI / 2);
+  const gunwale = new T.Mesh(gunwaleGeom, rubber);
+  gunwale.position.set(0, 0.44, 0);
+  g.add(gunwale);
+
+  // 4. Deck non-skid pads & foredeck access hatches
+  box(g, [0.92, 0.02, 1.3], [0, 0.48, -1.75], deckPad);
+  for (const x of [-0.44, 0.44]) {
+    box(g, [0.28, 0.035, 0.36], [x, 0.49, -1.6], hatchGrey);
+    box(g, [0.035, 0.02, 0.09], [x - 0.07, 0.51, -1.6], latchRed);
+    box(g, [0.035, 0.02, 0.09], [x + 0.07, 0.51, -1.6], latchRed);
   }
-  box(g, [2.25, 0.18, 3.8], [0, 0.68, 0.25], white);
-  box(g, [1.5, 0.9, 1.75], [0, 1.2, 0.2], white);
-  box(g, [1.32, 0.38, 0.035], [0, 1.38, -0.69], glass);
-  box(g, [1.32, 0.38, 0.035], [0, 1.38, 1.09], glass);
-  for (const x of [-0.762, 0.762])
-    box(g, [0.035, 0.38, 1.5], [x, 1.38, 0.2], glass);
-  box(g, [1.7, 0.12, 1.95], [0, 1.73, 0.2], navy);
-  // Solar panel frame / cell ribbons.
-  box(g, [1.3, 0.04, 1.4], [0, 1.82, 0.2], paint("#183c57", 0.2, 0.45));
-  for (let i = -2; i <= 2; i++)
-    box(g, [0.016, 0.01, 1.35], [i * 0.25, 1.85, 0.2], steel);
-  tube(
-    g,
-    new T.Vector3(0, 1.75, 0.85),
-    new T.Vector3(0, 3.05, 0.85),
-    0.045,
-    steel,
-  );
-  box(g, [1.1, 0.12, 0.15], [0, 2.8, 0.85], white);
-  const radar = new T.Mesh(new T.CylinderGeometry(0.25, 0.3, 0.14, 16), white);
-  radar.position.set(0, 3.08, 0.85);
-  g.add(radar);
-  const sensor = new T.Mesh(new T.SphereGeometry(0.19, 12, 10), navy);
-  sensor.position.set(0, 2.5, 0.6);
-  g.add(sensor);
-  for (const x of [-0.98, 0.98]) {
-    tube(
-      g,
-      new T.Vector3(x, 0.8, -1.45),
-      new T.Vector3(x, 1.25, -1.45),
-      0.025,
-      steel,
-    );
-    tube(
-      g,
-      new T.Vector3(x, 0.8, 1.95),
-      new T.Vector3(x, 1.25, 1.95),
-      0.025,
-      steel,
-    );
-    tube(
-      g,
-      new T.Vector3(x, 1.25, -1.45),
-      new T.Vector3(x, 1.25, 1.95),
-      0.025,
-      steel,
-    );
+
+  // Mooring hardware: Stainless steel bow eye / cleat
+  box(g, [0.06, 0.08, 0.16], [0, 0.49, -2.58], steel);
+  // Stern mooring cleats
+  for (const x of [-0.82, 0.82]) {
+    box(g, [0.06, 0.06, 0.14], [x, 0.49, 2.45], steel);
+  }
+
+  // 5. Aft modular mission payload bay
+  box(g, [1.32, 0.05, 1.35], [0, 0.47, 1.78], deckPad);
+  box(g, [1.38, 0.1, 0.05], [0, 0.52, 1.1], mastBlack);
+  box(g, [1.38, 0.1, 0.05], [0, 0.52, 2.46], mastBlack);
+  box(g, [0.05, 0.1, 1.36], [-0.69, 0.52, 1.78], mastBlack);
+  box(g, [0.05, 0.1, 1.36], [0.69, 0.52, 1.78], mastBlack);
+  box(g, [0.55, 0.04, 0.42], [0, 0.49, 1.8], hatchGrey);
+  box(g, [0.035, 0.02, 0.1], [-0.15, 0.52, 1.8], latchRed);
+  box(g, [0.035, 0.02, 0.1], [0.15, 0.52, 1.8], latchRed);
+
+  // 6. Twin electric waterjet pump propulsion units
+  for (const x of [-0.42, 0.42]) {
+    cylinder(g, 0.13, 0.14, 0.42, 16, [x, -0.06, 2.82], [Math.PI / 2, 0, 0], jetSteel);
+    cylinder(g, 0.09, 0.11, 0.14, 16, [x, -0.06, 2.98], [Math.PI / 2, 0, 0], jetNozzle);
+    box(g, [0.24, 0.16, 0.18], [x, -0.04, 3.02], jetSteel);
+    tube(g, new T.Vector3(x, 0.1, 2.72), new T.Vector3(x, 0.04, 3.0), 0.016, steel);
+    box(g, [0.26, 0.02, 0.1], [x, -0.22, 2.76], jetSteel);
+  }
+
+  // 7. Cabin / Superstructure cowl
+  const cabinShape = new T.Shape();
+  cabinShape.moveTo(-0.64, 0.95);
+  cabinShape.lineTo(0.64, 0.95);
+  cabinShape.lineTo(0.64, -0.4);
+  cabinShape.quadraticCurveTo(0.62, -0.95, 0.38, -1.2);
+  cabinShape.lineTo(-0.38, -1.2);
+  cabinShape.quadraticCurveTo(-0.62, -0.95, -0.64, -0.4);
+  cabinShape.closePath();
+
+  const cabinGeom = new T.ExtrudeGeometry(cabinShape, {
+    depth: 0.54,
+    bevelEnabled: true,
+    bevelThickness: 0.06,
+    bevelSize: 0.05,
+    bevelSegments: 3,
+    curveSegments: 12,
+  });
+  cabinGeom.rotateX(-Math.PI / 2);
+  const cabin = new T.Mesh(cabinGeom, cabinSilver);
+  cabin.position.set(0, 0.48, 0.08);
+  g.add(cabin);
+
+  // Upper cabin roof tier
+  box(g, [0.82, 0.14, 1.25], [0, 1.06, 0.05], cabinTop);
+
+  // 8. Tinted wraparound sensor visor / window band
+  box(g, [0.74, 0.22, 0.05], [0, 0.78, -1.02], visorTint, [-0.15, 0, 0]);
+  box(g, [0.28, 0.22, 0.05], [-0.46, 0.78, -0.88], visorTint, [-0.15, -0.65, 0]);
+  box(g, [0.28, 0.22, 0.05], [0.46, 0.78, -0.88], visorTint, [-0.15, 0.65, 0]);
+  box(g, [0.05, 0.22, 1.05], [-0.67, 0.78, -0.22], visorTint);
+  box(g, [0.05, 0.22, 1.05], [0.67, 0.78, -0.22], visorTint);
+
+  // 9. Navigation lights
+  for (const x of [-0.72, 0.72]) {
+    box(g, [0.06, 0.05, 0.12], [x, 0.88, 0.2], mastBlack);
     const lamp = new T.Mesh(
-      new T.SphereGeometry(0.07, 8, 6),
+      new T.SphereGeometry(0.055, 8, 6),
       new T.MeshStandardMaterial({
-        color: x < 0 ? "#fa4949" : "#46f8b1",
-        emissive: x < 0 ? "#b71c25" : "#17b76c",
-        emissiveIntensity: 1,
+        color: x < 0 ? "#fa3838" : "#38f888",
+        emissive: x < 0 ? "#d61818" : "#18c858",
+        emissiveIntensity: 1.2,
       }),
     );
-    lamp.position.set(x, 1.35, -1.5);
+    lamp.position.set(x + (x < 0 ? -0.04 : 0.04), 0.88, 0.2);
     g.add(lamp);
   }
+
+  // 10. Mast, satellite communications radome dish, whip antennas, EO/IR FLIR gimbal
+  box(g, [0.22, 0.38, 0.28], [0, 1.28, 0.22], mastBlack);
+
+  const radome = new T.Mesh(new T.CylinderGeometry(0.36, 0.36, 0.14, 24), radomeWhite);
+  radome.rotation.z = Math.PI / 2;
+  radome.rotation.y = 0.12;
+  radome.position.set(0, 1.76, 0.22);
+  g.add(radome);
+  cylinder(g, 0.08, 0.08, 0.18, 16, [0, 1.76, 0.22], [0, 0, Math.PI / 2], mastBlack);
+
+  for (const x of [-0.22, 0.22]) {
+    cylinder(g, 0.03, 0.035, 0.1, 8, [x, 1.18, 0.3], null, mastBlack);
+    tube(g, new T.Vector3(x, 1.22, 0.3), new T.Vector3(x, 2.52, 0.26), 0.012, mastBlack);
+  }
+
+  // Forward EO/IR FLIR camera gimbal
+  cylinder(g, 0.1, 0.12, 0.08, 16, [0, 1.15, -0.68], null, mastBlack);
+  sphere(g, 0.14, [0, 1.26, -0.68], mastBlack, 16);
+  cylinder(g, 0.075, 0.075, 0.05, 16, [0, 1.26, -0.79], [Math.PI / 2, 0, 0], visorTint);
+
   g.traverse((o) => {
     if (o instanceof T.Mesh) {
       o.castShadow = true;
