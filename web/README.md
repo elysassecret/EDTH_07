@@ -25,6 +25,12 @@ The same, paused at the start with a slower warp for showing it:
   `--scripted` plays the old exercise tape (battery low at 12:15Z, a link cut, contact C-07).
 - **Restart** (top bar) starts the run again from its beginning: boats back at Korsør, nothing
   injected, same seed.
+- **Replay, like a live video stream.** The bar under the top bar runs from the start of this
+  run to now. Drag back to watch the officer's picture as it was (recorded every 30 sim-seconds);
+  the simulation keeps running meanwhile and commands are off. **Go live** (or the far right)
+  returns to now. **Restart** starts the run again. The clock in the top bar is **Sim time**: the
+  simulated clock, starting at 10:15Z on 3 Nov 2026 (the day of the real AIS recording), with the
+  speed it runs at (e.g. 240×); Wall UTC is your real clock.
 - **AIS ships** come from `data/ais-clip-box.csv` (one day of real traffic; not in git, copy it in).
   Without it the chart says so. A run longer than the day replays the same day again.
 

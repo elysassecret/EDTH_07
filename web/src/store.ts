@@ -26,7 +26,10 @@ interface State {
   channel: Channel;
   conn: ConnState;
   scene: SceneMsg | null;
-  snap: Snapshot | null;
+  snap: Snapshot | null; // what the console shows: the live picture, or a replay frame
+  live: Snapshot | null; // the newest live picture (always kept, also while replaying)
+  replayT: number | null; // sim s of the replay frame on screen; null = live
+  showReplay: (frame: Snapshot | null) => void; // null = back to live
   lastMsgAt: number; // wall-clock ms of the last snapshot (UI timing only, never sim data)
   lastAck: Ack | null;
   commandError: string | null; // local transport feedback, never a fabricated server ACK
@@ -86,6 +89,10 @@ export const useStore = create<State>((set, get) => ({
   conn: "connecting",
   scene: null,
   snap: null,
+  live: null,
+  replayT: null,
+  showReplay: (frame) =>
+    set((s) => (frame ? { snap: frame, replayT: frame.t } : { snap: s.live, replayT: null })),
   lastMsgAt: 0,
   lastAck: null,
   commandError: null,
@@ -138,7 +145,7 @@ export const useStore = create<State>((set, get) => ({
     if (c === get().channel) return;
     if (c === "truth" && OPERATOR_MODE) return;
     if (hold.undo()) set({ commandError: "Queued answer cancelled before switching views; nothing was transmitted." });
-    set({ channel: c, snap: null, conn: "connecting", selected: null, selectedContact: null, selectedSegment: null, placing: null });
+    set({ channel: c, snap: null, live: null, replayT: null, conn: "connecting", selected: null, selectedContact: null, selectedSegment: null, placing: null });
     connect();
   },
   send: (c) => {
@@ -146,6 +153,10 @@ export const useStore = create<State>((set, get) => ({
     if (get().conn === "live" && performance.now() - get().lastMsgAt > FEED_LOST_MS) loseFeed();
     if (!ws || ws.readyState !== WebSocket.OPEN || get().conn !== "live") {
       set({ commandError: "Not sent: fresh feed unavailable." });
+      return false;
+    }
+    if (get().replayT !== null && !["pause", "speed", "reset"].includes(c.cmd)) {
+      set({ commandError: "Not sent: you are watching a replay. Press Live to act on the live picture." });
       return false;
     }
     if (["confirm", "stop", "approve", "decline", "ack", "escalate"].includes(c.cmd) && get().channel !== "shore") {
@@ -180,10 +191,15 @@ export function connect(): void {
       const incoming = msg as Snapshot;
       const state = useStore.getState();
       if (incoming.view !== state.channel) return;
-      const reset = state.snap && (incoming.t < state.snap.t || incoming.seed !== state.snap.seed);
+      const prev = state.live ?? state.snap;
+      const reset = prev && (incoming.t < prev.t || incoming.seed !== prev.seed);
       const cancelled = reset ? hold.undo() : false;
       const answered = state.answering && incoming.decisions.some((d) => d.id === state.answering && d.state !== "pending");
-      useStore.setState({ snap: incoming, conn: "live", lastMsgAt: performance.now(),
+      // while replaying, the live picture keeps arriving but the screen stays on the replay
+      // frame; a reset of the run ends the replay (its recording starts again)
+      const replaying = state.replayT !== null && !reset;
+      useStore.setState({ live: incoming, conn: "live", lastMsgAt: performance.now(),
+        ...(replaying ? {} : { snap: incoming, replayT: null }),
         ...(reset || answered ? { answering: null } : {}),
         ...(cancelled ? { commandError: "Queued answer cancelled on simulation reset; nothing was transmitted." } : {}),
       });

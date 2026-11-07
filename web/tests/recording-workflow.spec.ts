@@ -27,7 +27,9 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     });
   });
   await page.goto("/?feed=ws://127.0.0.1:18870"); // operator screen is the default
-  await expect(page.getByText("FEED LIVE", { exact: true })).toBeVisible();
+  // the shared server may still be replaying the demo's 6900 s fast-forward after an earlier
+  // test's reset (it blocks the feed for a few seconds)
+  await expect(page.getByText("FEED LIVE", { exact: true })).toBeVisible({ timeout: 30000 });
 
   // Rehearsals share the test server: use the real reviewed reset to start this take.
   await page.getByRole("button", { name: "Exercise controls" }).click();
