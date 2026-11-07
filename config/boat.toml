@@ -8,3 +8,6 @@ standoff_m = 1852
 standoff_floor_m = 500
 ais_class_a_m = 20000
 ais_class_b_m = 8000
+pos_noise_m = 30
+pos_dropout_drift_mps = 0.5
+propulsion_fault_permille = 350

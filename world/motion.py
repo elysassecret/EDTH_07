@@ -34,11 +34,14 @@ class Boat:
         dt_ms: int,
         current: Point = (0, 0),
         hotel_load_permille: int = 1000,
+        propulsion_permille: int = 1000,
     ) -> None:
         if dt_ms < 0 or action.speed_mm_s < 0:
             raise ValueError("time step and speed must be nonnegative")
         if not 1 <= hotel_load_permille <= 1000:
             raise ValueError("hotel load must be between 1 and 1000 permille of cruise load")
+        if not 0 <= propulsion_permille <= 1000:
+            raise ValueError("propulsion effectiveness must be between 0 and 1000 permille")
         if not self.enabled or self.charge_ms == 0 or action.mode == UNAVAILABLE:
             return
         dx, dy = 0, 0
@@ -57,11 +60,13 @@ class Boat:
         if dt_ms < requested_ms:
             # Exhausted within the tick: discard less than one ms of operating energy.
             self.charge_ms, self.drain_remainder = 0, 0
-        if action.target is not None:
-            travel = action.speed_mm_s * dt_ms // 1000
+        if action.target is not None and action.speed_mm_s > 0:
+            eff_speed = action.speed_mm_s * propulsion_permille // 1000
+            travel = eff_speed * dt_ms // 1000
             if distance <= travel:
                 self.x_mm, self.y_mm = action.target[0] * 1000, action.target[1] * 1000
-            elif distance:
+                return
+            if distance:
                 self.x_mm += dx * travel // distance
                 self.y_mm += dy * travel // distance
         self.x_mm += current[0] * dt_ms // 1000

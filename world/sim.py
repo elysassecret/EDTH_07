@@ -22,7 +22,7 @@ from world.motion import Boat
 from world.phase import STRATEGY, placements
 from world.radio import Radio, RadioConfig
 from world.routes import load_scene
-from world.sensors import Contact, observe
+from world.sensors import Contact, observe, velocity
 
 
 class BoatNode(Protocol):
@@ -50,6 +50,7 @@ class World:
         vary_start_phase: bool = True,
         ais_enabled: bool = False,
         ais_clip: str | Path | None = None,
+        scenario: str | Path = "scenarios/fixed.toml",
     ):
         self.root = Path(root)
         self.seed = seed
@@ -57,9 +58,10 @@ class World:
         self.shore_factory = shore_factory
         self.vary_start_phase = vary_start_phase
         self.ais_enabled = ais_enabled or ais_clip is not None
+        self.scenario = str(scenario)
         self.scene = load_scene(self.root)
         self.mission = self.scene.mission
-        self.params = load_params(self.root)
+        self.params = load_params(self.root, scenario=self.scenario)
 
         def config(name):
             with (self.root / name).open("rb") as handle:
@@ -67,9 +69,10 @@ class World:
 
         self.boat_config = config("config/boat.toml")
         energy = config("config/energy.toml")
-        self.current = Current.from_config(energy)
+        self._base_current = Current.from_config(energy)
         if not current_enabled:
-            self.current = Current((0, 0), self.current.flip_ms)
+            self._base_current = Current((0, 0), self._base_current.flip_ms)
+        self.current = self._base_current
         self.hotel_load_permille = energy["hotel_load_permille"]
         if (
             not isinstance(self.hotel_load_permille, int)
@@ -87,13 +90,14 @@ class World:
         self.tick_ms = round(config("config/run.toml")["tick_s"] * 1000)
         if self.tick_ms <= 0:
             raise ValueError("tick must be positive")
-        self.script = config("scenarios/fixed.toml").get("event", [])
+        self.script = config(self.scenario).get("event", [])
         self.ais_t0 = next(
             (event.get("ais_t0", DEFAULT_T0) for event in self.script if event.get("kind") == "reset"),
             DEFAULT_T0,
         )
         clip_path = Path(ais_clip) if ais_clip is not None else self.root / DEFAULT_CLIP
-        self.ais: AisReplay | None = AisReplay(clip_path, self.ais_t0) if self.ais_enabled else None
+        self._ais_clip = AisReplay(clip_path, self.ais_t0)
+        self.ais: AisReplay | None = self._ais_clip if self.ais_enabled else None
         self.reset()
 
     def reset(self, seed: int | None = None) -> None:
@@ -102,6 +106,10 @@ class World:
             self.seed = seed
         self.t = 0
         self.started = False
+        self.current = self._base_current
+        self.boat_currents: dict[int, Point] = {}
+        self.propulsion_permille: dict[int, int] = {}
+        self.position_faults: dict[int, dict] = {}
         self.radio = Radio(self.radio_config, self.seed)
         self.start_placements = placements(self.mission, self.seed, enabled=self.vary_start_phase)
         self.boats = {
@@ -152,12 +160,61 @@ class World:
         self.event_seq += 1
         queued = {**deepcopy(event), "origin": "injected", "exercise": True}
         if (
-            queued.get("kind") in ("battery_low", "boat_off", "boat_restore")
+            queued.get("kind")
+            in (
+                "battery_low",
+                "boat_off",
+                "boat_restore",
+                "adverse_current",
+                "current_change",
+                "position_error",
+                "positioning_error",
+                "gps_degrade",
+                "position_restore",
+                "gps_restore",
+                "propulsion_fault",
+                "propulsion_restore",
+            )
             and "boat" not in queued
+            and "a" in queued
         ):
             queued["boat"] = queued["a"]
         self.pending.append((when, self.event_seq, queued))
         self.pending.sort(key=lambda item: (item[0], item[1]))
+
+    def current_for_boat(self, boat: int, t_ms: int | None = None) -> Point:
+        when = self.t if t_ms is None else t_ms
+        if boat in self.boat_currents:
+            return self.boat_currents[boat]
+        return self.current.at(when)
+
+    def position_error_m(self, boat: int, t_ms: int | None = None) -> int:
+        fault = self.position_faults.get(boat)
+        if not fault:
+            return 0
+        when = self.t if t_ms is None else t_ms
+        noise_m = int(fault.get("noise_m", self.boat_config.get("pos_noise_m", 30)))
+        if fault.get("dropout"):
+            drift_mps = float(
+                fault.get("drift_mps", self.boat_config.get("pos_dropout_drift_mps", 0.5))
+            )
+            elapsed_ms = max(0, when - int(fault.get("since_ms", when)))
+            return noise_m + round(elapsed_ms * drift_mps / 1000.0)
+        return noise_m
+
+    def observed_own(self, boat: int, t_ms: int | None = None) -> Own:
+        when = self.t if t_ms is None else t_ms
+        cur = self.current_for_boat(boat, when)
+        base = self.boats[boat].own(cur)
+        fault = self.position_faults.get(boat)
+        if not fault:
+            return base
+        if fault.get("dropout"):
+            fix_x, fix_y = fault["fix_point"]
+            return Own(fix_x, fix_y, base.batt, base.cur_x, base.cur_y)
+        dx_m = int(fault.get("dx_m", 0))
+        dy_m = int(fault.get("dy_m", 0))
+        return Own(base.x + dx_m, base.y + dy_m, base.batt, base.cur_x, base.cur_y)
 
     def _apply(self, event: dict) -> None:
         kind = event["kind"]
@@ -168,7 +225,7 @@ class World:
         elif kind == "battery_low":
             boat = self.boats[event["boat"]]
             distance = dist(boat.point, self.mission.shore)
-            current = self.current.at(self.t)
+            current = self.current_for_boat(event["boat"], self.t)
             along = (
                 (
                     current[0] * (self.mission.shore[0] - boat.point[0])
@@ -185,6 +242,56 @@ class World:
             )
             # Same measured-current rule as the agent; this remains a chosen injection.
             boat.charge_ms = min(boat.charge_ms, threshold)
+        elif kind in ("adverse_current", "current_change"):
+            speed_mps = float(event.get("current_mps", event.get("speed_mps", 1.5)))
+            dir_deg = int(event.get("current_dir_deg", event.get("dir_deg", 325))) % 360
+            vec = velocity(round(speed_mps * 1000), dir_deg)
+            target_boat = event.get("boat", event.get("a"))
+            if target_boat is not None:
+                self.boat_currents[int(target_boat)] = vec
+            else:
+                self.current = Current(vec, self.current.flip_ms)
+        elif kind in ("position_error", "positioning_error", "gps_degrade"):
+            target_boat = int(event.get("boat", event.get("a")))
+            noise_m = int(event.get("noise_m", self.boat_config.get("pos_noise_m", 30)))
+            dropout = bool(event.get("dropout", False))
+            drift_mps = float(
+                event.get("drift_mps", self.boat_config.get("pos_dropout_drift_mps", 0.5))
+            )
+            # Deterministic offset from seed + boat + time when dx_m/dy_m not explicitly given.
+            sign_x = -1 if ((self.seed + target_boat) % 2) else 1
+            sign_y = -1 if ((self.seed + target_boat * 3) % 2) else 1
+            dx_m = int(event.get("dx_m", sign_x * (noise_m * 4 // 5)))
+            dy_m = int(event.get("dy_m", sign_y * (noise_m * 3 // 5)))
+            self.position_faults[target_boat] = {
+                "noise_m": noise_m,
+                "dropout": dropout,
+                "drift_mps": drift_mps,
+                "dx_m": dx_m,
+                "dy_m": dy_m,
+                "since_ms": self.t,
+                "fix_point": self.boats[target_boat].point,
+            }
+        elif kind in ("position_restore", "gps_restore"):
+            target_boat = int(event.get("boat", event.get("a")))
+            self.position_faults.pop(target_boat, None)
+        elif kind == "propulsion_fault":
+            target_boat = int(event.get("boat", event.get("a")))
+            if "effectiveness" in event:
+                permille = round(float(event["effectiveness"]) * 1000)
+            else:
+                permille = int(
+                    event.get(
+                        "effectiveness_permille",
+                        self.boat_config.get("propulsion_fault_permille", 350),
+                    )
+                )
+            if not 0 <= permille <= 1000:
+                raise ValueError("propulsion effectiveness must be between 0 and 1000 permille")
+            self.propulsion_permille[target_boat] = permille
+        elif kind == "propulsion_restore":
+            target_boat = int(event.get("boat", event.get("a")))
+            self.propulsion_permille.pop(target_boat, None)
         elif kind in ("boat_off", "boat_restore"):
             self.boats[event.get("boat", event.get("a"))].enabled = kind == "boat_restore"
         elif kind in ("link_off", "link_on"):
@@ -228,6 +335,15 @@ class World:
                         "link_on",
                         "contact_start",
                         "contact_depart",
+                        "adverse_current",
+                        "current_change",
+                        "position_error",
+                        "positioning_error",
+                        "gps_degrade",
+                        "position_restore",
+                        "gps_restore",
+                        "propulsion_fault",
+                        "propulsion_restore",
                     ),
                 ),
             }
@@ -289,12 +405,14 @@ class World:
             self._apply(event)
         for boat, state in sorted(self.boats.items()):
             before = (state.x_mm, state.y_mm)
+            prop = self.propulsion_permille.get(boat, 1000)
             for duration, current in self.current.intervals(self.t - dt, self.t):
                 state.advance(
                     self.actions[boat],
                     duration,
-                    current=current,
+                    current=self.boat_currents.get(boat, current),
                     hotel_load_permille=self.hotel_load_permille,
+                    propulsion_permille=prop,
                 )
             dx, dy = state.x_mm - before[0], state.y_mm - before[1]
             self.telemetry[boat]["sog"] = isqrt(dx * dx + dy * dy) * 1000 // dt if dt else 0
@@ -313,7 +431,7 @@ class World:
                 ais_seen = self._ais_detections_for_point(state.point, dt)
                 action, outbox = self.nodes[boat].step(
                     self.t,
-                    state.own(self.current.at(self.t)),
+                    self.observed_own(boat, self.t),
                     observe(
                         state.point,
                         self.contacts,
@@ -330,12 +448,17 @@ class World:
             for boat, (created, hops, payload) in sorted(getattr(self.shore, "boats", {}).items()):
                 previous = self.shore_reports.get(boat)
                 if previous is None or created > previous["reported_ms"]:
+                    hb = deepcopy(payload)
+                    err_m = self.position_error_m(boat, created)
+                    if err_m > 0:
+                        hb["pos_err_m"] = err_m
                     self.shore_reports[boat] = {
                         "id": boat,
                         "reported_ms": created,
                         "last_heard": self.t,
                         "hops": hops,
-                        "heartbeat": deepcopy(payload),
+                        "heartbeat": hb,
+                        **({"pos_err_m": err_m} if err_m > 0 else {}),
                     }
         for src, raw in broadcasts:
             self.radio.broadcast(self.t, src, raw, positions)
@@ -357,9 +480,78 @@ class World:
             ):
                 self.sample_visit_ms[index] = self.t
 
+    def ais_contacts_view(self, window_ms: int = 180_000) -> list[dict]:
+        """Active AIS vessels in the Great Belt box for console /truth and /shore display."""
+        if not self._ais_clip.available:
+            return []
+        t_ms = max(0, self.t - getattr(self, "warm_ms", 0))
+        end_ms = t_ms
+        start_ms = t_ms - window_ms
+        pings = self._ais_clip.between(start_ms, end_ms)
+        if not pings:
+            return []
+        first_seen: dict[str, int] = {}
+        latest: dict[str, AisPing] = {}
+        trails: dict[str, list[tuple[float, float]]] = {}
+        for ping in pings:
+            first_seen.setdefault(ping.track, max(0, ping.t_ms))
+            prev = latest.get(ping.track)
+            if prev is None or ping.t_ms >= prev.t_ms:
+                latest[ping.track] = ping
+            trails.setdefault(ping.track, []).append(to_lonlat(ping.x, ping.y))
+        class_a_m = self.boat_config["ais_class_a_m"]
+        class_b_m = self.boat_config["ais_class_b_m"]
+        active_boats = {
+            boat: state.point
+            for boat, state in sorted(self.boats.items())
+            if state.enabled and state.charge_ms > 0
+        }
+        out = []
+        for track in sorted(latest):
+            if track in self.contacts:
+                continue
+            ping = latest[track]
+            dt = max(0, min(t_ms - ping.t_ms, 60_000))
+            vx, vy = velocity(ping.sog, ping.cog)
+            x = ping.x + round(vx * dt / 1_000_000)
+            y = ping.y + round(vy * dt / 1_000_000)
+            rng = class_a_m if ping.ais_class == "Class A" else class_b_m
+            seen_by = [
+                boat for boat, b_pt in active_boats.items() if dist(b_pt, (x, y)) <= rng
+            ]
+            shore_ok = dist(self.mission.shore, (x, y)) <= rng
+            out.append(
+                {
+                    "track": track,
+                    "x": x,
+                    "y": y,
+                    "sog": ping.sog,
+                    "cog": ping.cog,
+                    "ais": True,
+                    "standoff_m": self.params.standoff_m,
+                    "ship_type": ping.ship_type or None,
+                    "length_band_m": ping.length_band_m,
+                    "first_seen_s": first_seen[track] // 1000,
+                    "last_seen_s": max(0, min(t_ms, max(0, ping.t_ms))) // 1000,
+                    "seen_by": seen_by,
+                    "shore_in_range": shore_ok,
+                    "trail": trails.get(track, [])[-15:],
+                }
+            )
+        return out
+
     def truth_view(self) -> dict:
         """Detached domain data, not a contract Snapshot or a shore data source."""
         result = self.snapshot()
+        for b in result["boats"]:
+            bid = b["id"]
+            err_m = self.position_error_m(bid, self.t)
+            if err_m > 0:
+                b["pos_err_m"] = err_m
+                obs = self.observed_own(bid, self.t)
+                b["obs_x"], b["obs_y"] = obs.x, obs.y
+            if bid in self.propulsion_permille:
+                b["propulsion_permille"] = self.propulsion_permille[bid]
         ages: dict[str, int | None] = {}
         for sample, visited in zip(self.scene.samples, self.sample_visit_ms, strict=True):
             if visited is None:
