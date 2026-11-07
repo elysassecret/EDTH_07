@@ -87,6 +87,7 @@ class Agent:
         self.chain = Chain(f"usv-{me:02d}-onboard")
         self.key = demo_key(me)
         self.signed: list = []  # [seq, hash, sig] of the newest signed head
+        self.why: dict[str, str] = {}  # task I claimed -> the reason I gave (#86)
         self.peers: dict[int, tuple[int, dict]] = {}  # boat -> (tc, payload) of newest HB
         self.shore_t = -1  # tc of the newest shore heartbeat; -1 = never heard
         self.mode = PATROL
@@ -140,7 +141,9 @@ class Agent:
             for o in self.contacts.observations():
                 self.net.send(t, "OBS", o)
         if self.rec_due(t):
-            self.net.send(t, "REC", {"recs": [to_wire(r) for r in self.table.recs.values()]})
+            mine = {k: w for k, w in sorted(self.why.items()) if w and self.holds_task(k)}
+            self.net.send(t, "REC", {"recs": [to_wire(r) for r in self.table.recs.values()]}
+                          | ({"why": mine} if mine else {}))
             for task in self.contacts.flags:
                 self.net.send(t, "CONTACT", self.contacts.message(task))
         action = self.avoid(self.behave())
@@ -181,9 +184,11 @@ class Agent:
         if r.owner == self.me:
             self.log("task", {"rec": to_wire(r)})
         self.table.apply(r)
-        self.net.send(self.t, "REC", {"recs": [to_wire(r)]})
+        why = self.why.get(r.task) if r.owner == self.me and r.state == CLAIMED else None
+        self.net.send(self.t, "REC", {"recs": [to_wire(r)]} | ({"why": {r.task: why}} if why else {}))
 
-    def claim(self, task: str, cost: int, deputy: int) -> None:
+    def claim(self, task: str, cost: int, deputy: int, why: str = "") -> None:
+        self.why[task] = why
         self.publish(Rec(task, self.table.max_ver(task) + 1, CLAIMED, cost, self.me, deputy))
         k = kind(task)
         drop = ("pick",) if k == "seg" else ("seg", "pick") if k in ("relay", "contact") else ()
@@ -193,10 +198,15 @@ class Agent:
         self.sync_tour()
 
     def release(self, task: str) -> None:
+        self.why.pop(task, None)
         self.publish(Rec(task, self.table.max_ver(task) + 1, RELEASED, 0, self.me))
         self.sync_tour()
 
     # what this boat holds ------------------------------------------------------------------
+    def holds_task(self, task: str) -> bool:
+        r = self.table.recs.get(task)
+        return r is not None and r.owner == self.me and r.state == CLAIMED
+
     def holds(self, k: str) -> bool:
         return any(kind(x) == k for x in self.table.held_by(self.me))
 
