@@ -46,6 +46,11 @@ class Params:
     policy: str  # elysa | off | static
     repair_off_after_ms: int  # first failure event in the scenario; same in every mode
     r_detect_m: int = 5000  # camera detect radius for ship-class target under scene light (m)
+    health_window_ms: int = 120_000  # health check (#106), see config/agent.toml
+    health_min_permille: int = 500
+    health_recover_permille: int = 800
+    health_fails: int = 2
+    health_attempts: int = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,4 +108,9 @@ def load_params(root: str | Path = ".", scenario: str = "scenarios/fixed.toml") 
         policy=agent["policy"],
         repair_off_after_ms=min(failures) * 1000 if failures else 0,
         r_detect_m=boat["r_detect_m"]["ship_day"],
+        health_window_ms=agent["health_window_s"] * 1000,
+        health_min_permille=round(agent["health_min_progress"] * 1000),
+        health_recover_permille=round(agent["health_recover"] * 1000),
+        health_fails=agent["health_fails"],
+        health_attempts=agent["health_attempts"],
     )
