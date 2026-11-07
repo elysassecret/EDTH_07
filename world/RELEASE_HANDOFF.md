@@ -56,6 +56,13 @@ close proposal. Their 180 s test budget is not a deployment-latency promise. Tes
 deep copies are not a new supported checkpoint/warm-start API. Receipt does not prove
 that a 500 m look or an observation has completed.
 
+### Follow-up review against main 9b4ea46
+
+After #79's assignment-explanation logging merged, #78 was updated with main `9b4ea46`.
+`uv run ruff check .` and `uv run pytest -q tests/smoke tests/world` passed (**83 tests**),
+including the three new contact cases. This is a targeted integration recheck, not a
+rerun of the full 273-test baseline or D's accepted metrics on that newer revision.
+
 No B-owned implementation defect was exposed by these checks. Passing them is not
 permission to replace D's baseline acceptance with integration figures.
 
