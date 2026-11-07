@@ -11,7 +11,7 @@ from eval.metrics import (
     task_lengths_m,
     worst_age_ms,
 )
-from eval.report import console_scorecard, fairness, fmt_stat, table
+from eval.report import console_scorecard, fairness, fmt_stat, paired, paired_table, table
 from eval.warm import build_world, seed_phases, tour_point
 from world.routes import RouteSample, load_scene
 
@@ -147,3 +147,32 @@ def test_observer_scores_in_view_at_the_crossing_time_only_inside_the_window():
 
 def test_absent_clip_reports_absence():
     assert AisObserver([], 2_000, 0, 1, present=False).summary() == {"ais_present": False}
+
+
+def test_paired_counts_seed_by_seed_and_signs_crossings_the_other_way():
+    """The deck quotes "elysa better in k of n": computed here, on shared seeds only, with None
+    left out and counted, and crossings in view scored higher-is-better."""
+    cards = [
+        card("off", seed=1, cable_km_overdue=6.0, crossings_in_view=9, ais_present=True),
+        card("elysa", seed=1, cable_km_overdue=2.0, crossings_in_view=5, ais_present=True),
+        card("off", seed=2, cable_km_overdue=3.0, crossings_in_view=9, ais_present=True),
+        card("elysa", seed=2, cable_km_overdue=3.0, crossings_in_view=9, ais_present=True),
+        card("off", seed=3, cable_km_overdue=1.0, crossings_in_view=None, ais_present=True),
+        card("elysa", seed=3, cable_km_overdue=4.0, crossings_in_view=9, ais_present=True),
+        card("off", seed=4, cable_km_overdue=0.0),  # no elysa run for seed 4: not a pair
+    ]
+    rows = {r["key"]: r for r in paired(cards)}
+    km = rows["cable_km_overdue"]
+    assert (km["seeds"], km["compared"]) == (3, 3)
+    assert (km["better"], km["equal"], km["worse"]) == (1, 1, 1)
+    assert km["median_gain"] == 0.0  # diffs 4, 0, -3
+    cv = rows["crossings_in_view"]
+    assert (cv["compared"], cv["better"], cv["equal"], cv["worse"]) == (2, 0, 1, 1)
+    assert cv["median_gain"] == -2.0
+    text = paired_table(cards)
+    assert "on 3 shared seed(s)" in text and "(compared on 2 of 3)" in text
+    assert "boats never receive AIS" in text
+    assert paired_table([card("elysa", seed=1, cable_km_overdue=1.0)]) == ""
+    assert "crossings" not in paired_table([card("off", cable_km_overdue=1.0),
+                                            card("elysa", cable_km_overdue=1.0)])
+
