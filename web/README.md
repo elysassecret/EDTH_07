@@ -11,6 +11,9 @@ pnpm --dir web build
 uv run python -m server --serve-web    # real simulation and console: http://localhost:8765/
 ```
 
+A live run lasts 4 h of sim time (`config/run.toml`, ends 14:15Z). For a longer one add
+`--hours 7` (at most one full battery: the world has no charging yet, #116).
+
 For development, run `uv run python -m server` and `pnpm --dir web dev` in separate
 terminals. The latter serves the console on http://localhost:5173. If pnpm is not
 installed, use `npx --yes pnpm` in its place.

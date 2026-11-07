@@ -40,6 +40,16 @@ ANSWER_CMDS = ("confirm", "stop", "approve", "decline")
 EVENT_WINDOW_MS = 60_000  # slow to warp_near for 60 sim-s either side of each event
 
 
+def check_horizon(horizon_s: int) -> None:
+    """A live run may last up to one full battery (config/boat.toml endurance_s). Longer runs
+    need charging at Korsør (#116) and boats that come back (#117): until then every boat
+    would end docked, and the console would show an empty sea as if that were the plan."""
+    limit = boat_model()["endurance_s"]
+    if not 0 < horizon_s <= limit:
+        raise ValueError(f"run length must be between 0 and {limit / 3600:g} h (one full battery; "
+                         "no charging in the world yet, #116)")
+
+
 def _toml(rel: str) -> dict:
     return tomllib.loads((ROOT / rel).read_text(encoding="utf-8"))
 
@@ -74,7 +84,7 @@ class SimSource:
     """World + ShoreNode adapted to the Feed source interface (see server/feed.py)."""
 
     def __init__(self, seed: int = 1, runs_dir: Path | None = None, demo: dict | None = None,
-                 scorecard_path: Path | None = None):
+                 scorecard_path: Path | None = None, horizon_s: int | None = None):
         self.seed = seed
         # #59: D's scorecard_console.json from `python -m eval.run_batch --out runs/main`
         self.scorecard_path = scorecard_path or ROOT / "runs" / "main" / "scorecard_console.json"
@@ -86,6 +96,9 @@ class SimSource:
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
         run = _toml("config/run.toml")
         self.horizon_ms = int(run["horizon_s"]) * 1000
+        if horizon_s is not None:  # --hours: a longer live run; D's eval keeps run.toml's value
+            check_horizon(horizon_s)
+            self.horizon_ms = horizon_s * 1000
         self.revisit_target_s = int(run["revisit_target_s"])  # D's number, "confirm Friday"
         tape = _toml("scenarios/fixed.toml").get("event", [])
         t0 = next((e.get("ais_t0") for e in tape if e.get("kind") == "reset"), None)
@@ -437,11 +450,13 @@ class SimSource:
 
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
                 serve_web: bool = False, runs_dir: Path | None = None,
-                demo: dict | None = None, scorecard: Path | None = None) -> None:
+                demo: dict | None = None, scorecard: Path | None = None,
+                horizon_s: int | None = None) -> None:
     from server.feed import serve as feed_serve
 
     def factory(s: int) -> SimSource:
-        return SimSource(s, runs_dir=runs_dir, demo=demo, scorecard_path=scorecard)
+        return SimSource(s, runs_dir=runs_dir, demo=demo, scorecard_path=scorecard,
+                         horizon_s=horizon_s)
 
     await feed_serve(factory, host, port, seed, hz, ready, serve_web,
                      name="sim bridge (demo preset)" if demo else "sim bridge",

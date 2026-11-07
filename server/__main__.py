@@ -6,6 +6,9 @@
 The real sim writes a JSONL run log to runs/ (one file per reset); check it with
     uv run python -m server.replay runs/<file>.jsonl
 
+A longer live run (default 4 h from config/run.toml; at most one full battery, 7 h):
+    uv run python -m server --serve-web --hours 7
+
 Demo video preset (server/demo.toml, shot list in server/DEMO.md):
     uv run python -m server --serve-web --demo
 """
@@ -32,11 +35,16 @@ def main() -> None:
                     help="mock only: synthetic AIS tracks for the load test (G4), e.g. 240")
     ap.add_argument("--demo", nargs="?", const="server/demo.toml", default=None, metavar="TOML",
                     help="real sim with the video preset (default server/demo.toml)")
+    ap.add_argument("--hours", type=float, default=None,
+                    help="real sim: run length in hours for this console run (default: "
+                         "config/run.toml, 4 h); eval and the video keep their own length")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     extra = {}
     if args.demo and args.mock:
         ap.error("--demo runs the real sim; leave out --mock")
+    if args.hours is not None and args.mock:
+        ap.error("--hours is for the real sim; leave out --mock")
     if args.tracks != 6 and not args.mock:
         ap.error("--tracks is for the mock feed: add --mock")
     if args.mock:
@@ -48,6 +56,14 @@ def main() -> None:
         from server.feed import ROOT
 
         extra = {"runs_dir": None if args.no_log else ROOT / "runs", "scorecard": args.scorecard}
+        if args.hours is not None:
+            from server.bridge import check_horizon
+
+            extra["horizon_s"] = round(args.hours * 3600)
+            try:
+                check_horizon(extra["horizon_s"])
+            except ValueError as e:
+                ap.error(str(e))
         if args.demo:
             import tomllib
 
