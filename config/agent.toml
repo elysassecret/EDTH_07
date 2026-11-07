@@ -12,3 +12,9 @@ health_fails = 2            # failed checks in a row before the boat reports and
 health_attempts = 3         # more failed checks after that: release everything and go home
 # Rejoin (#117): a docked boat whose battery is back to this share (after a swap) bids again
 rejoin_battery = 0.9
+# Decision score (#123): named terms added to the bid time. All off (0) by default, so the
+# fleet behaves exactly as measured; D tunes them with eval/ before any is switched on.
+score_cable_risk = 0.0      # bid ms removed per ms of a segment's oldest known sample age
+score_ships_near = 0.0      # extra risk per slow no-AIS ship this boat knows within 1 km of it
+score_data_cable = 1.0      # a data cable's risk relative to a power cable
+data_cables = ["G"]         # cable letters that carry data (G: Great Belt fibre)

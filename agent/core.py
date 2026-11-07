@@ -91,7 +91,8 @@ class Agent:
         self.health = ""  # last health report, "" while progress is to plan
         self.fails = 0  # failed progress checks in a row
         self.win: list | None = None  # [t0, start pos, expected dx mm, expected dy mm, last t]
-        self.why: dict[str, str] = {}  # task I claimed -> the reason I gave (#86)
+        self.why: dict[str, str] = {}
+        self.opts: dict[str, list] = {}  # task I claimed -> the options I compared (#123)  # task I claimed -> the reason I gave (#86)
         self.peers: dict[int, tuple[int, dict]] = {}  # boat -> (tc, payload) of newest HB
         self.shore_t = -1  # tc of the newest shore heartbeat; -1 = never heard
         self.mode = PATROL
@@ -151,8 +152,9 @@ class Agent:
                 self.net.send(t, "OBS", o)
         if self.rec_due(t):
             mine = {k: w for k, w in sorted(self.why.items()) if w and self.holds_task(k)}
+            opts = {k: o for k, o in sorted(self.opts.items()) if o and self.holds_task(k)}
             self.net.send(t, "REC", {"recs": [to_wire(r) for r in self.table.recs.values()]}
-                          | ({"why": mine} if mine else {}))
+                          | ({"why": mine} if mine else {}) | ({"opts": opts} if opts else {}))
             for task in self.contacts.flags:
                 self.net.send(t, "CONTACT", self.contacts.message(task))
         action = self.avoid(self.behave())
@@ -197,10 +199,14 @@ class Agent:
         if r.owner == self.me:
             self.log("task", {"rec": to_wire(r)} | ({"why": why} if why else {}))
         self.table.apply(r)
-        self.net.send(self.t, "REC", {"recs": [to_wire(r)]} | ({"why": {r.task: why}} if why else {}))
+        opts = self.opts.get(r.task) if why else None
+        self.net.send(self.t, "REC", {"recs": [to_wire(r)]} | ({"why": {r.task: why}} if why else {})
+                      | ({"opts": {r.task: opts}} if opts else {}))
 
-    def claim(self, task: str, cost: int, deputy: int, why: str = "") -> None:
+    def claim(self, task: str, cost: int, deputy: int, why: str = "",
+              options: list[tuple[int, str]] = ()) -> None:
         self.why[task] = why
+        self.opts[task] = [[k, s // 1000] for s, k in options]  # (option, score s), best first
         self.publish(Rec(task, self.table.max_ver(task) + 1, CLAIMED, cost, self.me, deputy))
         for other in self.table.held_by(self.me):
             if kind(other) in DROPS.get(kind(task), ()):
@@ -209,6 +215,7 @@ class Agent:
 
     def release(self, task: str) -> None:
         self.why.pop(task, None)
+        self.opts.pop(task, None)
         self.publish(Rec(task, self.table.max_ver(task) + 1, RELEASED, 0, self.me))
         self.sync_tour()
 

@@ -57,6 +57,7 @@ class TaskView(BaseModel):
     deputy: int
     state: int  # 0 released, 1 claimed, 2 vetoed
     why: str = ""  # short plain-language reason for this claim (#86)
+    options: list[tuple[str, int]] = []  # options the claiming boat compared: (task, score s) (#123)
 
 
 class Link(BaseModel):

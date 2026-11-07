@@ -6,6 +6,8 @@ Losers do nothing; if two boats both think they won, merge keeps the lower bid.
 """
 from typing import TYPE_CHECKING
 
+from agent.contact import NEAR_CABLE_M
+from agent.tour import dist_to_line
 from contract.constants import (
     CLAIMED,
     CYCLE_MAX,
@@ -44,6 +46,8 @@ class Auction:
         self.a = agent
         self.bids: dict[int, dict[str, list[tuple[int, int]]]] = {}  # e -> task -> [(cost, boat)]
         self.gave: dict[str, int] = {}  # task -> until when I won't bid on what I just gave away
+        self.options: list[tuple[int, str]] = []  # this round's best options (score ms, task)
+        self.compared: dict[str, list[tuple[int, str]]] = {}  # bid task -> options it beat
 
     def on_bid(self, p: dict) -> None:
         self.bids.setdefault(p["e"], {}).setdefault(p["task"], []).append((p["cost"], p["boat"]))
@@ -56,12 +60,17 @@ class Auction:
         if not self.a.may_bid(t):
             return
         table = self.a.table
-        for task in sorted(table.recs, key=lambda k: (BID_ORDER.get(kind(k), 99), k)):
-            if table.is_open(task, t) and self.can_bid(task, t):
-                cost = self.cost(task)
-                self.on_bid({"task": task, "e": e, "cost": cost, "boat": self.a.me})
-                self.a.net.send(t, "BID", {"task": task, "e": e, "cost": cost, "boat": self.a.me})
-                return  # one bid per slot
+        order = sorted(table.recs, key=lambda k: (BID_ORDER.get(kind(k), 99), k))
+        open_now = [k for k in order if table.is_open(k, t) and self.can_bid(k, t)]
+        # every option this round, scored the same way (#123); the bid goes, as before, to the
+        # first one in priority order, and the others are kept to show what it was compared with
+        self.options = sorted((self.score(k, t)[0], k) for k in open_now)[:3]
+        if open_now:  # one bid per slot
+            task = open_now[0]
+            cost = self.score(task, t)[0]
+            self.compared[task] = self.options
+            self.on_bid({"task": task, "e": e, "cost": cost, "boat": self.a.me})
+            self.a.net.send(t, "BID", {"task": task, "e": e, "cost": cost, "boat": self.a.me})
 
     def close_round(self, e: int, t: int) -> None:
         for task, bs in sorted(self.bids.pop(e, {}).items()):
@@ -71,7 +80,8 @@ class Auction:
             if bs[0][1] != self.a.me:
                 continue
             dep = bs[1][1] if len(bs) > 1 and kind(task) in ("relay", "contact") else 0
-            self.a.claim(task, bs[0][0], dep, self.reason(task, t, bs))
+            self.a.claim(task, bs[0][0], dep, self.reason(task, t, bs),
+                         self.compared.pop(task, []))
 
     def take_over(self, t: int) -> None:
         """Deputy (PLAN 7.10): when the owner of a relay or contact I am deputy for goes past
@@ -139,6 +149,23 @@ class Auction:
         if kind(task) == "contact":
             return ms(dist(a.pos, a.contacts.ring(task)), a.v_plan())
         return ms(dist(a.pos, a.station(task)), a.v_plan())
+
+    def score(self, task: str, t: int) -> tuple[int, dict[str, int]]:
+        """One score per option, in ms of bid (lower is better), with its named terms. The time
+        term is the bid as measured; the cable-risk term is off unless config switches it on."""
+        a, p = self.a, self.a.params
+        terms = {"time": self.cost(task)}
+        if kind(task) == "seg" and p.score_risk_permille:
+            age = t - max(a.visits.oldest(task), 0)
+            ships = sum(1 for k, o in sorted(a.contacts.tracks.items())
+                        if not o["ais"] and not a.contacts.stale(k, t)
+                        and o["sog"] <= p.loiter_sog_mm_s
+                        and dist_to_line((o["x"], o["y"]), a.tours.pts[task]) <= NEAR_CABLE_M)
+            risk = age * (1000 + ships * p.score_ships_permille) // 1000
+            if task.split(":")[1] in p.data_cables:
+                risk = risk * p.score_data_permille // 1000
+            terms["cable risk"] = -risk * p.score_risk_permille // 1000
+        return sum(terms.values()), terms
 
     def cost(self, task: str) -> int:
         a = self.a

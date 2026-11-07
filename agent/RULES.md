@@ -79,6 +79,17 @@ What the boat does when the return rule (11) fires, and what it does not claim:
     failure, nor under `static`. Not modelled yet: planning the round trip home and back into the
     bids, and taking a cheap task on the way home.
 
+### The decision score (#123)
+
+12d. **Every 12 s round, each boat scores every task it could take** (only tasks open, inside its
+    hard limits: battery, return-by, stand-off) with one number, in ms of bid, lower is better:
+    the bid time of rule 5, minus a cable-risk term = the segment's oldest known sample age, ×
+    (1 + `score_ships_near` per slow no-AIS ship it knows within 1 km of the segment), ×
+    `score_data_cable` for a data cable (`data_cables = ["G"]`), × `score_cable_risk`. **All the
+    new weights are 0 by default**, so the fleet behaves exactly as measured until D tunes them.
+    The bid still goes to the first open task in priority order (rule 4); the three best options
+    it compared reach the shore with the claim (`TaskView.options`, score in s).
+
 ## Contacts
 
 13. **A cue for a look**: a track with no AIS, slower than about 1 kn (`loiter_sog_mm_s = 515`),
