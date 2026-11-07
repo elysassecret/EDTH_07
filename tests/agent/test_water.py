@@ -30,6 +30,7 @@ def test_the_coastline_module_matches_the_map():
 
 
 def test_routes_between_the_stations_stay_off_land():
+    water.set_anchors([QUAY, (-2278, -7893)])  # as the agent does: the quay and the landfall
     shore = real_land()
     pairs = [
         (QUAY, (797, 8644)),  # Korsør to the north: used to cut straight across Zealand
@@ -98,3 +99,15 @@ def test_no_boat_loops_on_the_coast():
                         and max(dist(h[0][0], p) for p, _, _ in h) < 300:
                     loops.append((b, w.t // 1000))
         assert loops == [], (launch, seed, loops[:3])
+
+
+def test_only_anchors_may_cross_their_own_coast():
+    """A boat the current pushed inside the coast margin next to the East Bridge pier gets no
+    exit allowance there: its route leaves by a water waypoint, not across the pier."""
+    shore = real_land()
+    water.set_anchors([QUAY])
+    inside = (3644, -6125)  # 5 m into the pier, seen in a 12 h run before the fix
+    assert water.on_land(inside)
+    pts = water.path(inside, (686, -4454))
+    assert water.blocked(inside, (686, -4454))
+    assert LineString(pts[1:]).intersection(shore).length == 0.0  # after leaving, all water

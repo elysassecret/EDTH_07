@@ -108,6 +108,10 @@ class Agent:
         self.tours = Tours({s.id: s.pts for s in mission.tasks if kind(s.id) == "seg"})
         self.stations = {s.id: s.pts[0] for s in mission.tasks if kind(s.id) != "seg"}
         self.follow = Follower(self.tours)
+        if self.water_rules():
+            # the quay and the cable ends on land are the only places a boat may cross its own coast
+            water.set_anchors([mission.shore, *(p for t in mission.tasks for p in t.pts
+                                                if water.on_land(p))])
         if self.water_rules():  # a cable landfall on land counts as reached at its access point
             self.follow.arrive = lambda wp: water.arrive_m(wp, ARRIVE_M)
         self.visits = Visits(self.tours.pts, params.r_verify_m)
