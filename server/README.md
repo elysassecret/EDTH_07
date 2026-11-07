@@ -39,6 +39,15 @@ uv run python -m server --serve-web --mock   # same with the mock feed
   adds the latest lines to /shore frames as `narration`; the console shows them under
   "What changed".
 - `mock_feed.py`: deterministic fake of the whole story, for UI work without the sim.
+  `--tracks N` adds synthetic AIS-like tracks along the lane (labelled MOCK AIS, own random
+  stream, so the story is unchanged) for the N4 load test:
+  `uv run python -m server --serve-web --mock --tracks 240`. The evaluator view shows a frame
+  readout (screen fps, feed frames/s, contacts).
+
+  **Measured (7 Nov 2026, MacBook Pro M4, 24 GB, macOS 26.6.2):** 240 tracks at 240× auto:
+  server frame 10.5 ms on average (150 frames, 1 h sim; budget 100 ms at 10 Hz); console in the
+  Claude desktop browser pane: screen 120 fps, feed 9.5–10 frames/s, 240 contacts. Re-measure
+  in Chrome on each demo laptop before quoting it.
 - `alerts.py`: alerts for the real sim (feature 23), made from the shore picture and the
   console's own exercise events, never from truth. Alarm: held decision unanswered 05:00.
   Warning: held decision waiting; boat not heard for `stale_after_s`. Caution: no link,

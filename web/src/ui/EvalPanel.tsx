@@ -3,6 +3,7 @@
 // (server/evaluator.py); the operator's own picture stays /shore only.
 import { useStore } from "../store";
 import { dur, hm } from "../format";
+import { Fps } from "./Fps";
 
 const usv = (i: number) => `USV ${String(i).padStart(2, "0")}`;
 const end = (n: number) => (n === 0 ? "shore" : usv(n));
@@ -27,6 +28,7 @@ export function EvalPanel() {
   return (
     <section className="evalpanel">
       <h2>Evaluator view · not available to the operator</h2>
+      <Fps />
       {ev.cable_overdue ? (
         <div className="eval-headline">
           Cable overdue (truth): <b>{ev.cable_overdue.overdue_km.toFixed(1)} km</b> past the {hm(ev.cable_overdue.target_s)} target
