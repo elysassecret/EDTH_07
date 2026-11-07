@@ -122,8 +122,10 @@ contact_start, contact_depart, evaluate. `battery_low`/`boat_off`/`boat_restore`
 scenario `boat` or console `a`. `boat_restore` re-enables the same boat and agent: no reset,
 teleport, battery recharge or task-table replacement. The restore tick resumes node stepping;
 motion resumes using its new action on the next tick. A depleted boat stays depleted.
-World support is merged; bridge/UI enablement is separately tracked in #63, because the
-current bridge still rejects this kind. This API does not claim it works from the UI yet. Link
+Bridge/UI enablement and command-log replay are merged in #70 (resolving #63).
+`tests/server/test_bridge.py::test_boat_restore_brings_the_same_boat_back_and_replays`
+checks the real bridge, renewed shore reports, unchanged-or-lower charge and replay.
+See `world/RELEASE_HANDOFF.md` for the tested revision and separate offline gates. Link
 commands use `a` and `b`, where `b` is a boat ID or "shore" (also ID 0).
 Links are **directed** and keyed by node IDs: disabling 4 -> shore does not disable
 shore -> 4. Shore is node 0; docked USV 01 is still node 1 even at the same coordinates.

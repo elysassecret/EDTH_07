@@ -59,7 +59,9 @@ The default uses explicitly labelled fixed-route stand-ins, **not Javier's swarm
 The merged agent now moves boats, returns on low battery and runs the slotted auction.
 Boat contact detection/response, delivered shore contacts/cards, oldest-first repair and
 deputy takeover are merged. The world does not substitute exercise behaviour or truth
-positions for missing radio reports. The bridge/UI restore rollout remains tracked in #63.
+positions for missing radio reports. Bridge/UI restore and command replay are merged in
+#70 (resolving #63); see [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md) for the tested candidate,
+C's clean-web-test blocker and the still-unrun physical two-laptop rehearsal.
 Both modes print a final truth snapshot and physical-state hash; neither is an evaluation
 result. Core mode also prints public agent views and the heartbeats actually received by
 shore (original creation times and hop counts), not a fabricated live fleet picture.

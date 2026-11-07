@@ -3,17 +3,20 @@
 ## Agreed scope
 
 - Routes/loop/API, hotel load, boat contacts and current/tide are merged (#12/#14/#15/#16).
-- Current integration baseline: main `b50da01` (includes shore cards, per-sample shore ages,
-  directed next-hop/static fixes, oldest-first repair and deputy). Earlier milestones below
-  retain their historical counts/results, not claims about current missing features.
+- Current release-candidate baseline: main `86806cb` (#69 stand-off and #70 restore,
+  scorecard and real contact story included). Earlier milestones below retain their
+  historical counts/results, not claims about current missing features.
+- #72 handoff: [RELEASE_HANDOFF.md](RELEASE_HANDOFF.md) records revision, commands,
+  scene/warm-up inputs, C's clean-web-test blocker and actual remaining human gates.
 - Detailed checks, actual outcomes and remaining gates are in world/VALIDATION.md.
 - Historical world.check audit: 30 cold fixed-phase cases with matching pre-event hashes.
   On b/seeded-start-phase, reset now varies sweeper cable offsets by seed (#28), independent
   of policy/speed; stationary roles remain fixed and seed 1 retains the demo reference.
   This remains cold placement, not a historical warm state or final metric benchmark.
-- Latest validation: all 270 tests pass, including slow story/fairness cases, with a new
-  seeded injection/reset replay regression. Earlier built-console/offline checks are recorded
-  separately; no new full video or two-laptop certification is claimed.
+- Latest validation: 273 existing Python tests pass, including slow story/fairness cases;
+  three new real-scene approve/decline/stop cases pass separately. Clean cached build and
+  one-Mac browser checks pass, but the clean root web test command fails (reported to C).
+  No full-video, physical Wi-Fi-off or two-laptop certification is claimed.
 - Simeone owns the deterministic loop in `world/sim.py`; server wraps it (coordinate with Alexandru).
 - Start with basic kinematic motion and a simple battery model; record deferred realism here.
 - Agent owns return decisions and networking (forwarding, dedupe, retries, expiry, hop limit).
@@ -26,8 +29,9 @@
   the new replay regression; world preserves state and does not fabricate historical visits.
 - #51: keep Python 3.12; reported Windows uv installation workaround documented in world/README.
   No root config or support-range change. Mac validation does not certify the Windows workaround.
-- #63: C must remove the stale bridge rejection and enable UI/command-log restore support.
-  B's world injection replay works; server restore replay is not claimed while rejected.
+- #63/#59: resolved by C's merged #70; actual bridge restore/replay and truth-only
+  scorecard tests pass on the release candidate. PR #76 is not in that candidate and
+  must reconcile #70's restore control/recording flow before adoption.
 - #52: AIS sensors remain gated; no private clip is available locally.
 
 ## Ordered delivery
@@ -107,14 +111,14 @@
 | Motors-off hotel load / SENTINEL energy | Merged #14; chosen ratio, not hull data |
 | Fixed current/tide and drift-and-correct physics | Merged #16; chosen fixed field |
 | Seeded initial positions (#28) | Implemented; old #27 full batch has 5 distinct outcomes per mode; F1–F5 pass |
-| Historical warm state, channel fairness, final metrics | D's #19/d/eval-warm; final headline still blocked by shore gap |
+| Historical warm state, channel fairness, final metrics | D's #19; warm-up/fairness regressions pass, final batch/headline acceptance remains D-owned |
 | AIS replay | Blocked on Franco supplying private clip |
 | Cue/triage | Gated behind main features and full video |
 | Contact response/operator policy | Delivered contacts/cards, per-sample ages/via fixes and full slow story now pass |
 
 This is progress by deliverable, not a claim that timed team milestones or the whole
 console demo are complete. The latest full suite includes slow story and fairness tests;
-next unblock C's restore bridge #63 and complete D's final metric/report acceptance #19.
+restore bridge #63 is now resolved; next complete D's final metric/report acceptance #19.
 Full video and actual two-laptop offline tests remain outstanding. Do not start triage.
 
 ## Real-core integration milestone
@@ -170,7 +174,7 @@ Full video and actual two-laptop offline tests remain outstanding. Do not start 
 ## Deferred / not implemented
 
 - Real movement/auction/return, contact policy and delivered shore cards are integrated.
-  Keep both real-core tests and stand-in physics tests; bridge restore enablement awaits #63.
+  Keep both real-core tests and stand-in physics tests; bridge restore is merged in #70.
 - Default `python -m world` uses exercise controllers. `--controller core` runs real agents.
 - Fixed current/tide and motors-off energy are now implemented with chosen inputs;
   real forecasts, hull-calibrated power and tide-aware waiting are not.
