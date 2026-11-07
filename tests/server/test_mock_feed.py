@@ -155,3 +155,31 @@ def test_load_test_tracks_are_extra_and_leave_the_story_alone():
     assert len([c for c in tb["contacts"] if c["ais"]]) == 240
     assert _json.dumps(ta["boats"]) == _json.dumps(tb["boats"])
     assert all(c["track"].startswith("AIS-") for c in tb["contacts"] if c["ais"])
+
+
+def test_closing_the_console_does_not_stop_or_reset_the_boats():
+    """#105, shore side: the boats' simulation keeps running with no console attached, and a
+    console that comes back sees a later time on the same run, not a restart."""
+    async def go():
+        from websockets.asyncio.client import connect
+
+        loop = asyncio.get_running_loop()
+        ready = loop.create_future()
+        task = asyncio.create_task(serve("127.0.0.1", 0, 1, hz=20, ready=ready))
+        _, port = await asyncio.wait_for(ready, 10)
+
+        async def first_snapshot() -> dict:
+            async with connect(f"ws://127.0.0.1:{port}/shore") as ws:
+                assert json.loads(await ws.recv())["type"] == "scene"
+                return json.loads(await ws.recv())
+
+        try:
+            before = await first_snapshot()
+            await asyncio.sleep(1.0)  # no console connected
+            after = await first_snapshot()
+            assert after["t"] > before["t"], "the run must advance with no console attached"
+            assert after["seed"] == before["seed"]
+        finally:
+            task.cancel()
+
+    asyncio.run(go())

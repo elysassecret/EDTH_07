@@ -20,6 +20,7 @@ import { evaluatorLayers } from "./evaluator";
 import type { EvalData } from "../types";
 import { segAges, type Band } from "../coverage";
 import { isDocked } from "../roles";
+import { spreadLabels, spreads, type Spread } from "../uncertainty";
 import { hmShort } from "../format";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import type { Decision } from "../types";
@@ -128,10 +129,10 @@ function offset(lon: number, lat: number, e: number, n: number): [number, number
 }
 
 // Track symbols as inline SVG masks (no network), tinted by colour, fixed pixel size.
-// AIS = square (neutral); camera only = quatrefoil (unknown), so shape alone tells them apart.
+// AIS = directional vessel triangle (neutral); camera only = quatrefoil (unknown), so shape alone tells them apart.
 const svg = (body: string) =>
   `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${body}</svg>`)}`;
-const ICON_SQUARE = { id: "sq", url: svg('<rect x="10" y="10" width="44" height="44" fill="none" stroke="#fff" stroke-width="7"/><rect x="18" y="18" width="28" height="28" fill="#fff" fill-opacity="0.35"/>'), width: 64, height: 64, mask: true };
+const ICON_TRIANGLE = { id: "tri", url: svg('<polygon points="32,6 54,54 32,43 10,54" fill="#fff" fill-opacity="0.45" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>'), width: 64, height: 64, mask: true };
 const ICON_QUATREFOIL = { id: "qf", url: svg('<g fill="#fff" fill-opacity="0.35" stroke="#fff" stroke-width="5"><circle cx="32" cy="17" r="13"/><circle cx="32" cy="47" r="13"/><circle cx="17" cy="32" r="13"/><circle cx="47" cy="32" r="13"/></g>'), width: 64, height: 64, mask: true };
 
 const VECTOR_S = 360; // course vector shows where the contact will be in 6 minutes
@@ -358,6 +359,18 @@ function buildLayers(
 
   if (snap && scene) layers.push(...coverageLayers(snap, scene, frozen));
   if (snap && scene && showRings && !frozen) layers.push(...ringLayers(snap, scene));
+  if (snap && scene) {
+    // roadmap item 4: area a stale boat or contact could have reached since its last report
+    const sp = spreads(snap, scene, frozen);
+    layers.push(new PathLayer<Spread, PathStyleExtensionProps<Spread>>({
+      id: "uncertainty", data: sp, getPath: (d) => circle(d.lon, d.lat, d.r_m, 96),
+      getColor: T.c(T.STALE, 220), getWidth: 2, widthUnits: "pixels",
+      getDashArray: [3, 3], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
+    }));
+    for (const { s: d, text } of spreadLabels(sp)) {
+      labels.push({ pos: offset(d.lon, d.lat, 0, d.r_m), text, kind: "spread" });
+    }
+  }
   if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
   if (snap) layers.push(...ghostRoutes(snap, hoverDecision));
 
@@ -399,8 +412,9 @@ function buildLayers(
       }),
       new IconLayer<Contact>({
         id: "contacts", data: [...squares, ...dark], pickable: true,
-        getPosition: (k) => [k.lon, k.lat], getIcon: (k) => (k.ais ? ICON_SQUARE : ICON_QUATREFOIL),
-        getSize: (k) => (k.ais ? 18 : 26), sizeUnits: "pixels", getColor: (k) => T.c(contactColor(k)),
+        getPosition: (k) => [k.lon, k.lat], getIcon: (k) => (k.ais ? ICON_TRIANGLE : ICON_QUATREFOIL),
+        getAngle: (k) => (k.ais ? (360 - (k.cog ?? 0)) % 360 : 0),
+        getSize: (k) => (k.ais ? 22 : 26), sizeUnits: "pixels", getColor: (k) => T.c(contactColor(k)),
       }),
       new ScatterplotLayer<Contact>({
         id: "contacts-fused", data: fused, getPosition: (k) => [k.lon, k.lat], radiusUnits: "pixels",
@@ -463,10 +477,10 @@ function buildLayers(
       getColor: (d) =>
         d.kind === "cable" ? [215, 160, 205, 230]
           : d.kind === "dark" ? T.c(T.UNKNOWN)
-            : d.kind === "boat-stale" || d.kind === "stale" || d.kind === "docked" ? T.c(T.STALE)
+            : d.kind === "boat-stale" || d.kind === "stale" || d.kind === "docked" || d.kind === "spread" ? T.c(T.STALE)
               : T.c(T.TEXT, 235),
       getPixelOffset: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10]
-        : d.kind === "docked" ? [-48, -12] : [0, 16]),
+        : d.kind === "docked" ? [-48, -12] : d.kind === "spread" ? [0, -10] : [0, 16]),
       outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   );

@@ -31,7 +31,7 @@ from contract.geo import to_lonlat, to_xy
 from contract.tasks import from_wire, merge
 from contract.views import Boat, Contact, ContactFlags, Event, Link, Snapshot, TaskView
 from server.alerts import AlertBook
-from server.feed import ROOT, sensor_ranges
+from server.feed import ROOT, boat_model, sensor_ranges
 from server.runlog import HASH_MS, SNAPSHOT_MS, RunLog, replay_digest
 from world.sim import World
 
@@ -185,6 +185,7 @@ class SimSource:
             "revisit_target_s": self.revisit_target_s,
             "home_m": HOME_M,  # agent's "at the shore station" radius: docked boats sit inside it
             "ranges": sensor_ranges(),  # config/boat.toml, for the rings (#88)
+            "boat_model": boat_model(),  # config/boat.toml, for uncertainty and cost estimates
         }
 
     def snapshot(self, channel: str = "shore", speed: int | None = None) -> dict:
@@ -360,12 +361,30 @@ class SimSource:
         out.extend(Link(a=a, b=b, state="cut") for a, b in sorted(cuts))
         return out
 
+    def _ais_contacts(self, shore_only: bool) -> list[Contact]:
+        out = []
+        for c in self.world.ais_contacts_view():
+            if shore_only and not (c["shore_in_range"] or c["seen_by"]):
+                continue
+            lon, lat = to_lonlat(c["x"], c["y"])
+            out.append(Contact(
+                id=f"ais:{c['track']}", track=c["track"], x=c["x"], y=c["y"], lon=lon, lat=lat,
+                sog=c["sog"], cog=c["cog"], ais=True, first_seen=c["first_seen_s"],
+                last_seen=c["last_seen_s"], seen_by=c["seen_by"], watcher=0, state=0,
+                flags=ContactFlags(), source="ais", trail=c["trail"],
+                standoff_m=0, ship_type=c["ship_type"],
+                length_band_m=c["length_band_m"]))
+        return out
+
     def _shore(self, speed: int) -> Snapshot:
         pic = self.world.shore.picture(self.world.t_ms, speed)
+        existing = {c.track for c in pic.contacts}
+        contacts = [*pic.contacts, *(c for c in self._ais_contacts(shore_only=True) if c.track not in existing)]
         events = sorted([*pic.events, *self._exercise_events()], key=lambda e: e.t)[-60:]
         cuts = self._exercise_cuts()
         self.alerts.update(pic, self._exercise_failures(), cuts)
         return pic.model_copy(update={"t0_utc": self.t0_utc or pic.t0_utc, "events": events,
+                                      "contacts": contacts,
                                       "links": self._shore_links(pic.links, cuts),
                                       "alerts": self.alerts.alerts()})
 
@@ -419,7 +438,12 @@ class SimSource:
             x=c["x"], y=c["y"], lon=to_lonlat(c["x"], c["y"])[0], lat=to_lonlat(c["x"], c["y"])[1],
             sog=c["sog"], cog=c["cog"], ais=c["ais"], first_seen=0, last_seen=t_ms // 1000,
             seen_by=[], watcher=0, state=0, flags=ContactFlags(),
-            source="ais" if c["ais"] else "camera") for c in tv["contacts"]]
+            source="ais" if c["ais"] else "camera",
+            standoff_m=c.get("standoff_m", self.world.params.standoff_m),
+            ship_type=c.get("ship_type"),
+            length_band_m=c.get("length_band_m")) for c in tv["contacts"]]
+        existing = {c.track for c in contacts}
+        contacts.extend(c for c in self._ais_contacts(shore_only=False) if c.track not in existing)
         world_events = [Event(t=int(e["t_ms"]) // 1000, kind=str(e["kind"]), text=_event_text(e),
                               exercise=bool(e.get("exercise"))) for e in tv["events"]][-60:]
         return Snapshot(

@@ -29,10 +29,50 @@ import {
   usv,
   type DecisionAction,
 } from "../console-model";
-import { dur } from "../format";
+import { dur, hm, hhmm, hmShort } from "../format";
+import { responseCost } from "../cost";
+import { distWords } from "../uncertainty";
+import { t0Of } from "../types";
 import { useStore } from "../store";
 import { Why } from "./LivePanels";
-import type { Decision } from "../types";
+import type { Decision, SceneMsg, Snapshot } from "../types";
+
+/** Roadmap items 1 + 2: the cost of sending this boat, as a labelled model estimate. */
+export function ResponseCostBlock({ d, snap, scene }: { d: Decision; snap: Snapshot; scene: SceneMsg | null }) {
+  const c = responseCost(d, snap, scene);
+  if (!c) return null;
+  const rows: [string, string][] = [];
+  rows.push(["Now doing", c.leaves]);
+  if (c.distance_m !== null && c.transit_s !== null && c.arrive_t !== null) {
+    const to = c.stop_short_m ? ` to within ${distWords(c.stop_short_m)}` : "";
+    rows.push(["Trip out", `${distWords(c.distance_m)}${to} · about ${hmShort(c.transit_s)} at cruise · there by ${hhmm(t0Of(snap), c.arrive_t)}`]);
+  } else rows.push(["Trip out", "No route reported: no estimate"]);
+  if (c.energy_after_s !== null) {
+    rows.push(["Energy budget after", `${hm(c.energy_after_s)}${c.below_reserve ? " · BELOW THE MODEL RESERVE" : ""}`]);
+  }
+  if (c.after_return_by) rows.push(["Return-by", "It would arrive after its own return-by time"]);
+  if (c.over_target.length) rows.push(["Cable gap", `${c.over_target.join("; ")}: over the revisit target before it arrives`]);
+  if (c.unconfirmed.length) rows.push(["Already open", `${c.unconfirmed.join("; ")}: no visit confirmed`]);
+  if (c.reason && c.reason !== d.why) rows.push(["Boat's reason", c.reason]);
+  return (
+    <section aria-label="Cost of this response" className="space-y-1 rounded-md border p-2">
+      <p className="font-medium">
+        Cost of this response <span className="font-normal text-muted-foreground">· model estimate</span>
+      </p>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className={v.includes("BELOW") || k === "Return-by" ? "font-medium text-destructive" : ""}>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-muted-foreground">
+        Straight line at the model cruise speed, no current; ages are shore-reported. Not a measurement.
+      </p>
+    </section>
+  );
+}
 
 const WORD: Record<DecisionAction, string> = {
   approve: "Approve",
@@ -58,6 +98,7 @@ const blocks = (a: Attempt | undefined) =>
 
 export function useDecisionFlow() {
   const snap = useStore((s) => s.snap);
+  const scene = useStore((s) => s.scene);
   const conn = useStore((s) => s.conn);
   const channel = useStore((s) => s.channel);
   const ack = useStore((s) => s.lastAck);
@@ -217,6 +258,7 @@ export function useDecisionFlow() {
   }
   return {
     snap,
+    scene,
     conn,
     channel,
     review,
@@ -327,6 +369,7 @@ export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
                   A cue for a look, not an intent claim.
                 </p>
               )}
+              {snap && <ResponseCostBlock d={d} snap={snap} scene={flow.scene} />}
               <Separator />
               <p className="text-muted-foreground">
                 Authorization is not execution. Only a delivered observation
@@ -480,6 +523,7 @@ export function DecisionReview({ flow }: { flow: DecisionFlow }) {
             Acting boat: {d?.boat ? usv(d.boat) : "Not reported"}. Task:{" "}
             {d?.task ?? "Not reported"}.
           </p>
+          {d && flow.snap && <ResponseCostBlock d={d} snap={flow.snap} scene={flow.scene} />}
           <Alert>
             <CircleAlert />
             <AlertTitle>Authorization is not completion</AlertTitle>

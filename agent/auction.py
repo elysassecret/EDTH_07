@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 
 WHY_MAX = 120  # characters of a reason the shore shows
+# PLAN F6: winning a task of this kind frees the boat's tasks of these kinds
+DROPS = {"seg": ("pick",), "relay": ("seg", "pick"), "contact": ("seg", "pick")}
 
 
 def hm(ms_: int) -> str:
@@ -89,13 +91,17 @@ class Auction:
 
     # why (#86): a reason the shore can show, from facts this boat has when it claims --------
     def reason(self, task: str, t: int, bids: list[tuple[int, int]]) -> str:
+        """Travel time, energy left after the task (model estimate) and the role it drops (#103)."""
         a = self.a
-        lead = (f"USV {a.me:02d}: cheapest of {len(bids)} bids at {hm(bids[0][0])}"
-                if len(bids) > 1 else f"USV {a.me:02d}: only bid, {hm(bids[0][0])}")
-        others = " (" + ", ".join(f"USV {b:02d} {hm(c)}" for c, b in bids[1:3]) + ")"
-        facts = f"; {self.reach_ms(task) // 60_000} min away, battery {a.batt // 10}%"
+        lead = (f"USV {a.me:02d}: cheapest of {len(bids)} bids" if len(bids) > 1
+                else f"USV {a.me:02d}: only bid")
+        nxt = f" (USV {bids[1][1]:02d} +{hm(bids[1][0] - bids[0][0])})" if len(bids) > 1 else ""
+        drops = [x for x in a.table.held_by(a.me) if kind(x) in DROPS.get(kind(task), ())]
+        left = max(a.remaining_ms() - self.need_ms(task), 0)
+        facts = (f"; {self.reach_ms(task) // 60_000} min away, battery ~{hm(left)} after, "
+                 f"drops {', '.join(drops) or 'nothing'}")
         tag = f" [{self.why_open(task, t)}]"
-        text = lead + (others if len(bids) > 1 else "") + facts + tag
+        text = lead + nxt + facts + tag
         return text if len(text) <= WHY_MAX else lead + facts + tag
 
     def why_open(self, task: str, t: int) -> str:
@@ -122,15 +128,15 @@ class Auction:
     # cost and eligibility ------------------------------------------------------------------
     def cycle_after(self, task: str) -> int:
         a = self.a
-        return ms(a.tours.cycle_m(a.tours.insert(a.legs(), task)), a.params.speed_mm_s)
+        return ms(a.tours.cycle_m(a.tours.insert(a.legs(), task)), a.v_plan())
 
     def reach_ms(self, task: str) -> int:
         a = self.a
         if kind(task) == "seg":
-            return ms(a.tours.reach_m(a.pos, task), a.params.speed_mm_s)
+            return ms(a.tours.reach_m(a.pos, task), a.v_plan())
         if kind(task) == "contact":
-            return ms(dist(a.pos, a.contacts.ring(task)), a.params.speed_mm_s)
-        return ms(dist(a.pos, a.station(task)), a.params.speed_mm_s)
+            return ms(dist(a.pos, a.contacts.ring(task)), a.v_plan())
+        return ms(dist(a.pos, a.station(task)), a.v_plan())
 
     def cost(self, task: str) -> int:
         a = self.a
@@ -143,15 +149,20 @@ class Auction:
             c += a.params.role_penalty_ms  # take a watcher from the lane before the cables
         return c
 
-    def energy_ok(self, task: str) -> bool:
+    def need_ms(self, task: str) -> int:
+        """Model estimate of the energy (ms at cruise) to reach the task, do it once and get home
+        from its far end, with the current this boat measures."""
         a = self.a
-        p = a.params
         k = kind(task)
         far = (a.tours.pts[task][-1] if k == "seg" else a.contacts.position(task)
                if k == "contact" else a.station(task))
-        one_pass = ms(a.tours.len[task], p.speed_mm_s) if kind(task) == "seg" else 0
-        need = self.reach_ms(task) + one_pass + a.return_ms(far)
-        return a.remaining_ms() - p.reserve_ms >= p.return_safety_permille * need // 1000
+        one_pass = ms(a.tours.len[task], a.v_plan()) if k == "seg" else 0
+        return self.reach_ms(task) + one_pass + a.return_ms(far)
+
+    def energy_ok(self, task: str) -> bool:
+        p = self.a.params
+        return (self.a.remaining_ms() - p.reserve_ms
+                >= p.return_safety_permille * self.need_ms(task) // 1000)
 
     def can_bid(self, task: str, t: int) -> bool:
         a = self.a
@@ -174,7 +185,7 @@ class Auction:
             track = task.split(":", 1)[1]
             return (not a.holds("relay") and not self.last_sweeper(t)
                     and a.contacts.watching() is None and not a.contacts.done(task)
-                    and a.contacts.tracks[track]["sog"] <= a.params.speed_mm_s
+                    and a.contacts.tracks[track]["sog"] <= a.v_plan()
                     and self.energy_ok(task))
         return False  # cue tasks come with B's AIS replay (P1)
 
@@ -204,7 +215,7 @@ class Auction:
         if not avail:
             return
         lo_cyc, _, lo_tour = min(avail)
-        mine = ms(a.tours.cycle_m(legs), a.params.speed_mm_s)
+        mine = ms(a.tours.cycle_m(legs), a.v_plan())
         if mine * 1000 <= a.params.rebalance_ratio_permille * lo_cyc:
             return
         _, give = min((a.tours.cycle_m([leg for leg in legs if leg[0] != k]), k)
@@ -212,6 +223,6 @@ class Auction:
         lo_legs = []
         for k in sorted(lo_tour + [give]):
             lo_legs = a.tours.insert(lo_legs, k)
-        if ms(a.tours.cycle_m(lo_legs), a.params.speed_mm_s) < mine:
+        if ms(a.tours.cycle_m(lo_legs), a.v_plan()) < mine:
             a.release(give)
             self.gave[give] = t + REBALANCE  # don't win it straight back
