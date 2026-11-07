@@ -51,17 +51,14 @@ def record(s: Story) -> None:
     if mt == FAIL_S + 60:
         s.boat1_mode = w.actions[1].mode
     if mt > FAIL_S:
-        table = w.nodes[2].table
-        lost = [k for k in s.fail_held if table.recs[k].state == CLAIMED and table.recs[k].owner != 1]
-        # The first claim is timed on the claimer: boat 2 hears it a radio delay later.
-        if s.first_claim_s is None and any(
-            node.table.recs[k].state == CLAIMED and node.table.recs[k].owner == b
-            for b, node in w.nodes.items()
-            for k in s.fail_held
-            if b != 1
-        ):
+        # Timed on the claiming boats: anyone else hears it a radio delay later.
+        owned = {
+            k for k in s.fail_held for b, node in w.nodes.items()
+            if b != 1 and node.table.recs[k].state == CLAIMED and node.table.recs[k].owner == b
+        }
+        if s.first_claim_s is None and owned:
             s.first_claim_s = mt
-        if s.all_owned_s is None and len(lost) == len([k for k in s.fail_held if kind(k) == "seg"]):
+        if s.all_owned_s is None and owned >= {k for k in s.fail_held if kind(k) == "seg"}:
             s.all_owned_s = mt
     for b, node in sorted(w.nodes.items()):
         if s.detect_s is None and TRACK in node.contacts.first:
