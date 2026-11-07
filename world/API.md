@@ -19,6 +19,26 @@ next_events = sim.upcoming_event_times()
 sim.reset(seed=2)  # next processed tick is zero again
 ```
 
+## Seeded starting positions (#28)
+
+`World(..., vary_start_phase=True)` defaults to deterministic spatial variation on reset.
+Each sweeper gets a SHA-256-derived integer-metre offset over the cable polylines initially
+assigned to it (task-ID order, length weighted, no artificial joins between cables).
+Pickets and relay retain their stations. Placement depends only on mission geometry,
+seed and boat ID, never policy, speed, radio traffic or an agent's decisions.
+
+Seed 1 retains the existing demo positions as an explicit reference case. Other seeds
+vary sweepers. `vary_start_phase=False` is an explicit legacy-position diagnostic control;
+it survives reset. `reset(seed)` recomputes positions and constructs fresh agents.
+
+The truth snapshot's `initial_phase` records strategy/version, enabled flag, and per-boat
+point/task/offset/total-length metadata. Do not silently feed this truth metadata into /shore.
+At t=0 all batteries are full, leases/inboxes are fresh, and sample visits are unknown until
+actual sensors credit them. This is **cold seeded placement**, NOT a warm-state replay or
+invented historical coverage. A's tour follower chooses its first waypoint from actual Own.
+Static uses the same initial physical positions as other modes; A still owns its station
+behaviour. D must account for any initial repositioning when defining the static baseline.
+
 ## Timing
 
 - `t_ms`: current integer simulation time, zero before/at the first step.
@@ -98,10 +118,18 @@ contract values as measured observations. Decision answers stay with A/C, not wo
 
 ## Commands and reset
 
-Accepted physical kinds: battery_low, boat_off, link_off, link_on, contact_start,
-contact_depart, evaluate. `battery_low`/`boat_off` accept either scenario `boat` or console
-`a`. Link commands use `a` and `b`, where `b` is a boat ID or "shore" (also ID 0).
-Links are **directed**: disabling 4 -> shore does not disable shore -> 4.
+Accepted physical kinds: battery_low, boat_off, boat_restore, link_off, link_on,
+contact_start, contact_depart, evaluate. `battery_low`/`boat_off`/`boat_restore` accept either
+scenario `boat` or console `a`. `boat_restore` re-enables the same boat and agent: no reset,
+teleport, battery recharge or task-table replacement. The restore tick resumes node stepping;
+motion resumes using its new action on the next tick. A depleted boat stays depleted. Link
+commands use `a` and `b`, where `b` is a boat ID or "shore" (also ID 0).
+Links are **directed** and keyed by node IDs: disabling 4 -> shore does not disable
+shore -> 4. Shore is node 0; docked USV 01 is still node 1 even at the same coordinates.
+Restoring 4 -> shore does not restore 4 -> 1 or 1 -> 4. A boat may legitimately have a
+fresh direct shore report while its link to a docked peer remains cut. The display must
+identify cut endpoints rather than make overlapping peer/shore lines look contradictory
+(UI tracking: #25; regression: tests/world/test_link_identity.py).
 
 `reset(seed=None)` clears receipts, visits, events, injection queue and channel state and
 constructs fresh Agent/ShoreNode objects from the supplied factories. Scripted events are

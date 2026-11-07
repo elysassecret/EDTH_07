@@ -60,4 +60,6 @@ def compare(shore: dict, truth: dict) -> dict:
 
     ta, sa = truth.get("seg_age", {}), shore.get("seg_age", {})
     seg_age = {k: {"shore": sa.get(k), "true": ta.get(k)} for k in sorted(set(ta) | set(sa))}
-    return {"t": t, "boats": boats, "contacts": contacts, "links": links, "seg_age": seg_age}
+    return {"t": t, "boats": boats, "contacts": contacts, "links": links, "seg_age": seg_age,
+            # true cable km past the revisit target (real sim only; None on the mock)
+            "cable_overdue": truth.get("cable_overdue")}

@@ -6,8 +6,10 @@
 - C's real console/control work is merged (#20). Current integration baseline is main
   `00e892d`; follow-up `b/integration-proof` adds only B-owned diagnostics/documentation.
 - Detailed checks, actual outcomes and remaining gates are in world/VALIDATION.md.
-- world.check runs 30 cold fixed-phase integration cases; all 10 elysa/off pre-event
-  physical comparisons matched. This is NOT the final warm-state/metric benchmark.
+- Historical world.check audit: 30 cold fixed-phase cases with matching pre-event hashes.
+  On b/seeded-start-phase, reset now varies sweeper cable offsets by seed (#28), independent
+  of policy/speed; stationary roles remain fixed and seed 1 retains the demo reference.
+  This remains cold placement, not a historical warm state or final metric benchmark.
 - Full local suite: 160 tests pass. Built console runtime, fresh cached offline Python env,
   local UI injection/pause/reset, feed loss and reconnect are checked on this laptop.
   Partial labelled recording exists; full video, final metrics and two-laptop tests do not.
@@ -16,6 +18,14 @@
 - Agent owns return decisions and networking (forwarding, dedupe, retries, expiry, hop limit).
 - World owns physical motion, sensor visibility, battery/current and radio delivery.
 - Edit only B's folders, tests/world and config/{scene,boat,radio,energy}.toml.
+
+## Current follow-ups
+
+- #34: `boat_restore` implemented on b/boat-restore, preserving position, battery and agent
+  identity; both `a`/`boat` aliases, exercise logs and resumed heartbeats tested. Full suite:
+  195 passing on the current base. C still needs to enable the bridge/UI kind after merge.
+- #28: next, deterministic seeded cable starting positions, identical across comparison
+  modes. Historical visit ages must not be fabricated; coordinate validation with D's #27.
 
 ## Ordered delivery
 
@@ -93,7 +103,8 @@
 | Console tick API / issue #8 | Integrated with C real bridge; build/browser checks pass (#20) |
 | Motors-off hotel load / SENTINEL energy | Merged #14; chosen ratio, not hull data |
 | Fixed current/tide and drift-and-correct physics | Merged #16; chosen fixed field |
-| Warm-state phases, shared channel fairness, final metrics | Assigned #19; 30 cold integration cases are NOT final eval |
+| Seeded initial positions (#28) | Implemented; old #27 full batch has 5 distinct outcomes per mode; F1–F5 pass |
+| Historical warm state, channel fairness, final metrics | D's #19/d/eval-warm; final headline still blocked by shore gap |
 | AIS replay | Blocked on Franco supplying private clip |
 | Cue/triage | Gated behind main features and full video |
 | Contact response/operator policy | Boat policy tested; shore presentation pending #17; ages/via pending #21/#22 |
@@ -177,4 +188,9 @@ handoffs. Full video and actual two-laptop offline tests remain outstanding. Do 
 - AIS clip unavailable locally; no real-data replay or triage claims.
 - Multiple disconnected clipped cable components fail explicitly; a future scene needs an
   agreed task-ID policy before supporting them. No implicit straight-line joining.
-- Warm-up phase variation and baseline fairness need integration with Franco's evaluator.
+- Seeded cold placement is implemented separately from D's historical warm-up helper.
+  Isolated old #27 full batch: F1–F5 pass; shore gap still fails (PRELIMINARY).
+  Old eval tests: 14 pass / 1 expected gap xfail; newer d/eval-warm: 29 pass / 1 expected xfail.
+  Full 14,000 s seed-2 elysa D1 (fresh hash-seed processes) and D2 (reset) both pass.
+  D should explicitly choose vary_start_phase=False if its own place_boats replaces startup
+  positions; do not accidentally conflate both algorithms or invent historic visit ages.

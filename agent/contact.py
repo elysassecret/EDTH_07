@@ -143,7 +143,8 @@ class Contacts:
             if task not in a.table.recs and t - self.first[d.track] >= CONTACT_DWELL:
                 a.publish(Rec(task, 1, RELEASED, 0, 0, 0))  # every boat makes the same record
                 self.set_flag(task, dwell=True)
-            if mine != task and not self.relieved(d.track) and not a.returning:
+            if (mine != task and not self.relieved(d.track) and not a.returning
+                    and p.policy != "static"):  # static never leaves its station (#19)
                 self.holding = d.track  # scout holds until the watcher has it in view
         if self.holding and (self.relieved(self.holding) or self.done(task_of(self.holding))):
             self.holding = None

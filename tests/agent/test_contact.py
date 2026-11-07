@@ -1,4 +1,6 @@
 """Phase 5 boat side: the scripted contact story on the scene-like mission (PLAN section 2)."""
+from dataclasses import replace
+
 from contract.constants import CLAIMED, DEPUTY_GRACE, LEASE, RELEASED, SHADOWING
 from contract.mission import load_params
 from contract.tasks import Rec
@@ -51,6 +53,43 @@ def test_stop_ends_the_watch():
     s.run_until(s.t + 60_000)
     assert s.agents[3].contacts.watching() is None
     assert s.agents[3].mode != SHADOWING and s.agents[2].contacts.holding is None
+
+
+def test_static_boats_report_the_contact_but_never_leave_station():
+    """#19: static means fixed stations forever; detection and reports still run."""
+    s = Sim(scene_mission(), replace(PARAMS, policy="static"), START)
+    s.add_track("C-07", C07, sog=206, cog=0)
+    modes = set()
+    while s.t <= 3_000_000:
+        s.tick()
+        modes |= {a.mode for a in s.agents.values()}
+    assert SHADOWING not in modes
+    assert all(a.contacts.holding is None for a in s.agents.values())
+    flags = [a.contacts.flags.get(TASK, {}) for a in s.agents.values()]
+    assert any(f.get("dwell") for f in flags)  # it was seen and reported
+    assert not any(f.get("capped") for f in flags)
+
+
+def test_shore_shows_the_contact_and_cards_from_delivered_messages_only():
+    """#17: contact, seen-by, watcher and both cards on the shore; approval reaches the watcher."""
+    s = story()
+    while s.t <= 3_000_000 and "close:" + TASK not in s.shore.decisions:
+        s.tick()
+    pic = s.shore.picture(s.t)
+    (c,) = pic.contacts
+    assert c.id == TASK and c.source == "camera" and c.watcher == 3 and c.flags.dwell
+    assert c.seen_by and c.first_seen <= c.last_seen and c.trail
+    cards = {d.id: d for d in pic.decisions}
+    assert cards[TASK].tier == "delegated" and cards[TASK].actions == ["confirm", "stop"]
+    assert cards["close:" + TASK].tier == "held" and cards["close:" + TASK].state == "pending"
+    assert cards["close:" + TASK].boat == 3 and cards["close:" + TASK].route
+    s.shore.command(s.t, {"cmd": "approve", "id": "close:" + TASK})
+    while s.t <= 3_000_000 and not s.shore.contacts.flags[TASK]["name"]:
+        s.tick()
+    pic = s.shore.picture(s.t)
+    assert {d.id: d.state for d in pic.decisions}["close:" + TASK] == "delivered"
+    assert pic.contacts[0].flags.name  # the look within 500 m, as reported by 03
+    assert any(e.kind == "contact_name" for e in pic.events)
 
 
 def test_p8_deputy_takes_the_watch_without_an_auction():

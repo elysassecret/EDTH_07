@@ -63,3 +63,31 @@ def test_agents_never_import_the_evaluator():
     for p in sorted((ROOT / "agent").rglob("*.py")):
         text = p.read_text(encoding="utf-8")
         assert "import server" not in text and "from server" not in text, p
+
+
+def test_true_cable_km_overdue_uses_real_sample_lengths():
+    s = SimSource(1)
+    c0 = s.cable_overdue()
+    # boats start on their cables, so a little is visited at t = 0; nothing is overdue yet
+    assert 0 < c0["never_visited_km"] < c0["total_km"] and c0["overdue_km"] == 0
+    assert abs(c0["total_km"] - sum(s._sample_m) / 1000) < 0.01
+    while s.t < 14_000:
+        s.step(120_000)
+    c = s.cable_overdue()
+    assert c["target_s"] == s.revisit_target_s
+    assert 0 <= c["overdue_km"] + c["never_visited_km"] <= c["total_km"]
+    f = Feed(SimSource, seed=1, hz=10)
+    ev = json.loads(f.tick()["truth"])["eval"]
+    assert ev["cable_overdue"]["total_km"] == c["total_km"]
+    assert json.loads(Feed(MockWorld, 1).tick()["truth"])["eval"]["cable_overdue"] is None
+
+
+def test_scorecard_hook_passes_through_on_truth_only():
+    class WithCard(MockWorld):
+        def scorecard(self):
+            return {"source": "test", "seeds": [1], "rows": []}
+
+    f = Feed(WithCard, seed=1, hz=10)
+    frames = {k: json.loads(v) for k, v in f.tick().items()}
+    assert frames["truth"]["scorecard"]["source"] == "test"
+    assert "scorecard" not in frames["shore"]

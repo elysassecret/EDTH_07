@@ -1,4 +1,5 @@
 """ShoreNode picture and watch-officer commands; relay election rules P7 and S6."""
+from agent.shore import ShoreNode
 from contract.constants import CLAIMED, SHORE_SILENCE, VETOED
 from contract.mission import load_params
 from contract.tasks import Rec
@@ -23,7 +24,7 @@ def test_picture_shows_only_what_the_shore_received():
     assert links == {1: "direct", 2: "peer", 3: "peer", 4: "direct", 5: "direct"}
     via = {b.id: b.via for b in pic.boats}
     assert via[1] == via[4] == via[5] == 0 and via[2] == via[3] == 5  # north talks via the relay
-    assert pic.seg_age["seg:G:1"] <= 10 and pic.seg_age["seg:M:0"] >= 30  # M:0 not visited yet
+    assert pic.seg_age["seg:M:0"] == pic.t  # never reported: aged from t = 0
     boat1 = next(b for b in pic.boats if b.id == 1)
     assert boat1.sog == PARAMS.speed_mm_s and boat1.mode == "PATROL"
 
@@ -47,8 +48,10 @@ def test_stop_is_delivered_to_the_watcher_and_sticks():
     s.run_until(60_000)
     for a in s.agents.values():
         assert a.table.recs["contact:C-07"].state == VETOED
-    (d,) = s.shore.picture(s.t).decisions
+    cards = {d.id: d for d in s.shore.picture(s.t).decisions}
+    d = cards["contact:C-07"]
     assert d.state == "delivered" and d.boat == 3 and d.tier == "delegated"
+    assert cards["close:contact:C-07"].state == "expired"  # stopped: no close any more
     assert s.shore.net.pending == {}  # retries stopped once 03 acknowledged
     assert any("Delivered to USV 03" in e["text"] for e in s.shore.events)
 
@@ -62,8 +65,10 @@ def test_approval_to_an_unreachable_boat_expires():
     s.isolate(3)
     s.shore.command(s.t, {"cmd": "approve", "id": "close:contact:C-07"})
     s.run_until(80_000)
-    (d,) = s.shore.picture(s.t).decisions
+    cards = {d.id: d for d in s.shore.picture(s.t).decisions}
+    d = cards["close:contact:C-07"]
     assert d.state == "expired" and d.tier == "held"  # others acked, but not the boat that acts
+    assert cards["contact:C-07"].state == "pending"  # the watch itself is still running
     assert not s.shore.command(s.t, {"cmd": "inject", "kind": "boat_off", "a": 2})
 
 
@@ -85,3 +90,26 @@ def test_s6_relay_lost_nobody_cut_off_relay_stays_open():
     for b in (1, 2):
         t = s.agents[b].table
         assert t.recs["relay"].owner == 3 and t.is_open("relay", s.t)  # open and visible
+
+
+def test_seg_age_is_the_worst_sample_not_any_touch():
+    """#22, #29: touching one end of a segment does not refresh the far end."""
+    shore = ShoreNode(scene_mission(), PARAMS)
+    seg = "seg:G:0"
+    for sp in shore.samples[seg]:
+        shore.credit(sp, 1_000)  # whole segment swept at t = 1 s
+    shore.credit(shore.samples[seg][0], 50_000)  # later only its start end is touched
+    ages = shore.picture(60_000).seg_age
+    assert ages[seg] == 59  # the far end still dates from t = 1 s
+    assert ages["seg:M:0"] == 60  # never reported: aged from t = 0
+
+
+def test_one_way_cut_is_not_a_direct_shore_hop():
+    """#21: after 4 -> shore is cut, 04 still hears the shore but the shore no longer hears it."""
+    s = scene()
+    s.run_until(30_000)
+    s.off.add((4, 0))
+    s.run_until(120_000)
+    boats = {b.id: b for b in s.shore.picture(s.t).boats}
+    assert boats[4].link == "peer" and boats[4].via != 0
+    assert boats[boats[4].via].link == "direct"  # next hop is a boat the shore hears

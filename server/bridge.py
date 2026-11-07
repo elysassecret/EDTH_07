@@ -92,6 +92,7 @@ class SimSource:
         self.log = RunLog.open_new(runs_dir, seed, schema, self.t0_utc) if runs_dir else None
         self._logged_events = 0
         self._placed = 0  # synthetic contacts placed from the console (X-01, X-02, ...)
+        self._sample_m = self._sample_lengths()
         self._contact_defaults = next(
             (e for e in tape if e.get("kind") == "contact_start"), {"ais": False, "sog_kn": 0.0,
                                                                      "class": "unknown"})
@@ -184,6 +185,8 @@ class SimSource:
         snap = self._truth(speed) if channel == "truth" else self._shore(speed)
         out = snap.model_dump(mode="json")
         # console extras (not contract fields): framing, source label, wall-clock origin
+        if channel == "truth":
+            out["cable_overdue"] = self.cable_overdue()
         out.update(type="snapshot", source="sim", seed=self.seed, t_exact=self.t,
                    t0_utc=self.t0_utc)
         return out
@@ -233,6 +236,34 @@ class SimSource:
         except (KeyError, ValueError, TypeError) as e:
             return {"ok": False, "error": f"bad command: {e}"}
         return {"ok": False, "error": f"unknown cmd {cmd!r}"}
+
+    def _sample_lengths(self) -> list[int]:
+        """Metres of cable each sample stands for: up to the next sample on the same task,
+        and the last one up to the end of its line (world/routes.py samples every step_m)."""
+        from shapely.geometry import LineString
+
+        ends = {t.id: LineString(t.pts).length for t in self.world.mission.tasks
+                if t.id.startswith("seg:")}
+        samples = self.world.scene.samples
+        out = []
+        for i, sm in enumerate(samples):
+            nxt = samples[i + 1] if i + 1 < len(samples) else None
+            stop = nxt.offset_m if nxt is not None and nxt.task == sm.task else ends[sm.task]
+            out.append(max(0, round(stop - sm.offset_m)))
+        return out
+
+    def cable_overdue(self) -> dict:
+        """Evaluator only: true cable km past the revisit target, from each sample's real
+        visit time. A console estimate; the scored metric comes from eval/ (D)."""
+        t = self.world.t_ms
+        target_ms = self.revisit_target_s * 1000
+        visits = self.world.truth_view()["sample_visit_ms"]
+        never = sum(m for m, v in zip(self._sample_m, visits, strict=True) if v is None)
+        over = sum(m for m, v in zip(self._sample_m, visits, strict=True)
+                   if v is not None and t - v > target_ms)
+        return {"target_s": self.revisit_target_s, "overdue_km": round(over / 1000, 2),
+                "never_visited_km": round(never / 1000, 2),
+                "total_km": round(sum(self._sample_m) / 1000, 2)}
 
     def _place_contact(self, msg: dict) -> dict:
         """Feature 13: a synthetic contact where the judge clicked, snapped to the nearest

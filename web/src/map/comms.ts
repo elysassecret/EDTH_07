@@ -71,7 +71,7 @@ export function commsLayers(snap: Snapshot, shore: LonLat | null, frozen: boolea
     new TextLayer<Seg>({
       id: "comms-cut-label", data: broken.filter((s) => s.link.state === "cut"),
       // name both ends: two cut links that end close together must not read as one
-      getPosition: mid, getText: (s: Seg) => (s.link.a === 0 ? `${end(s.link.b)}–shore CUT` : `${end(s.link.a)}–${end(s.link.b)} CUT`), getSize: 12, getColor: dim(CUT), getPixelOffset: [0, 16],
+      getPosition: mid, getText: (s: Seg) => (s.link.a === 0 ? `${end(s.link.b)}–shore CUT` : `${end(s.link.a)}–${end(s.link.b)} CUT`), getSize: 14, getColor: dim(CUT), getPixelOffset: [0, 16],
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   ];
