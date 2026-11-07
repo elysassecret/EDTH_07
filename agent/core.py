@@ -181,10 +181,10 @@ class Agent:
 
     def publish(self, r: Rec) -> None:
         """Adopt a record locally and broadcast it."""
-        if r.owner == self.me:
-            self.log("task", {"rec": to_wire(r)})
-        self.table.apply(r)
         why = self.why.get(r.task) if r.owner == self.me and r.state == CLAIMED else None
+        if r.owner == self.me:
+            self.log("task", {"rec": to_wire(r)} | ({"why": why} if why else {}))
+        self.table.apply(r)
         self.net.send(self.t, "REC", {"recs": [to_wire(r)]} | ({"why": {r.task: why}} if why else {}))
 
     def claim(self, task: str, cost: int, deputy: int, why: str = "") -> None:
