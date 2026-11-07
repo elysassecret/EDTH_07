@@ -69,6 +69,8 @@ export interface SceneMsg {
   horizon_s: number;
   revisit_target_s?: number; // config/run.toml (D), via the server
   home_m?: number; // agent's "at the shore station" radius (agent/core.py HOME_M)
+  // boat model ranges from config/boat.toml via the server (#88 rings), until #87 puts them per boat
+  ranges?: { detect_ship_day_m: number; keep_in_view_m: number; standoff_m: number };
 }
 
 export interface Ack {

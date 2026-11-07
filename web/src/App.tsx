@@ -87,6 +87,8 @@ export function App() {
   const setDisplay = useStore((s) => s.setDisplay);
   const showComms = useStore((s) => s.showComms);
   const toggleComms = useStore((s) => s.toggleComms);
+  const showRings = useStore((s) => s.showRings);
+  const toggleRings = useStore((s) => s.toggleRings);
   const panel = useStore((s) => s.panel);
   const setPanel = useStore((s) => s.setPanel);
   const selected = useStore((s) => s.selected);
@@ -473,6 +475,16 @@ export function App() {
                 />
                 <FieldLabel htmlFor="comms-visible">
                   Communications overlay
+                </FieldLabel>
+              </Field>
+              <Field orientation="horizontal">
+                <Switch
+                  id="rings-visible"
+                  checked={showRings}
+                  onCheckedChange={toggleRings}
+                />
+                <FieldLabel htmlFor="rings-visible">
+                  Sensor rings (model ranges)
                 </FieldLabel>
               </Field>
               <Field orientation="horizontal">

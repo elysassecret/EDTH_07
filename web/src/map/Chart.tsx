@@ -75,6 +75,46 @@ function ghostRoutes(snap: NonNullable<ReturnType<typeof useStore.getState>["sna
 
 maplibregl.setWorkerUrl(workerUrl);
 
+type Snap = NonNullable<ReturnType<typeof useStore.getState>["snap"]>;
+type Scene = NonNullable<ReturnType<typeof useStore.getState>["scene"]>;
+export const RING_DETECT: [number, number, number, number] = [96, 170, 255, 110];
+export const RING_KEEP: [number, number, number, number] = [96, 170, 255, 26];
+export const RING_STANDOFF: [number, number, number, number] = [240, 210, 80, 200];
+
+/** A closed ring of points r metres around lon/lat (for dashed rings; Scatterplot has no dash). */
+function circle(lon: number, lat: number, r: number, n = 72): [number, number][] {
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const a = (2 * Math.PI * i) / n;
+    return offset(lon, lat, Math.sin(a) * r, Math.cos(a) * r);
+  });
+}
+
+/** #88 rings: camera range (ship, day) and keep-in-view range around live boats; the 1 nm
+ * stand-off around NO AIS contacts. Ranges are the boat model's (config/boat.toml), not
+ * measured; stale boats get no rings, since their position is only last known. */
+function ringLayers(snap: Snap, scene: Scene, r: NonNullable<Scene["ranges"]>): Layer[] {
+  const staleAfter = scene.stale_after_s ?? 60;
+  const live = snap.boats.filter((b) => b.heard !== false && snap.t - b.last_heard <= staleAfter
+    && b.mode !== "UNAVAILABLE" && !isDocked(b, scene));
+  const dark = snap.contacts.filter((k) => !k.ais && snap.t - k.last_seen <= staleAfter);
+  return [
+    new ScatterplotLayer<Boat>({
+      id: "ring-keep", data: live, getPosition: (b) => [b.lon, b.lat], radiusUnits: "meters",
+      getRadius: r.keep_in_view_m, filled: true, getFillColor: RING_KEEP, stroked: false,
+    }),
+    new ScatterplotLayer<Boat>({
+      id: "ring-detect", data: live, getPosition: (b) => [b.lon, b.lat], radiusUnits: "meters",
+      getRadius: r.detect_ship_day_m, filled: false, stroked: true, getLineColor: RING_DETECT,
+      lineWidthUnits: "pixels", getLineWidth: 1,
+    }),
+    new PathLayer<Contact, PathStyleExtensionProps<Contact>>({
+      id: "ring-standoff", data: dark, getPath: (k) => circle(k.lon, k.lat, r.standoff_m),
+      getColor: RING_STANDOFF, getWidth: 1.5, widthUnits: "pixels",
+      getDashArray: [5, 4], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
+    }),
+  ];
+}
+
 const FONT = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 const M_PER_DEG_LAT = 111_320;
 
@@ -153,6 +193,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const selected = useStore((s) => s.selected);
   const selectedContact = useStore((s) => s.selectedContact);
   const showComms = useStore((s) => s.showComms);
+  const showRings = useStore((s) => s.showRings);
   const hoverDecision = useStore((s) => s.hoverDecision);
   const evalData = useStore((s) => s.evalData);
 
@@ -244,8 +285,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   );
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData) });
-  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData]);
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings) });
+  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings]);
 
   const credits = [...new Set(GEO_FILES.map((n) => geo[n]?.credit).filter((c): c is string => !!c))];
   if (satellite) credits.push("Contains modified Copernicus Sentinel data");
@@ -270,6 +311,7 @@ function buildLayers(
   hoverDecision: string | null,
   geoText: LineLabel[],
   evalData: EvalData | null,
+  showRings = true,
 ): Layer[] {
   const layers: Layer[] = [];
   if (geoText.length) {
@@ -302,6 +344,7 @@ function buildLayers(
   }
 
   if (snap && scene) layers.push(...coverageLayers(snap, scene, frozen));
+  if (snap && scene?.ranges && showRings && !frozen) layers.push(...ringLayers(snap, scene, scene.ranges));
   if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
   if (snap) layers.push(...ghostRoutes(snap, hoverDecision));
 

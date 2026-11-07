@@ -40,6 +40,8 @@ interface State {
   setHoverDecision: (id: string | null) => void;
   showComms: boolean; // feature 21 overlay toggle
   toggleComms: () => void;
+  showRings: boolean; // #88 sensor rings toggle
+  toggleRings: () => void;
   // Evaluator view: a second socket to /truth, open only while this is on. Off by default,
   // never available in operator mode (?operator).
   held: Held | null; // G2: an answer waiting out its 5 s UNDO window
@@ -97,6 +99,8 @@ export const useStore = create<State>((set, get) => ({
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
+  showRings: true,
+  toggleRings: () => set((s) => ({ showRings: !s.showRings })),
   held: null,
   answering: null,
   holdAnswer: (c, label) => {
