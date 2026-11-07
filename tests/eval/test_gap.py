@@ -1,8 +1,6 @@
 """Feature 11: the remaining gap stays visible on the console and is never hidden."""
 from pathlib import Path
 
-import pytest
-
 from eval.gap import SLACK_S, GapAudit, hidden_s
 
 ROOT = str(Path(__file__).resolve().parents[2])
@@ -27,10 +25,6 @@ def test_audit_keeps_worst_and_flags_only_beyond_slack():
     assert not audit.row()["ok"]
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "agent/shore.py (owner A) credits a whole segment when a heartbeat is within r_verify_m "
-    "of any point on it, so the console shows partly swept segments as fresh (#29). Remove "
-    "this marker once the shore ages match the worst sample."))
 def test_console_never_shows_a_segment_fresher_than_truth():
     from eval.run_batch import run_case
 
