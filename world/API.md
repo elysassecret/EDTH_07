@@ -19,6 +19,26 @@ next_events = sim.upcoming_event_times()
 sim.reset(seed=2)  # next processed tick is zero again
 ```
 
+## Seeded starting positions (#28)
+
+`World(..., vary_start_phase=True)` defaults to deterministic spatial variation on reset.
+Each sweeper gets a SHA-256-derived integer-metre offset over the cable polylines initially
+assigned to it (task-ID order, length weighted, no artificial joins between cables).
+Pickets and relay retain their stations. Placement depends only on mission geometry,
+seed and boat ID, never policy, speed, radio traffic or an agent's decisions.
+
+Seed 1 retains the existing demo positions as an explicit reference case. Other seeds
+vary sweepers. `vary_start_phase=False` is an explicit legacy-position diagnostic control;
+it survives reset. `reset(seed)` recomputes positions and constructs fresh agents.
+
+The truth snapshot's `initial_phase` records strategy/version, enabled flag, and per-boat
+point/task/offset/total-length metadata. Do not silently feed this truth metadata into /shore.
+At t=0 all batteries are full, leases/inboxes are fresh, and sample visits are unknown until
+actual sensors credit them. This is **cold seeded placement**, NOT a warm-state replay or
+invented historical coverage. A's tour follower chooses its first waypoint from actual Own.
+Static uses the same initial physical positions as other modes; A still owns its station
+behaviour. D must account for any initial repositioning when defining the static baseline.
+
 ## Timing
 
 - `t_ms`: current integer simulation time, zero before/at the first step.

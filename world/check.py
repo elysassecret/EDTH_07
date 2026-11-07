@@ -1,7 +1,7 @@
 """Reproducible integration audit, NOT the final eval/ benchmark or scorecard.
 
-Runs the real nodes without private AIS. Starts cold at the fixed initial phase;
-pre-event comparisons diagnose elysa/off physical equality, not full fairness.
+Runs the real nodes without private AIS. Starts cold with seeded cable positions;
+pre-event comparisons diagnose elysa/off physical equality, not full warm-state fairness.
 """
 
 import argparse
@@ -77,7 +77,7 @@ def run_case(case: tuple[str, int, str, int, int]) -> dict:
         "speed_mm_s": speed,
         "horizon_ms": horizon_ms,
         "config_sha256": config_hash(Path(root)),
-        "initial_phase": "cold-fixed",
+        "initial_phase": sim.snapshot()["initial_phase"],
         "comparison_ms": comparison_ms,
         "pre_event_physical_hash": pre_event_hash,
         "final_physical_hash": sim.state_hash(),
@@ -158,7 +158,7 @@ def main():
             {
                 "label": "integration audit, NOT final benchmark/scorecard",
                 "limitations": [
-                    "cold fixed phase, not varied warm-up",
+                    "seeded starting positions, no historical warm-up sensor visits",
                     "physical hashes exclude full agent replay state",
                     "channel fairness still requires eval acceptance",
                     "no private AIS replay or metric claims",
