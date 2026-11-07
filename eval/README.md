@@ -6,7 +6,7 @@ Rule: only D edits files here. Others open an issue or ask in chat.
 
 | File | Feature | What |
 |---|---|---|
-| `warm.py` | 12 | 3 h warm-up: seed-drawn place on each sweeper's tour loop, battery held full, bidding off, tape and tide shifted. Same warm hash in every mode |
+| `warm.py` | 12 | 3 h warm-up: seed-drawn place on each sweeper's tour loop, battery held full, bidding off, tape and tide shifted. Same warm hash in every mode. Each run card records `warm_state`: the seeded phases, every boat's position, follower index and charge at mission time 0, and that `place_boats` overwrote World's cold placement (#72) |
 | `metrics.py` | 3 | Truth: sample ages, km overdue from real interval lengths, km never visited, ownership, claims, contact timeline |
 | `ais_observer.py` | 12 | Real cargo and tanker crossings of the patrolled cables after T, in view or not. Reads the private clip; agents never see it |
 | `report.py` | 12 | Scorecard, median and range over seeds; fairness F1-F5 |
