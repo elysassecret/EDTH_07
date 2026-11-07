@@ -51,6 +51,7 @@ class Params:
     health_recover_permille: int = 800
     health_fails: int = 2
     health_attempts: int = 3
+    rejoin_permille: int = 900  # docked boat back to work at this battery (#117)
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,4 +114,5 @@ def load_params(root: str | Path = ".", scenario: str = "scenarios/fixed.toml") 
         health_recover_permille=round(agent["health_recover"] * 1000),
         health_fails=agent["health_fails"],
         health_attempts=agent["health_attempts"],
+        rejoin_permille=round(agent["rejoin_battery"] * 1000),
     )

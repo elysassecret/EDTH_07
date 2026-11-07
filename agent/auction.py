@@ -119,6 +119,8 @@ class Auction:
             return "battery return"
         if r.owner and any(kind(x) in ("relay", "contact") for x in p.get("roles", [])):
             return "handed over"
+        if r.owner and r.owner != a.me and dict(a.mission.initial).get(task) == a.me:
+            return "handed back"  # my original task, released to me by the boat that covered it
         if r.owner == a.me:
             return "back to my own task"
         if r.owner:

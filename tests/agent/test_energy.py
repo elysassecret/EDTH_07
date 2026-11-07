@@ -101,3 +101,27 @@ def test_a_short_fault_clears_and_the_boat_plans_at_cruise_again():
     a = s.agents[1]
     assert a.speed_permille == 1000 and not a.returning
     assert health_lines(s)[-1] == "USV 01: progress back to plan"
+
+
+def test_a_swapped_boat_rejoins_and_the_original_plan_comes_back():
+    """#117: USV 01 goes home, docks, gets a fresh battery and is a free boat again. 04, which
+    covered 01's cables and left lane picket S open, hands them back and returns to its picket.
+    Still low: 01 stays docked."""
+    from contract.constants import CLAIMED, RELEASED, UNAVAILABLE
+    s = Sim(scene_mission(), PARAMS, START)
+    s.run_until(600_000)
+    s.set_batt(1, 200)
+    while s.agents[1].mode != UNAVAILABLE:
+        s.tick()
+    docked = s.t
+    s.run_until(docked + 120_000)
+    assert s.agents[1].mode == UNAVAILABLE and s.agents[1].returning  # 200 permille: stays in
+    assert s.agents[4].table.recs["pick:S"].state == RELEASED  # still uncovered
+    s.set_batt(1, 1000)  # battery swap at Korsor
+    s.run_until(docked + 600_000)
+    a = s.agents[1]
+    assert not a.returning and a.mode != UNAVAILABLE
+    assert a.table.recs["pick:S"].owner == 4 and a.table.recs["pick:S"].state == CLAIMED
+    assert sorted(a.table.held_by(1)) == ["seg:G:0", "seg:G:1", "seg:G:2", "seg:M:0"]
+    assert any(e["kind"] == "rejoin" for e in s.shore.events)
+    assert s.shore.picture(s.t).tasks["pick:S"].why.endswith("[back to my own task]")
