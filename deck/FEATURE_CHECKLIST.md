@@ -3,7 +3,7 @@
 Owner: D. Issue #74. Acceptance is never inferred from a merge: each row names the test (run locally on the revision below) or the video timestamp that shows it. "Not verified" means exactly that.
 
 **Revision:** `main` at `86806cb` (merge of #70), 2026-11-07.
-**Local run:** `uv run pytest -q` on Windows 11, Python 3.12 via uv. Result: **[RESULT]**. CI is blocked by billing (see `deck/RELEASE.md`), so this is local evidence, not green CI.
+**Local run:** `uv run pytest -q` on Windows 11, Python 3.12 via uv. Result: **271 passed, 1 skipped (`web/dist` not built), 1 failed** (`tests/server/test_evidence.py::test_private_key_is_owner_only`, a POSIX file-mode check that cannot pass on NTFS; C-owned, passes on Linux). CI is blocked by billing (see `deck/RELEASE.md`), so this is local evidence, not green CI.
 **Video:** none yet (C, #73). Every "video" cell is open until it exists.
 
 | # | Feature | Status | Evidence |
@@ -24,7 +24,7 @@ Owner: D. Issue #74. Acceptance is never inferred from a merge: each row names t
 | 14 | Four-tier operator policy | pass (logic); video open | `tests/agent/test_contact.py::test_stop_ends_the_watch`, `test_shore_shows_the_contact_and_cards_from_delivered_messages_only`; `tests/agent/test_shore.py::test_stop_is_delivered_to_the_watcher_and_sticks`; `deck/standing_orders.md` |
 | 15 | Current-aware return rule | pass | `tests/agent/test_energy.py::test_return_time_depends_on_the_current`, `test_return_rule_fires_with_safety_margin`; `tests/world/test_current.py::test_low_battery_injection_matches_real_agents_current_aware_safety_rule` |
 | 16 | SENTINEL drift-and-correct for pickets and relay | pass | `tests/agent/test_energy.py::test_picket_drifts_with_motors_off_and_corrects_past_300_m`; `tests/world/test_current.py::test_real_picket_drifts_then_corrects_with_energy_cost_and_stays_near_station`; `tests/world/test_energy.py::test_stationary_sentinel_uses_hotel_load_not_cruise` |
-| 17 | Offline chart with infrastructure layers | pass (offline); video open | `tests/server/test_web_static.py::test_console_source_has_no_web_addresses`, `test_built_console_has_no_unexpected_web_addresses`; `web/public/geo/land.geojson` and `infra.geojson` from #49; `tests/story/test_real_scene.py::test_r2_stations_and_the_contact_are_in_water` |
+| 17 | Offline chart with infrastructure layers | pass (offline); video open | `tests/server/test_web_static.py::test_console_source_has_no_web_addresses`, `test_built_console_has_no_unexpected_web_addresses` (skipped locally: `web/dist` not built, C to confirm on a built console); `web/public/geo/land.geojson` and `infra.geojson` from #49; `tests/story/test_real_scene.py::test_r2_stations_and_the_contact_are_in_water` |
 | 18 | USV cards: role, mode chip, battery as time, link, data age | not verified | UI only. Needs a video timestamp from C. Data behind it: `tests/world/test_energy.py::test_shore_console_picture_reflects_delivered_energy_not_truth` |
 | 19 | Contact tracks: AIS / NO AIS / fused, trails, seen-by | pass (data); video open | `tests/server/test_bridge.py::test_shore_never_shows_truth_contacts`; `tests/story/test_story.py::test_s3_shore_shows_the_contact`; the NO AIS chip needs the video |
 | 20 | Data-age honesty: stale boats greyed, LAST SEEN | pass (data); video open | `tests/server/test_bridge.py::test_switched_off_boat_stays_old_on_shore`; `tests/server/test_alerts.py::test_stale_boat_is_a_warning_and_clears_when_heard_again`; `tests/agent/test_shore.py::test_cut_boat_keeps_old_data_on_the_shore` |
