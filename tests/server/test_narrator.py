@@ -56,7 +56,7 @@ def test_demo_story_on_the_real_sim():
         f.tick()
     story = " | ".join(texts(f.narrator.lines))
     for want in ("USV 01 returning to Korsør", "lane picket S now uncovered",
-                 "USV 04 reaches shore through a peer", "USV 03 keeping C-07 in view",
+                 "USV 04 reaches shore through USV", "USV 03 keeping C-07 in view",
                  "USV 03 back on lane picket N", "Shore has not heard USV 03",
                  "USV 03 took the relay role"):
         assert want in story, want
