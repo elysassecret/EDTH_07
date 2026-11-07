@@ -85,6 +85,8 @@ class Agent:
         self.contacts.tick(t, seen)
         if not self.returning and self.return_due():
             self.go_home()
+        if self.may_bid(t):
+            self.auction.take_over(t)
         if self.slot_due(t):
             self.auction.on_slot(t)
         if self.rebalance_due(t) and self.may_bid(t):

@@ -1,6 +1,7 @@
 """Phase 5 boat side: the scripted contact story on the scene-like mission (PLAN section 2)."""
-from contract.constants import CLAIMED, RELEASED, SHADOWING
+from contract.constants import CLAIMED, DEPUTY_GRACE, LEASE, RELEASED, SHADOWING
 from contract.mission import load_params
+from contract.tasks import Rec
 from tests.agent.harness import Sim
 from tests.agent.scene import C07, START, scene_mission
 
@@ -50,3 +51,22 @@ def test_stop_ends_the_watch():
     s.run_until(s.t + 60_000)
     assert s.agents[3].contacts.watching() is None
     assert s.agents[3].mode != SHADOWING and s.agents[2].contacts.holding is None
+
+
+def test_p8_deputy_takes_the_watch_without_an_auction():
+    """PLAN 7.10: the watcher goes silent; its named deputy claims at ver + 1 as soon as the
+    lease ends, before the deputy grace would let a new auction start."""
+    s = story()
+    while s.t <= 3_000_000 and s.agents[3].table.recs.get(TASK, Rec(TASK, 0, 0, 0, 0)).state != CLAIMED:
+        s.tick()
+    r = s.agents[3].table.recs[TASK]
+    assert r.owner == 3 and r.deputy not in (0, 3)
+    s.kill(3)
+    dead_at = s.t
+    while s.t <= dead_at + LEASE + DEPUTY_GRACE:
+        s.tick()
+        new = s.agents[r.deputy].table.recs[TASK]
+        if new.owner == r.deputy:
+            break
+    assert new == Rec(TASK, r.ver + 1, CLAIMED, new.bid, r.deputy, 0)
+    assert s.t < dead_at + LEASE + DEPUTY_GRACE  # no auction needed
