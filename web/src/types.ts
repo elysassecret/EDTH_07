@@ -55,6 +55,8 @@ export interface Snapshot extends Omit<C.Snapshot, "boats" | "contacts" | "decis
   warp_mode?: "auto" | "manual" | "paused"; // server/feed.py (feature 25)
   near_event?: boolean; // auto-warp slowed around a scripted or injected event
   narration?: { t: number; text: string }[]; // server/narrator.py, /shore only
+  // watch-officer escalations recorded by the server (server/bridge.py); the officer's call
+  escalations?: { id: string; track: string; t: number; note: string }[];
 }
 
 export interface SceneMsg {
@@ -84,6 +86,7 @@ export interface Ack {
 export type Command =
   | C.Command
   | { cmd: "ack"; id: string }
+  | { cmd: "escalate"; id: string; text: string; note: string }
   | { cmd: "speed"; value: number | "auto" }
   | { cmd: "pause"; on?: boolean }
   | { cmd: "reset"; seed?: number }

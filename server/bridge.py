@@ -37,6 +37,8 @@ from world.sim import World
 
 INJECT_KINDS = ("battery_low", "boat_off", "boat_restore", "link_off", "link_on")
 ANSWER_CMDS = ("confirm", "stop", "approve", "decline")
+ESCALATE_TEXT_MAX = 1200  # the report the officer read and sent, kept whole in the evidence log
+ESCALATE_NOTE_MAX = 300
 EVENT_WINDOW_MS = 60_000  # slow to warp_near for 60 sim-s either side of each event
 
 
@@ -97,6 +99,8 @@ class SimSource:
         schema = Snapshot.model_fields["schema_version"].default
         self.log = RunLog.open_new(runs_dir, seed, schema, self.t0_utc) if runs_dir else None
         self._logged_events = 0
+        # watch-officer escalations (console extra): the officer's decision, never the boats'
+        self.escalations: list[dict] = []
         self._placed = 0  # synthetic contacts placed from the console (X-01, X-02, ...)
         self._sample_m = self._sample_lengths()
         self._contact_defaults = next(
@@ -196,7 +200,7 @@ class SimSource:
         if channel == "truth":
             out["cable_overdue"] = self.cable_overdue()
         out.update(type="snapshot", source="sim", seed=self.seed, t_exact=self.t,
-                   t0_utc=self.t0_utc)
+                   t0_utc=self.t0_utc, escalations=list(self.escalations))
         return out
 
     def command(self, msg: dict) -> dict:
@@ -234,6 +238,8 @@ class SimSource:
                 at = msg.get("at_s")
                 self.world.inject(event, None if at is None else int(at) * 1000)
                 return {"ok": True}
+            if cmd == "escalate":
+                return self._escalate(msg)
             if cmd == "ack":
                 if not isinstance(msg.get("id"), str):
                     return {"ok": False, "error": "alert id missing"}
@@ -242,6 +248,21 @@ class SimSource:
         except (KeyError, ValueError, TypeError) as e:
             return {"ok": False, "error": f"bad command: {e}"}
         return {"ok": False, "error": f"unknown cmd {cmd!r}"}
+
+    def _escalate(self, msg: dict) -> dict:
+        """The watch officer reports a contact onward (Navy / JRCC). Only a contact in the
+        shore picture can be escalated; the exact text sent is kept, and the run log puts the
+        whole command into the evidence chain. The software never makes this call itself."""
+        cid, text, note = msg.get("id"), msg.get("text", ""), msg.get("note", "")
+        if not isinstance(cid, str) or not isinstance(text, str) or not isinstance(note, str):
+            return {"ok": False, "error": "escalate needs id, text and note as strings"}
+        if not text.strip() or len(text) > ESCALATE_TEXT_MAX or len(note) > ESCALATE_NOTE_MAX:
+            return {"ok": False, "error": "report text missing or too long"}
+        track = next((c.track for c in self._shore(0).contacts if c.id == cid), None)
+        if track is None:
+            return {"ok": False, "error": f"no contact {cid} in the shore picture"}
+        self.escalations.append({"id": cid, "track": track, "t": int(self.t), "note": note})
+        return {"ok": True}
 
     def _sample_lengths(self) -> list[int]:
         """Metres of cable each sample stands for: up to the next sample on the same task,
@@ -363,7 +384,10 @@ class SimSource:
 
     def _shore(self, speed: int) -> Snapshot:
         pic = self.world.shore.picture(self.world.t_ms, speed)
-        events = sorted([*pic.events, *self._exercise_events()], key=lambda e: e.t)[-60:]
+        told = [Event(t=e["t"], kind="operator_command",
+                      text=f"Watch officer escalated {e['track']}: reported onward (officer's decision)")
+                for e in self.escalations]
+        events = sorted([*pic.events, *self._exercise_events(), *told], key=lambda e: e.t)[-60:]
         cuts = self._exercise_cuts()
         self.alerts.update(pic, self._exercise_failures(), cuts)
         return pic.model_copy(update={"t0_utc": self.t0_utc or pic.t0_utc, "events": events,

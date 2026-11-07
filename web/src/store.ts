@@ -148,7 +148,7 @@ export const useStore = create<State>((set, get) => ({
       set({ commandError: "Not sent: fresh feed unavailable." });
       return false;
     }
-    if (["confirm", "stop", "approve", "decline", "ack"].includes(c.cmd) && get().channel !== "shore") {
+    if (["confirm", "stop", "approve", "decline", "ack", "escalate"].includes(c.cmd) && get().channel !== "shore") {
       set({ commandError: "Not sent: evaluator view is read-only for operator decisions." });
       return false;
     }
