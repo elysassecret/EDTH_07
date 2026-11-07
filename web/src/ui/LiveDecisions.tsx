@@ -31,6 +31,7 @@ import {
 } from "../console-model";
 import { dur } from "../format";
 import { useStore } from "../store";
+import { Why } from "./LivePanels";
 import type { Decision } from "../types";
 
 const WORD: Record<DecisionAction, string> = {
@@ -303,6 +304,7 @@ export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
                 </span>
               </div>
               <CardTitle className="leading-relaxed">{d.text}</CardTitle>
+              {d.why && <Why text={d.why} />}
               <CardDescription>
                 {d.id}
                 {d.boat ? ` · ${usv(d.boat)}` : ""}

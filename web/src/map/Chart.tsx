@@ -92,7 +92,9 @@ function circle(lon: number, lat: number, r: number, n = 72): [number, number][]
 /** #88 rings: camera range (ship, day) and keep-in-view range around live boats; the 1 nm
  * stand-off around NO AIS contacts. Ranges are the boat model's (config/boat.toml), not
  * measured; stale boats get no rings, since their position is only last known. */
-function ringLayers(snap: Snap, scene: Scene, r: NonNullable<Scene["ranges"]>): Layer[] {
+function ringLayers(snap: Snap, scene: Scene): Layer[] {
+  // per boat / contact from the snapshot (#91); the scene's config/boat.toml ranges otherwise
+  const r = scene.ranges;
   const staleAfter = scene.stale_after_s ?? 60;
   const live = snap.boats.filter((b) => b.heard !== false && snap.t - b.last_heard <= staleAfter
     && b.mode !== "UNAVAILABLE" && !isDocked(b, scene));
@@ -100,15 +102,15 @@ function ringLayers(snap: Snap, scene: Scene, r: NonNullable<Scene["ranges"]>): 
   return [
     new ScatterplotLayer<Boat>({
       id: "ring-keep", data: live, getPosition: (b) => [b.lon, b.lat], radiusUnits: "meters",
-      getRadius: r.keep_in_view_m, filled: true, getFillColor: RING_KEEP, stroked: false,
+      getRadius: (b) => b.keep_in_view_m ?? r?.keep_in_view_m ?? 0, filled: true, getFillColor: RING_KEEP, stroked: false,
     }),
     new ScatterplotLayer<Boat>({
       id: "ring-detect", data: live, getPosition: (b) => [b.lon, b.lat], radiusUnits: "meters",
-      getRadius: r.detect_ship_day_m, filled: false, stroked: true, getLineColor: RING_DETECT,
+      getRadius: (b) => b.detect_m ?? r?.detect_ship_day_m ?? 0, filled: false, stroked: true, getLineColor: RING_DETECT,
       lineWidthUnits: "pixels", getLineWidth: 1,
     }),
     new PathLayer<Contact, PathStyleExtensionProps<Contact>>({
-      id: "ring-standoff", data: dark, getPath: (k) => circle(k.lon, k.lat, r.standoff_m),
+      id: "ring-standoff", data: dark, getPath: (k) => circle(k.lon, k.lat, k.standoff_m ?? r?.standoff_m ?? 0),
       getColor: RING_STANDOFF, getWidth: 1.5, widthUnits: "pixels",
       getDashArray: [5, 4], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
     }),
@@ -355,7 +357,7 @@ function buildLayers(
   }
 
   if (snap && scene) layers.push(...coverageLayers(snap, scene, frozen));
-  if (snap && scene?.ranges && showRings && !frozen) layers.push(...ringLayers(snap, scene, scene.ranges));
+  if (snap && scene && showRings && !frozen) layers.push(...ringLayers(snap, scene));
   if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
   if (snap) layers.push(...ghostRoutes(snap, hoverDecision));
 

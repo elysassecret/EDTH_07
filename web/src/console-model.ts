@@ -15,6 +15,16 @@ export function sortedAlerts(alerts: Alert[]): Alert[] {
   );
 }
 
+/** #88 item 6: the shore's plain reason for what a boat is doing: the why of its newest
+ * claimed task (agent #86). Empty when the boats sent none, so nothing is shown. */
+export function boatWhy(boat: Boat, snap: Snapshot): string {
+  for (const id of [...boat.roles].reverse()) {
+    const why = snap.tasks[id]?.why;
+    if (why) return why;
+  }
+  return "";
+}
+
 export function canOperate(conn: string, channel: string): boolean {
   return conn === "live" && channel === "shore";
 }

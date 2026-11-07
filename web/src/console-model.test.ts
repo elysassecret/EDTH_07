@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  boatWhy,
   alertAction,
   groupAlerts,
   actionsFor,
@@ -174,5 +175,15 @@ describe("alerts grouped with their action (#88 item 5)", () => {
     const groups = groupAlerts([al("rtb:1", "caution", 80, true), al("contact:C-07", "warning", 60)], snap);
     expect(groups.map((g) => g.subject.key)).toEqual(["contact:C-07", "boat:1"]);
     expect(alertAction(al("decision:close:contact:C-07", "alarm", 90), snap)).toBe("info");
+  });
+});
+
+describe("why line (#88 item 6)", () => {
+  it("shows the reason of the boat's newest task that has one, and nothing when none was sent", () => {
+    const b = { ...boat, roles: ["seg:G:0", "seg:G:1"] };
+    const task = (why: string) => ({ v: 1, owner: 4, deputy: 0, state: 1, why });
+    expect(boatWhy(b, snapshot({ tasks: { "seg:G:0": task("cheapest of 3 bids"), "seg:G:1": task("") } }))).toBe("cheapest of 3 bids");
+    expect(boatWhy(b, snapshot({ tasks: { "seg:G:0": task(""), "seg:G:1": task("[rebalance]") } }))).toBe("[rebalance]");
+    expect(boatWhy(b, snapshot())).toBe("");
   });
 });

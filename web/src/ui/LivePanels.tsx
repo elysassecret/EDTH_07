@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
+  boatWhy,
   coverageRows,
   endpoint,
   eventCategory,
@@ -43,6 +44,11 @@ import { roleText } from "../roles";
 import { useStore } from "../store";
 import { t0Of } from "../types";
 import { Fps } from "./Fps";
+
+/** #88 item 6: one grey line with the reason the boats gave; the full text on hover. */
+export function Why({ text }: { text: string }) {
+  return <p className="truncate text-sm text-muted-foreground" title={text}>{text}</p>;
+}
 
 export function FleetOverview() {
   const snap = useStore((s) => s.snap);
@@ -99,6 +105,7 @@ export function FleetOverview() {
               <CardDescription className="break-words">
                 {known ? roleText(boat, scene) : "No report received"}
               </CardDescription>
+              {known && boatWhy(boat, snap) && <Why text={boatWhy(boat, snap)} />}
             </CardHeader>
             <CardContent className="space-y-1 px-3 text-sm">
               <div className="flex justify-between gap-2">
@@ -169,6 +176,7 @@ export function ContactOverview() {
                   {contact.source ?? (contact.ais ? "AIS" : "camera")} · last
                   seen {dur(snap.t - contact.last_seen)} ago
                 </span>
+                {contact.why && <Why text={contact.why} />}
               </span>
               <Badge variant="outline">{contact.ais ? "AIS" : "NO AIS"}</Badge>
             </Button>
@@ -206,6 +214,7 @@ export function SelectedContext() {
         <CardHeader className="px-4">
           <CardTitle>{usv(boat.id)}</CardTitle>
           <CardDescription>{roleText(boat, scene)}</CardDescription>
+          {boatWhy(boat, snap) && <Why text={boatWhy(boat, snap)} />}
         </CardHeader>
         <CardContent className="space-y-4 px-4">
           <Badge variant="outline">
@@ -265,7 +274,7 @@ export function SelectedContext() {
           <p className="font-medium">Assigned tasks</p>
           <ul className="space-y-1 break-words font-mono text-sm">
             {boat.roles.map((task) => (
-              <li key={task}>{task}</li>
+              <li key={task}>{task}{snap.tasks[task]?.why ? <span className="block font-sans text-muted-foreground">{snap.tasks[task].why}</span> : null}</li>
             ))}
           </ul>
         </CardContent>
@@ -281,6 +290,7 @@ export function SelectedContext() {
             {contact.source ?? (contact.ais ? "AIS" : "camera")} · delivered
             evidence
           </CardDescription>
+          {contact.why && <Why text={contact.why} />}
         </CardHeader>
         <CardContent className="space-y-4 px-4">
           <Badge variant="outline">

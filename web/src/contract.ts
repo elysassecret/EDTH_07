@@ -16,9 +16,11 @@ export type T = number;
 export type Text = string;
 export type Alerts = Alert[];
 export type Batt = number;
+export type DetectM = number;
 export type EnduranceS = number;
 export type Hdg = number;
 export type Id3 = number;
+export type KeepInViewM = number;
 export type LastHeard = number;
 export type Lat = number;
 export type Link = "direct" | "peer" | "none";
@@ -28,6 +30,7 @@ export type MustReturnBy = number | null;
 export type Roles = string[];
 export type Sog = number;
 export type Tour = string[];
+export type VerifyM = number;
 export type Via = number | null;
 export type X = number;
 export type Y = number;
@@ -44,15 +47,19 @@ export type Name = boolean;
 export type Id4 = string;
 export type LastSeen = number;
 export type Lat1 = number;
+export type LengthBandM = number | null;
 export type Lon1 = number;
 export type Name1 = string | null;
 export type SeenBy = number[];
+export type ShipType = string | null;
 export type Sog1 = number;
 export type Source = "ais" | "camera" | "fused";
+export type StandoffM = number;
 export type State = number;
 export type Track = string;
 export type Trail = [unknown, unknown][];
 export type Watcher = number;
+export type Why = string;
 export type X1 = number;
 export type Y1 = number;
 export type Contacts = Contact[];
@@ -66,6 +73,7 @@ export type T1 = number;
 export type Task = string;
 export type Text1 = string;
 export type Tier = "delegated" | "held";
+export type Why1 = string;
 export type Decisions = Decision[];
 export type Exercise = boolean;
 export type Kind1 = string;
@@ -84,6 +92,7 @@ export type Deputy = number;
 export type Owner = number;
 export type State3 = number;
 export type V = number;
+export type Why2 = string;
 export type View = "shore" | "truth";
 
 /**
@@ -131,9 +140,11 @@ export interface Alert {
 }
 export interface Boat {
   batt: Batt;
+  detect_m?: DetectM;
   endurance_s: EnduranceS;
   hdg?: Hdg;
   id: Id3;
+  keep_in_view_m?: KeepInViewM;
   last_heard: LastHeard;
   lat: Lat;
   link: Link;
@@ -143,6 +154,7 @@ export interface Boat {
   roles: Roles;
   sog?: Sog;
   tour: Tour;
+  verify_m?: VerifyM;
   via?: Via;
   x: X;
   y: Y;
@@ -156,15 +168,19 @@ export interface Contact {
   id: Id4;
   last_seen: LastSeen;
   lat: Lat1;
+  length_band_m?: LengthBandM;
   lon: Lon1;
   name?: Name1;
   seen_by: SeenBy;
+  ship_type?: ShipType;
   sog: Sog1;
   source?: Source;
+  standoff_m?: StandoffM;
   state: State;
   track: Track;
   trail?: Trail;
   watcher: Watcher;
+  why?: Why;
   x: X1;
   y: Y1;
 }
@@ -186,6 +202,7 @@ export interface Decision {
   task: Task;
   text: Text1;
   tier?: Tier;
+  why?: Why1;
 }
 export interface Event {
   exercise?: Exercise;
@@ -209,4 +226,5 @@ export interface TaskView {
   owner: Owner;
   state: State3;
   v: V;
+  why?: Why2;
 }
