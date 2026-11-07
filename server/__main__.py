@@ -38,6 +38,9 @@ def main() -> None:
     ap.add_argument("--hours", type=float, default=None,
                     help="real sim: run length in hours for this console run (default: "
                          "config/run.toml, 4 h); eval and the video keep their own length")
+    ap.add_argument("--placed", action="store_true",
+                    help="real sim: start the boats already placed on their tasks (the old start); "
+                         "default: they launch from Korsør and decide who goes where")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     extra = {}
@@ -55,7 +58,8 @@ def main() -> None:
         from server.bridge import serve
         from server.feed import ROOT
 
-        extra = {"runs_dir": None if args.no_log else ROOT / "runs", "scorecard": args.scorecard}
+        extra = {"runs_dir": None if args.no_log else ROOT / "runs", "scorecard": args.scorecard,
+                 "launch": not args.placed}
         if args.hours is not None:
             from server.bridge import check_horizon
 

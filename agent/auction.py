@@ -218,6 +218,18 @@ class Auction:
                     and self.energy_ok(task))
         return False  # cue tasks come with B's AIS replay (P1)
 
+    def peer_fits(self, p: dict, task: str) -> bool:
+        """Model estimate, from the peer's own heartbeat (position, battery), that it could do one
+        pass of this segment and still get home with the same margin as energy_ok. No current."""
+        a, prm = self.a, self.a.params
+        pts = a.tours.pts[task]
+        here = (p["x"], p["y"])
+        v = prm.speed_mm_s
+        need = ms(min(dist(here, pts[0]), dist(here, pts[-1])) + a.tours.len[task]
+                  + dist(pts[-1], a.mission.shore), v)
+        left = p["batt"] * prm.endurance_ms // 1000 - prm.reserve_ms
+        return left >= prm.return_safety_permille * need // 1000
+
     def last_sweeper(self, t: int) -> bool:
         """Never take the last boat sweeping cables off them (PLAN F7)."""
         a = self.a
@@ -243,12 +255,14 @@ class Auction:
                 avail.append((p["cyc"], b, p["tour"]))
         if not avail:
             return
-        lo_cyc, _, lo_tour = min(avail)
+        lo_cyc, lo, lo_tour = min(avail)
         mine = ms(a.tours.cycle_m(legs), a.v_plan())
         if mine * 1000 <= a.params.rebalance_ratio_permille * lo_cyc:
             return
         _, give = min((a.tours.cycle_m([leg for leg in legs if leg[0] != k]), k)
                       for k, _ in legs)
+        if not self.peer_fits(a.peers[lo][1], give):
+            return  # it could not take it: giving it away would only leave the cable open
         lo_legs = []
         for k in sorted(lo_tour + [give]):
             lo_legs = a.tours.insert(lo_legs, k)

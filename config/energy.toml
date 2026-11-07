@@ -5,3 +5,8 @@ tide_flip_s = 9000         # current reverses at this sim time
 sentinel_radius_m = 300
 return_safety = 1.2
 hotel_load_permille = 100  # chosen sim input: motors-off load / total cruise load; NOT hull data
+
+# Shore launch and battery swap at Korsør (#116). Chosen sim inputs, not measured:
+launch_gap_s = 60          # launch from shore: one boat switched on every 60 s, in a seeded order
+dock_m = 50                # a boat this close to the shore point counts as docked (agent HOME_M)
+swap_s = 600               # battery swap at the dock: about 10 min (team assumption, #116)

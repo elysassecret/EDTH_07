@@ -11,8 +11,15 @@ pnpm --dir web build
 uv run python -m server --serve-web    # real simulation and console: http://localhost:8765/
 ```
 
+The boats start docked at Korsør and are switched on one by one, 60 s apart; they decide among
+themselves who sweeps which cable, who holds a lane picket and who relays. A boat that comes home
+gets a battery swap (about 10 min, "Battery swap at Korsør · ready about hh:mm" on its card) and
+goes back to work. `--placed` starts them already on their tasks, as before.
+To watch launch, return, swap and rejoin in a few minutes:
+`uv run python -m server --serve-web --demo server/launch.toml`.
+
 A live run lasts 4 h of sim time (`config/run.toml`, ends 14:15Z). For a longer one add
-`--hours 7` (at most one full battery: the world has no charging yet, #116).
+`--hours 10` (up to 24 h).
 
 For development, run `uv run python -m server` and `pnpm --dir web dev` in separate
 terminals. The latter serves the console on http://localhost:5173. If pnpm is not

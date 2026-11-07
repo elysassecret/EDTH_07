@@ -8,7 +8,7 @@ import json
 import tomllib
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from math import atan2, degrees, isqrt
 from pathlib import Path
 from typing import Protocol
@@ -51,6 +51,7 @@ class World:
         ais_enabled: bool = False,
         ais_clip: str | Path | None = None,
         scenario: str | Path = "scenarios/fixed.toml",
+        launch: bool = False,
     ):
         self.root = Path(root)
         self.seed = seed
@@ -60,7 +61,10 @@ class World:
         self.ais_enabled = ais_enabled or ais_clip is not None
         self.scenario = str(scenario)
         self.scene = load_scene(self.root)
-        self.mission = self.scene.mission
+        # launch=True: every boat starts docked at the shore with no task, is switched on one by
+        # one, and the swarm decides who goes where (no initial owners). Off = the placed start.
+        self.launch = launch
+        self.mission = replace(self.scene.mission, initial=()) if launch else self.scene.mission
         self.params = load_params(self.root, scenario=self.scenario)
 
         def config(name):
@@ -74,6 +78,9 @@ class World:
             self._base_current = Current((0, 0), self._base_current.flip_ms)
         self.current = self._base_current
         self.hotel_load_permille = energy["hotel_load_permille"]
+        self.launch_gap_ms = round(energy.get("launch_gap_s", 60) * 1000)
+        self.dock_m = int(energy.get("dock_m", 50))
+        self.swap_ms = round(energy.get("swap_s", 600) * 1000)
         if (
             not isinstance(self.hotel_load_permille, int)
             or not 1 <= self.hotel_load_permille <= 1000
@@ -111,11 +118,25 @@ class World:
         self.propulsion_permille: dict[int, int] = {}
         self.position_faults: dict[int, dict] = {}
         self.radio = Radio(self.radio_config, self.seed)
-        self.start_placements = placements(self.mission, self.seed, enabled=self.vary_start_phase)
-        self.boats = {
-            boat: Boat.at(boat, placement.point, self.params.endurance_ms)
-            for boat, placement in self.start_placements.items()
-        }
+        self.swapping: dict[int, int] = {}  # docked boat -> when its battery swap began (ms)
+        launches: list[tuple[int, int, dict]] = []
+        if self.launch:
+            self.start_placements = {}
+            order = launch_order(self.mission.boats, self.seed)
+            self.boats = {}
+            for rank, boat in enumerate(order):
+                # side by side along the quay, all inside the dock radius
+                point = (self.mission.shore[0] + (rank - len(order) // 2) * 8, self.mission.shore[1])
+                self.boats[boat] = Boat.at(boat, point, self.params.endurance_ms)
+                self.boats[boat].enabled = rank == 0
+                if rank:
+                    launches.append((rank * self.launch_gap_ms, -1, {"kind": "launch", "boat": boat, "origin": "world"}))
+        else:
+            self.start_placements = placements(self.mission, self.seed, enabled=self.vary_start_phase)
+            self.boats = {
+                boat: Boat.at(boat, placement.point, self.params.endurance_ms)
+                for boat, placement in self.start_placements.items()
+            }
         self.nodes = (
             {
                 boat: self.agent_factory(boat, self.mission, self.params)
@@ -134,6 +155,7 @@ class World:
         self.pending = [
             (int(event["t"] * 1000), index, dict(event)) for index, event in enumerate(self.script)
         ]
+        self.pending += launches
         self.pending.sort(key=lambda item: (item[0], item[1]))
         self.event_seq = len(self.pending)
 
@@ -292,6 +314,13 @@ class World:
         elif kind == "propulsion_restore":
             target_boat = int(event.get("boat", event.get("a")))
             self.propulsion_permille.pop(target_boat, None)
+        elif kind == "launch":
+            # Shore launch: a mechanic or the operator switches this boat on at the dock.
+            self.boats[event["boat"]].enabled = True
+        elif kind == "battery_swap":
+            # #116: fresh battery fitted at the dock; the swap time has passed.
+            boat = self.boats[event["boat"]]
+            boat.charge_ms, boat.drain_remainder = boat.endurance_ms, 0
         elif kind in ("boat_off", "boat_restore"):
             self.boats[event.get("boat", event.get("a"))].enabled = kind == "boat_restore"
         elif kind in ("link_off", "link_on"):
@@ -317,7 +346,7 @@ class World:
             contact = self.contacts[event["id"]]
             contact.advance(self.t)
             contact.set_velocity(round(event["sog_kn"] * 514.444), event["course"])
-        elif kind != "evaluate":
+        elif kind not in ("evaluate", "launch", "battery_swap"):
             raise ValueError(f"unsupported event kind: {kind}")
         self.events.append(
             {
@@ -462,9 +491,34 @@ class World:
                     }
         for src, raw in broadcasts:
             self.radio.broadcast(self.t, src, raw, positions)
+        self._swap_batteries()
         self._credit_visits()
         self.started = True
         return self.snapshot()
+
+    def _swap_batteries(self) -> None:
+        """#116: a boat docked at the shore (agent mode UNAVAILABLE within dock_m) with a used
+        battery gets a fresh one after swap_s. Leaving the dock or being switched off stops the
+        swap. Logged as world events (not exercise): swap_start, then battery_swap."""
+        for boat, state in sorted(self.boats.items()):
+            docked = (
+                state.enabled
+                and self.actions[boat].mode == UNAVAILABLE
+                and dist(state.point, self.mission.shore) <= self.dock_m
+                and state.charge_ms < state.endurance_ms
+            )
+            if not docked:
+                self.swapping.pop(boat, None)
+                continue
+            if boat not in self.swapping:
+                self.swapping[boat] = self.t
+                self._log({"kind": "swap_start", "boat": boat, "swap_s": self.swap_ms // 1000})
+            elif self.t - self.swapping[boat] >= self.swap_ms:
+                del self.swapping[boat]
+                self._apply({"kind": "battery_swap", "boat": boat, "origin": "world"})
+
+    def _log(self, event: dict) -> None:
+        self.events.append({**event, "t_ms": self.t, "origin": "world", "exercise": False})
 
     def _credit_visits(self) -> None:
         radius_sq = self.params.r_verify_m**2
@@ -624,6 +678,8 @@ class World:
                 for _, contact in sorted(self.contacts.items())
             ],
             "events": deepcopy(self.events),
+            "launch": self.launch,
+            "swapping": {str(b): self.swap_ms - (self.t - since) for b, since in sorted(self.swapping.items())},
             "current": {
                 "east_mm_s": self.current.at(self.t)[0],
                 "north_mm_s": self.current.at(self.t)[1],
@@ -644,6 +700,7 @@ class World:
             "pending": self.pending,
             "contacts_mm": [asdict(contact) for _, contact in sorted(self.contacts.items())],
             "started": self.started,
+            "swapping": self.swapping,
             "shore_reports": self.shore_reports,
             "sample_visit_ms": self.sample_visit_ms,
             "telemetry": self.telemetry,
@@ -652,3 +709,9 @@ class World:
         return hashlib.sha256(
             json.dumps(state, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
+
+
+def launch_order(boats, seed: int) -> list[int]:
+    """Seeded switch-on order for a shore launch: which boat the crew starts first is not a plan
+    the swarm can rely on. Deterministic per seed."""
+    return sorted(boats, key=lambda b: hashlib.sha256(f"launch:{seed}:{b}".encode()).digest())

@@ -18,6 +18,6 @@ def test_hours_runs_past_the_default_four_hours():
 
 
 @pytest.mark.parametrize("bad", [0, -1, 10**6])
-def test_hours_refuses_a_run_longer_than_one_battery(bad):
-    with pytest.raises(ValueError, match="one full battery"):
+def test_hours_refuses_a_run_out_of_range(bad):
+    with pytest.raises(ValueError, match="between 0 and 24 h"):
         SimSource(1, horizon_s=bad)

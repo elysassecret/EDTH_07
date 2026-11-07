@@ -132,8 +132,10 @@ def test_full_real_agent_current_run_keeps_tide_and_sensor_inputs_consistent():
                 if boat in sim.positions():
                     assert node.cur == sim.current.at(sim.t_ms)
     assert sim.current.at(sim.t_ms) == (129, -483)
-    assert len(sim.events) == 7
-    assert sim.nodes[1].returning
+    assert len([e for e in sim.events if e["origin"] != "world"]) == 7  # the tape's events
+    # boat 1 went home on the tape's battery_low; at Korsør it got a fresh battery (#116)
+    assert [e["kind"] for e in sim.events if e["origin"] == "world" and e["boat"] == 1][:2] == [
+        "swap_start", "battery_swap"]
     assert not sim.nodes[5].returning
     assert 2 in local_detectors  # actual local camera observation, not a forwarded track
     assert 3 in watchers

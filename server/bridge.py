@@ -36,20 +36,22 @@ from server.runlog import HASH_MS, SNAPSHOT_MS, RunLog, replay_digest
 from world.sim import World
 
 INJECT_KINDS = ("battery_low", "boat_off", "boat_restore", "link_off", "link_on")
+# done by the shore crew at Korsør, so the console knows them: launch and battery swaps (#116)
+DOCK_KINDS = ("launch", "swap_start", "battery_swap")
 ANSWER_CMDS = ("confirm", "stop", "approve", "decline")
 ESCALATE_TEXT_MAX = 1200  # the report the officer read and sent, kept whole in the evidence log
 ESCALATE_NOTE_MAX = 300
 EVENT_WINDOW_MS = 60_000  # slow to warp_near for 60 sim-s either side of each event
 
 
+MAX_HOURS = 24  # a console run; boats get a fresh battery at Korsør (#116) and rejoin (#117)
+
+
 def check_horizon(horizon_s: int) -> None:
-    """A live run may last up to one full battery (config/boat.toml endurance_s). Longer runs
-    need charging at Korsør (#116) and boats that come back (#117): until then every boat
-    would end docked, and the console would show an empty sea as if that were the plan."""
-    limit = boat_model()["endurance_s"]
-    if not 0 < horizon_s <= limit:
-        raise ValueError(f"run length must be between 0 and {limit / 3600:g} h (one full battery; "
-                         "no charging in the world yet, #116)")
+    """A live run may last up to MAX_HOURS: docked boats now get a battery swap at Korsør and
+    go back to work, so a run longer than one battery no longer ends with an empty sea."""
+    if not 0 < horizon_s <= MAX_HOURS * 3600:
+        raise ValueError(f"run length must be between 0 and {MAX_HOURS} h")
 
 
 def _toml(rel: str) -> dict:
@@ -75,6 +77,9 @@ def _event_text(e: dict) -> str:
         "contact_start": f"Synthetic contact {e.get('id', '')} placed (truth only)",
         "contact_depart": f"Synthetic contact {e.get('id', '')} departs (truth only)",
         "evaluate": "Evaluation point reached (scorecard comes from eval/)",
+        "launch": f"{usv} switched on at Korsør: launching",
+        "swap_start": f"{usv} docked at Korsør: battery swap started (about {int(e.get('swap_s', 600)) // 60} min)",
+        "battery_swap": f"{usv} battery swapped at Korsør: full",
     }
     text = words.get(k, str(k))
     if e.get("exercise"):
@@ -86,7 +91,8 @@ class SimSource:
     """World + ShoreNode adapted to the Feed source interface (see server/feed.py)."""
 
     def __init__(self, seed: int = 1, runs_dir: Path | None = None, demo: dict | None = None,
-                 scorecard_path: Path | None = None, horizon_s: int | None = None):
+                 scorecard_path: Path | None = None, horizon_s: int | None = None,
+                 launch: bool = False):
         self.seed = seed
         # #59: D's scorecard_console.json from `python -m eval.run_batch --out runs/main`
         self.scorecard_path = scorecard_path or ROOT / "runs" / "main" / "scorecard_console.json"
@@ -94,7 +100,11 @@ class SimSource:
         # demo preset (server/demo.toml, --demo): warp, extra slow windows, scheduled
         # injections and a fast-forward start. None = the normal console behaviour.
         self.demo = demo or {}
-        self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode)
+        # shore launch: boats start docked at Korsør and decide among themselves who goes where;
+        # a demo preset says for itself (the scripted video keeps its placed start)
+        self.launch = bool(self.demo.get("launch", False)) if self.demo else launch
+        self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode,
+                           launch=self.launch)
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
         run = _toml("config/run.toml")
         self.horizon_ms = int(run["horizon_s"]) * 1000
@@ -110,7 +120,8 @@ class SimSource:
         self.clock_ms = 0
         self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc, self.revisit_target_s)
         schema = Snapshot.model_fields["schema_version"].default
-        self.log = RunLog.open_new(runs_dir, seed, schema, self.t0_utc) if runs_dir else None
+        self.log = (RunLog.open_new(runs_dir, seed, schema, self.t0_utc, launch=self.launch)
+                    if runs_dir else None)
         self._logged_events = 0
         # watch-officer escalations (console extra): the officer's decision, never the boats'
         self.escalations: list[dict] = []
@@ -214,7 +225,8 @@ class SimSource:
             out["cable_overdue"] = self.cable_overdue()
         out.update(type="snapshot", source="sim", seed=self.seed, t_exact=self.t,
                    t0_utc=self.t0_utc, escalations=list(self.escalations),
-                   exercises=self.exercises_in_effect())
+                   exercises=self.exercises_in_effect(), swaps=self.swaps(),
+                   launch=self.launch)
         return out
 
     def command(self, msg: dict) -> dict:
@@ -348,7 +360,20 @@ class SimSource:
         only. Synthetic contacts are truth and must never appear on /shore."""
         return [Event(t=int(e["t_ms"]) // 1000, kind=str(e["kind"]), text=_event_text(e),
                       exercise=bool(e.get("exercise")))
-                for e in self.world.events if e.get("exercise") and e["kind"] in INJECT_KINDS]
+                for e in self.world.events
+                if (e.get("exercise") and e["kind"] in INJECT_KINDS) or e["kind"] in DOCK_KINDS]
+
+    def swaps(self) -> dict[str, int]:
+        """Boats in a battery swap at Korsør -> sim s when it should be done. The shore crew does
+        the swap, so the console knows it (like its own exercise script); not a boat report."""
+        out: dict[str, int] = {}
+        for e in self.world.events:
+            b = str(e.get("boat"))
+            if e["kind"] == "swap_start":
+                out[b] = int(e["t_ms"]) // 1000 + int(e.get("swap_s", 600))
+            elif e["kind"] == "battery_swap":
+                out.pop(b, None)
+        return out
 
     @staticmethod
     def _pair(e: dict) -> tuple[int, int]:
@@ -527,12 +552,12 @@ class SimSource:
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
                 serve_web: bool = False, runs_dir: Path | None = None,
                 demo: dict | None = None, scorecard: Path | None = None,
-                horizon_s: int | None = None) -> None:
+                horizon_s: int | None = None, launch: bool = False) -> None:
     from server.feed import serve as feed_serve
 
     def factory(s: int) -> SimSource:
         return SimSource(s, runs_dir=runs_dir, demo=demo, scorecard_path=scorecard,
-                         horizon_s=horizon_s)
+                         horizon_s=horizon_s, launch=launch)
 
     await feed_serve(factory, host, port, seed, hz, ready, serve_web,
                      name="sim bridge (demo preset)" if demo else "sim bridge",
