@@ -1,7 +1,8 @@
 """Phase 5 boat side: the scripted contact story on the scene-like mission (PLAN section 2)."""
 from dataclasses import replace
 
-from contract.constants import CLAIMED, DEPUTY_GRACE, LEASE, RELEASED, SHADOWING
+from contract.constants import CLAIMED, DEPUTY_GRACE, LEASE, PATROL, RELEASED, SENTINEL, SHADOWING
+from contract.geo import dist
 from contract.mission import load_params
 from contract.tasks import Rec
 from tests.agent.harness import Sim
@@ -109,3 +110,18 @@ def test_p8_deputy_takes_the_watch_without_an_auction():
             break
     assert new == Rec(TASK, r.ver + 1, CLAIMED, new.bid, r.deputy, 0)
     assert s.t < dead_at + LEASE + DEPUTY_GRACE  # no auction needed
+
+
+def test_patrol_keeps_out_of_the_standoff_ring_once_the_contact_is_known():
+    """PLAN 7.9: after the watcher relieves the scout, the scout's sweep goes round the 1 nm ring
+    instead of over the contact (a closer look waits for the watch officer). No AIS only."""
+    s = story()
+    closest = None
+    while s.t <= 2_590_000:  # C-07 still loitering
+        s.tick()
+        a = s.agents[2]
+        if a.mode in (PATROL, SENTINEL) and "C-07" in a.contacts.tracks:
+            d = dist(s.xy(2), C07)
+            closest = d if closest is None else min(closest, d)
+    assert closest is not None and closest >= PARAMS.standoff_m
+    assert s.agents[2].mode == PATROL  # still sweeping, not stuck on the ring
