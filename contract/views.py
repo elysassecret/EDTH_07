@@ -53,6 +53,7 @@ class TaskView(BaseModel):
     owner: int
     deputy: int
     state: int  # 0 released, 1 claimed, 2 vetoed
+    why: str = ""  # the claiming boat's own reason, as delivered (#86); "" if none received
 
 
 class Link(BaseModel):
@@ -89,6 +90,7 @@ class Contact(BaseModel):
     source: Literal["ais", "camera", "fused"] = "ais"  # "camera" = NO AIS
     name: str | None = None  # AIS name if any
     trail: list[tuple[float, float]] = []  # recent [lon, lat] positions, oldest first
+    why: str = ""  # why it is watched, released or stopped, from delivered reports (#86)
 
 
 class Decision(BaseModel):
@@ -103,6 +105,7 @@ class Decision(BaseModel):
     actions: list[Literal["confirm", "stop", "approve", "decline"]] = []
     boat: int = 0  # the boat that would act
     route: list[tuple[float, float]] | None = None  # [lon, lat] ghost-route preview
+    why: str = ""  # which standing order applies (#86)
 
 
 class Alert(BaseModel):

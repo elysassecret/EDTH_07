@@ -278,6 +278,11 @@
           "title": "Watcher",
           "type": "integer"
         },
+        "why": {
+          "default": "",
+          "title": "Why",
+          "type": "string"
+        },
         "x": {
           "title": "X",
           "type": "integer"
@@ -448,6 +453,11 @@
             "held"
           ],
           "title": "Tier",
+          "type": "string"
+        },
+        "why": {
+          "default": "",
+          "title": "Why",
           "type": "string"
         }
       },
@@ -682,6 +692,11 @@
         "v": {
           "title": "V",
           "type": "integer"
+        },
+        "why": {
+          "default": "",
+          "title": "Why",
+          "type": "string"
         }
       },
       "required": [

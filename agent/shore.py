@@ -13,11 +13,21 @@ running, Confirm/Stop) and `close:contact:<track>` (close to 500 m, held: Approv
 from itertools import pairwise
 from math import atan2, degrees, hypot
 
+from agent.auction import WHY_MAX, hm
 from agent.contact import FLAGS, Contacts
 from agent.net import Every, Net
 from agent.table import Table
 from agent.tour import dist_to_line
-from contract.constants import CLAIMED, CONTACT_STALE, HEARTBEAT, PEER_STALE, SHORE, VETOED
+from contract.constants import (
+    CLAIMED,
+    CONTACT_DWELL,
+    CONTACT_STALE,
+    HEARTBEAT,
+    PEER_STALE,
+    SHADOW_CAP,
+    SHORE,
+    VETOED,
+)
 from contract.geo import dist, to_lonlat
 from contract.messages import Msg
 from contract.mission import Mission, Params
@@ -49,6 +59,7 @@ class ShoreNode:
         self.trail: dict[str, list[tuple[float, float]]] = {}
         self.bids: dict[str, dict[int, tuple[int, int]]] = {}  # task -> boat -> (round, cost ms)
         self.explained: set[tuple[str, int]] = set()  # (task, version) already explained
+        self.why: dict[str, tuple[int, str]] = {}  # task -> (boat that said it, its reason)
         self.events: list[dict] = []
         self.hb_due = Every(HEARTBEAT)
         self.t = 0
@@ -79,6 +90,8 @@ class ShoreNode:
                 pos = (m.p["x"], m.p["y"])
                 self.credit(pos, m.tc)
         elif m.kind in ("REC", "VETO"):
+            for task, text in sorted(m.p.get("why", {}).items()):
+                self.why[task] = (m.src, str(text)[:WHY_MAX])  # as the boat said it
             for w in m.p["recs"] if m.kind == "REC" else [m.p["rec"]]:
                 r = from_wire(w)
                 if self.table.apply(r)[0] and r.state == CLAIMED and r.ver > 1:
@@ -152,10 +165,35 @@ class ShoreNode:
         keep = dec == "keep"
         text = (f"USV {boat:02d} keeping {track} in view. Standing Order 2" if keep
                 else f"USV {boat:02d} to close to 500 m for a look at {track}")
-        return {"id": did, "task": task, "dec": dec, "text": text, "state": "pending",
+        why = ("Watching is pre-approved (standing order 2: keep in view outside 1 nm). Confirm or "
+               "Stop." if keep else "A look within 500 m waits for you (standing order 3). No "
+               "answer means no action.")
+        return {"id": did, "task": task, "dec": dec, "text": text, "why": why, "state": "pending",
                 "t": t // 1000, "tier": "delegated" if keep else "held",
                 "actions": ["confirm", "stop"] if keep else ["approve", "decline"], "boat": boat,
                 "route": self.route(boat, task), "msg": "", "te": t}
+
+    # why (#86): only reasons the shore received, or fixed policy words ----------------------
+    def task_why(self, task: str) -> str:
+        """The claiming boat's own reason, while that boat still holds the task."""
+        r, said = self.table.recs.get(task), self.why.get(task)
+        return said[1] if r and r.state == CLAIMED and said and said[0] == r.owner else ""
+
+    def contact_why(self, task: str, o: dict) -> str:
+        r, f = self.table.recs.get(task), self.contacts.flags.get(task, {})
+        if r and r.state == VETOED:
+            return "Stopped by the watch officer; no boat will take it again [stop]"
+        if f.get("cannot_hold"):
+            return (f"Left at {knots(o['sog'])} kn, faster than our {knots(self.params.speed_mm_s)}"
+                    f" kn; last course {f.get('course')} [cannot hold]")
+        if f.get("capped"):
+            return f"Watched for the {SHADOW_CAP // 60_000} min cap; released for review [cap]"
+        if r and r.state == CLAIMED:
+            return self.task_why(task) or f"USV {r.owner:02d} keeping it in view (standing order 2)"
+        if f.get("dwell"):
+            return (f"Slow, no AIS, near a cable for {CONTACT_DWELL // 60_000} min: cue for a "
+                    "look [dwell]")
+        return "" if o["ais"] else "Camera contact, no AIS; a boat keeps an eye on it"
 
     def route(self, boat: int, task: str) -> list[tuple[float, float]] | None:
         o = self.contacts.tracks.get(task.split(":", 1)[1])
@@ -269,7 +307,8 @@ class ShoreNode:
             for n in hb.get("nbr", []):
                 if n != SHORE and b < n and fresh:
                     links.append(Link(a=b, b=n, state="up"))
-        tasks = {k: TaskView(v=r.ver, owner=r.owner, deputy=r.deputy, state=r.state)
+        tasks = {k: TaskView(v=r.ver, owner=r.owner, deputy=r.deputy, state=r.state,
+                             why=self.task_why(k))
                  for k, r in sorted(self.table.recs.items())}
         # worst sample per segment; a never-reported sample counts from t = 0, as the evaluator
         # does, and the console shows an age equal to the run time as "no visit reported"
@@ -289,7 +328,8 @@ class ShoreNode:
                                if o["to"] - ob["to"] <= CONTACT_STALE),
                 watcher=r.owner if r and r.state == CLAIMED else 0, state=r.state if r else 0,
                 flags=ContactFlags(**{k: bool(f.get(k)) for k in FLAGS}), course=f.get("course"),
-                source="ais" if o["ais"] else "camera", trail=self.trail.get(track, [])))
+                source="ais" if o["ais"] else "camera", trail=self.trail.get(track, []),
+                why=self.contact_why(task, o)))
         return Snapshot(view="shore", t=t // 1000, speed=speed, boats=boats, tasks=tasks,
                         seg_age=ages, links=links, contacts=contacts, decisions=decisions, alerts=[],
                         events=[Event(**e) for e in self.events])
@@ -309,7 +349,5 @@ def samples(pts: tuple[tuple[int, int], ...]) -> list[tuple[int, int]]:
     return out
 
 
-def hm(ms_: int) -> str:
-    """Bid cost (ms) as hours and minutes."""
-    m = ms_ // 60_000
-    return f"{m // 60} h {m % 60:02d} m" if m >= 60 else f"{m} m"
+def knots(mm_s: int) -> str:
+    return f"{mm_s * 3600 / 1_852_000:.1f}"

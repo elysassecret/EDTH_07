@@ -146,6 +146,19 @@ def test_battery_low_04_takes_the_cables_03_keeps_its_picket():
     assert s.agents[1].mode == UNAVAILABLE  # reached Korsør
 
 
+def test_shore_shows_why_04_took_the_cables():
+    """#86: after the battery event the shore's picture says why USV 04 has seg:G:0, in the
+    boat's own words as delivered, and the reason ends with the rule that opened the task."""
+    s = Sim(scene_mission(), PARAMS, START)
+    s.run_until(600_000)
+    s.set_batt(1, 200)
+    s.run_until(900_000)
+    why = s.shore.picture(s.t).tasks["seg:G:0"].why
+    assert why.startswith("USV 04") and ("bid" in why or "cheapest" in why), why
+    assert why.endswith("[battery return]") and len(why) <= 120, why
+    assert s.shore.picture(s.t).tasks["pick:S"].why == ""  # released: no claim, no reason
+
+
 def test_policy_off_repairs_nothing_after_the_event():
     p = replace(PARAMS, policy="off", repair_off_after_ms=500_000)
     s = Sim(scene_mission(), p, START)
