@@ -6,7 +6,8 @@ Forwarding never refreshes tc or an observation time. Positions in int metres, t
 
 Payloads:
   HB       boat: x, y, mode, batt (permille), cyc (cycle ms, 0 if none), tour [task ids],
-           roles [task ids held], optional head [seq, hash] (reserved for evidence/)
+           roles [task ids held], optional head [seq, hash, sig hex] of the boat's own
+           evidence chain (evidence/chain.py)
            shore: {} (its arrival is the shore-age signal)
   BID      task, e (slot number), cost (ms), boat
   REC      recs: list of wire records (tasks.to_wire), optional why {task: the owner's

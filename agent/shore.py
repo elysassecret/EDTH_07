@@ -57,6 +57,7 @@ class ShoreNode:
         self.decisions: dict[str, dict] = {}  # decision id -> Decision fields + msg id
         self.contacts = Contacts(self)  # the boats' merge rules, fed only by delivered messages
         self.trail: dict[str, list[tuple[float, float]]] = {}
+        self.witnessed: dict[int, list] = {}  # boat -> newest signed head [seq, hash, sig] (#37)
         self.bids: dict[str, dict[int, tuple[int, int]]] = {}  # task -> boat -> (round, cost ms)
         self.explained: set[tuple[str, int]] = set()  # (task, version) already explained
         self.why: dict[str, tuple[int, str]] = {}  # task -> (boat that said it, its reason)
@@ -87,6 +88,9 @@ class ShoreNode:
                 self.direct[m.src] = max(self.direct.get(m.src, 0), m.tc)
             if m.tc > self.boats.get(m.src, (-1, 0, {}))[0]:
                 self.boats[m.src] = (m.tc, m.hops, m.p)
+                head = m.p.get("head")
+                if head and head[0] > self.witnessed.get(m.src, [-2])[0]:
+                    self.witnessed[m.src] = head
                 pos = (m.p["x"], m.p["y"])
                 self.credit(pos, m.tc)
         elif m.kind in ("REC", "VETO"):
