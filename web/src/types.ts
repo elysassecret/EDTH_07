@@ -69,6 +69,8 @@ export interface SceneMsg {
   horizon_s: number;
   revisit_target_s?: number; // config/run.toml (D), via the server
   home_m?: number; // agent's "at the shore station" radius (agent/core.py HOME_M)
+  // boat model ranges from config/boat.toml via the server (#88 rings), until #87 puts them per boat
+  ranges?: { detect_ship_day_m: number; keep_in_view_m: number; standoff_m: number };
 }
 
 export interface Ack {
@@ -112,5 +114,8 @@ export interface Scorecard {
   preliminary?: boolean; // eval prints PRELIMINARY: show the word, never pass it off as final
 }
 
-/** ?operator in the URL: the watch officer's screen, no evaluator or truth controls. */
-export const OPERATOR_MODE = new URLSearchParams(window.location.search).has("operator");
+/** #88 item 8: the watch officer's screen is the default (no truth view, no evaluator controls).
+ * ?evaluator in the URL adds them and turns the evaluator comparison on. ?operator is still
+ * accepted and means the default. */
+export const EVALUATOR_MODE = new URLSearchParams(window.location.search).has("evaluator");
+export const OPERATOR_MODE = !EVALUATOR_MODE;

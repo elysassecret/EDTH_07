@@ -6,10 +6,10 @@ import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/exten
 import type { Layer } from "@deck.gl/core";
 import type { Boat, Link, LonLat, Snapshot } from "../types";
 
-const UP: [number, number, number, number] = [120, 170, 210, 110];
-const ROUTE: [number, number, number, number] = [150, 200, 255, 230];
-const CUT: [number, number, number, number] = [235, 95, 85, 255];
-const DOWN: [number, number, number, number] = [140, 146, 152, 170];
+export const UP: [number, number, number, number] = [120, 170, 210, 110];
+export const ROUTE: [number, number, number, number] = [150, 200, 255, 230];
+export const CUT: [number, number, number, number] = [235, 95, 85, 255];
+export const DOWN: [number, number, number, number] = [140, 146, 152, 170];
 // inline SVG mask (offline), tinted red: the cross marks an injected link cut
 const ICON_CROSS = {
   id: "x", width: 32, height: 32, mask: true,

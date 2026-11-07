@@ -31,7 +31,7 @@ from contract.geo import to_lonlat, to_xy
 from contract.tasks import from_wire, merge
 from contract.views import Boat, Contact, ContactFlags, Event, Link, Snapshot, TaskView
 from server.alerts import AlertBook
-from server.feed import ROOT
+from server.feed import ROOT, sensor_ranges
 from server.runlog import HASH_MS, SNAPSHOT_MS, RunLog, replay_digest
 from world.sim import World
 
@@ -184,6 +184,7 @@ class SimSource:
             "horizon_s": self.horizon_ms // 1000,
             "revisit_target_s": self.revisit_target_s,
             "home_m": HOME_M,  # agent's "at the shore station" radius: docked boats sit inside it
+            "ranges": sensor_ranges(),  # config/boat.toml, for the rings (#88)
         }
 
     def snapshot(self, channel: str = "shore", speed: int | None = None) -> dict:

@@ -10,6 +10,11 @@ export const CABLE_DATA = "#a07cc8";
 export const LANE = "#8aa0b2";
 export const COAST = "#7d7d68"; // coastline outline on the land fill
 export const DEPTH = "#4f6f88"; // depth contours: quiet, under everything else
+// depth bands (#88): shades of SEA, lighter is shallower
+export const DEPTH_0 = "#2b4458"; // 0-10 m
+export const DEPTH_10 = "#223a4c"; // 10-20 m
+export const DEPTH_20 = "#1c3040"; // 20-30 m
+export const DEPTH_30 = "#16222d"; // deeper than 30 m (= SEA)
 export const INFRA = "#d4d4c4"; // bridge, ferry route, piers
 
 const rgb = (c: RGB, a = 255): RGBA => [c[0], c[1], c[2], a];
