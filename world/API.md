@@ -85,8 +85,8 @@ For the console `/shore` channel, C uses **`sim.shore.picture(sim.t_ms, speed)`*
 Javier's merged ShoreNode. It returns the contract Snapshot, with its display times in
 **seconds**, built from delivered protocol data. Pass sim time in **milliseconds**.
 `sim.shore.command(sim.t_ms, cmd)` handles confirm/stop/approve/decline transport; physical
-injections go to world. Boat contact behaviour is now merged; contact list, auto decision
-cards and contact alerts in the shore picture still depend on A's next phase.
+injections go to world. Boat contact behaviour and delivered shore contact/decision cards
+are merged. Server alerts use that delivered picture; no world-truth fill is required.
 
 `shore_view()` is only a raw diagnostic with explicit creation/receipt timestamps in ms;
 it must not become a competing console snapshot builder. Its receipt time differs from
@@ -111,8 +111,7 @@ that is valid fresh data, not a reason to freeze all shore updates for that boat
 
 There is no invented heading, speed, via ID, coverage, or contact data at shore. The current
 raw report is not the full console picture. `ShoreNode.picture/command` now supplies the
-console contract view and decision transport; contact/auto-decision presentation at shore
-awaits A's next phase (boat contact response is already merged).
+console contract view, delivered contacts/cards and decision transport.
 Do not source missing fields from truth or treat default
 contract values as measured observations. Decision answers stay with A/C, not world.
 
@@ -122,7 +121,9 @@ Accepted physical kinds: battery_low, boat_off, boat_restore, link_off, link_on,
 contact_start, contact_depart, evaluate. `battery_low`/`boat_off`/`boat_restore` accept either
 scenario `boat` or console `a`. `boat_restore` re-enables the same boat and agent: no reset,
 teleport, battery recharge or task-table replacement. The restore tick resumes node stepping;
-motion resumes using its new action on the next tick. A depleted boat stays depleted. Link
+motion resumes using its new action on the next tick. A depleted boat stays depleted.
+World support is merged; bridge/UI enablement is separately tracked in #63, because the
+current bridge still rejects this kind. This API does not claim it works from the UI yet. Link
 commands use `a` and `b`, where `b` is a boat ID or "shore" (also ID 0).
 Links are **directed** and keyed by node IDs: disabling 4 -> shore does not disable
 shore -> 4. Shore is node 0; docked USV 01 is still node 1 even at the same coordinates.

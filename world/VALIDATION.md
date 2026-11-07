@@ -4,7 +4,26 @@ This records checks performed in this development session, not a final scorecard
 Do not use the figures below as coverage improvement, real-hull performance or a claim
 that the complete contact demo/video is delivered.
 
-## Merged implementation
+## Latest acceptance checkpoint: main b50da01
+
+All **270 tests passed** on this Mac, including the slow real-world story and fairness
+cases. Lint passed. A new world-only regression replays a seeded sequence of boat off /
+restore, directed link cut / restore and battery return through 120 s, comparing physics,
+public agent views and the delivered shore picture at checkpoints; reset reproduces it.
+Existing server log/replay and hash-seed subprocess tests also pass.
+
+Delivered shore contacts/cards, sample-age and via fixes, oldest-first repair and deputy
+are now merged. The old missing-contact/gap observations below describe earlier baselines,
+not unresolved assertions about current main. Final seeded scorecards still need D's
+acceptance; passing tests is not permission to put preliminary figures on slides.
+
+World boat_restore is merged, but the current bridge still rejects that command: #63
+tracks C's enablement. The new regression deliberately replays World.inject payloads, not
+pretends server command replay can accept restore already. Python 3.12 stays pinned;
+world/README documents Franco's reported Windows installation workaround (#51).
+No fresh Windows run, full uploaded video or two-laptop offline test is claimed here.
+
+## Earlier merged implementation
 
 - #12: world scene, physical loop and console API.
 - #14: motors-off hotel load, preserving seven-hour cruise endurance.
@@ -95,14 +114,15 @@ semantics and the headline before final claims; see #22. B did not edit their co
 
 | Gate | Owner / tracking | What remains |
 |---|---|---|
-| Delivered shore contacts / automatic decisions | A, #17 | Real contact/approval/Stop story in the console |
-| Directed next-hop semantics | A, #21 | via=0 on a one-way cut needs correction |
-| Shore versus truth coverage meaning | A+D, #22 | Agree sample/unknown semantics and truthful headline |
+| Delivered shore contacts / automatic decisions | A, #17 | Resolved by #42; current slow story tests pass |
+| Directed next-hop semantics | A, #21 | Resolved by #35; current routing checks pass |
+| Shore versus truth coverage meaning | A+D, #22 | Per-sample implementation merged #38; latest suite passes |
+| Restore through dashboard/command replay | C, #63 | World supports it; bridge rejection must be removed |
 | Warm-state, policy definition, channel fairness, metrics | D with A/B, #19 | Varied phases, full eval/, final median/range |
-| Static baseline semantics | A+D, #19 | Scout holding currently preempts static station behaviour |
+| Static baseline semantics | A+D, #19 | #35 fixes scout hold; D owns final baseline interpretation |
 | AIS replay | Private clip from D, #19 | Clip is unavailable to B; never commit CSV |
 | Offline land/satellite assets | D, #9 | Coastline placeholder and missing Sentinel image |
-| Full video | C after #17/#22 | Record actual completed story; upload and check signed out |
+| Full video | C/team | Record actual completed story; upload and check signed out |
 | Two laptops / cross-platform determinism | Team | Actually run clean clones offline on both machines |
 
 Triage remains gated. Do not replace these gates with the partial recording, cold-start
