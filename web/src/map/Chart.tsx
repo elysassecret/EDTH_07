@@ -215,7 +215,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
           url: "geo/s2_box.png",
           coordinates: meta.coordinates as [[number, number], [number, number], [number, number], [number, number]],
         });
-        map.addLayer({ id: "s2", type: "raster", source: "s2", layout: { visibility: "none" } }, "lane");
+        // Under depth, coastline, bridge, lane and cables (#81): only the sea background is below it.
+        map.addLayer({ id: "s2", type: "raster", source: "s2", layout: { visibility: "none" } }, "depth");
         onSatelliteState("ready");
       } catch {
         onSatelliteState("none");
@@ -232,6 +233,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     const map = mapRef.current;
     if (loaded && map?.getLayer("s2")) {
       map.setLayoutProperty("s2", "visibility", satellite ? "visible" : "none");
+      // the flat land fill would hide the image's land; the coastline line stays on top
+      map.setLayoutProperty("land", "visibility", satellite ? "none" : "visible");
     }
   }, [satellite, loaded]);
 
