@@ -48,8 +48,10 @@ def test_stop_is_delivered_to_the_watcher_and_sticks():
     s.run_until(60_000)
     for a in s.agents.values():
         assert a.table.recs["contact:C-07"].state == VETOED
-    (d,) = s.shore.picture(s.t).decisions
+    cards = {d.id: d for d in s.shore.picture(s.t).decisions}
+    d = cards["contact:C-07"]
     assert d.state == "delivered" and d.boat == 3 and d.tier == "delegated"
+    assert cards["close:contact:C-07"].state == "expired"  # stopped: no close any more
     assert s.shore.net.pending == {}  # retries stopped once 03 acknowledged
     assert any("Delivered to USV 03" in e["text"] for e in s.shore.events)
 
@@ -63,8 +65,10 @@ def test_approval_to_an_unreachable_boat_expires():
     s.isolate(3)
     s.shore.command(s.t, {"cmd": "approve", "id": "close:contact:C-07"})
     s.run_until(80_000)
-    (d,) = s.shore.picture(s.t).decisions
+    cards = {d.id: d for d in s.shore.picture(s.t).decisions}
+    d = cards["close:contact:C-07"]
     assert d.state == "expired" and d.tier == "held"  # others acked, but not the boat that acts
+    assert cards["contact:C-07"].state == "pending"  # the watch itself is still running
     assert not s.shore.command(s.t, {"cmd": "inject", "kind": "boat_off", "a": 2})
 
 
