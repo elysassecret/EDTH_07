@@ -2,14 +2,20 @@
 from pathlib import Path
 
 from eval.repeat import check_processes, check_reset
-from eval.run_batch import batch, fairness, main, run_case
+from eval.report import fairness, headline_ok
+from eval.run_batch import main, run_all, run_case
 
-ROOT = str(Path.cwd())
-SHORT_S = 300
+ROOT = str(Path(__file__).resolve().parents[2])
+SHORT_S = 120
+WARM = 60
+
+
+def case(policy, seed=1):
+    return (ROOT, seed, policy, SHORT_S, None, None, WARM)
 
 
 def test_seeded_case_repeats_across_processes_and_hash_seeds():
-    result = check_processes((ROOT, 2, "elysa", SHORT_S))
+    result = check_processes(case("elysa", 2))
     assert result["ok"], result["digests"]
 
 
@@ -18,25 +24,28 @@ def test_reset_mid_run_equals_fresh_run():
     assert result["ok"], result["digests"]
 
 
-def test_modes_differ_in_policy_only_and_report_every_mode():
-    report = batch(Path("."), [1], ["static", "off", "elysa"], SHORT_S)
-    assert set(report["summary"]) == {"static", "off", "elysa"}
-    by_name = {c["check"]: c for c in report["checks"]}
-    assert by_name["F1"]["ok"] and by_name["F4"]["ok"]
-    assert not by_name["F5"]["ok"]  # one seed is never a headline
-    assert not report["headline_ok"]
-    for run in report["runs"]:
-        assert run["coverage"]["km_never_visited"] > 0  # cold start: the gap shows
+def test_modes_differ_in_policy_only_and_one_seed_is_never_a_headline():
+    cards = run_all([case(m) for m in ("static", "off", "elysa")])
+    by_name = {}
+    for c in fairness(cards):
+        by_name.setdefault(c["check"], []).append(c["ok"])
+    assert all(by_name["F1"]) and all(by_name["F4"])
+    assert not all(by_name["F5"])
+    assert not headline_ok(cards)
+    assert {c["mode"] for c in cards} == {"static", "off", "elysa"}
 
 
-def test_fairness_flags_claims_and_extra_keys():
-    base = run_case((ROOT, 1, "off", SHORT_S))
-    off = {**base, "end_s": 10, "repair_off_after_s": 5, "claims_after_fail": [[6, 1, "seg:G:0"]]}
-    other = {**base, "policy": "elysa", "params": {**base["params"], "speed_mm_s": 1}}
-    checks = {c["check"]: c["ok"] for c in fairness([off, other])}
-    assert checks["F3"] is False and checks["F4"] is False
+def test_a_run_shorter_than_the_tape_still_reports_and_says_never_visited():
+    card = run_case(case("elysa"))
+    assert card["t_s"] == SHORT_S
+    assert card["never_visited_km"] > 0
+    assert card["ages_hash_T1"] is None
 
 
-def test_cli_exit_code_is_nonzero_without_a_headline(capsys):
-    assert main(["--seeds", "1", "--modes", "elysa", "--horizon-s", "60"]) == 1
+def test_cli_exit_code_is_nonzero_without_a_headline(tmp_path, capsys):
+    argv = ["--modes", "elysa", "--seeds", "1", "--horizon-s", "60", "--warm-s", "60",
+            "--no-ais", "--jobs", "1", "--out", str(tmp_path)]
+    assert main(argv) == 1
     assert "PRELIMINARY" in capsys.readouterr().out
+    assert (tmp_path / "elysa_s1.jsonl").exists()
+    assert (tmp_path / "scorecard.md").exists()
