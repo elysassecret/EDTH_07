@@ -59,7 +59,9 @@ the existing store and server protocol. No runtime font, tile, or CDN request is
 
 Use the existing scenario and narration beats in `server/DEMO.md`, but use the controls
 below for this UI. The legacy instruction **A → sending** is no longer the interaction:
-review must precede authorization. This section is an operator runbook, not evidence
+review must precede authorization. Restart the Python server after updating code; a
+previously running process does not pick up the new restore handler just because the
+frontend was rebuilt. This section is an operator runbook, not evidence
 that a complete video or a physical two-laptop rehearsal has been recorded.
 
 ```bash
@@ -72,13 +74,15 @@ uv run python -m server --serve-web --demo
 2. After the delivered C-07 contact and held close proposal appear, use **Review &
    approve**, or focus that decision card itself and press **A**. On a laptop, open
    **Attention** first. A opens review; it does not send. Esc/Back cancels review.
+   You may pause at this beat to allow review time; the network feed remains live.
 3. Read the actual boat/task/action. Choose **Authorize & send**. Approve/Decline/Stop
    queue for five real seconds; **Undo queued answer** (or Esc outside a dialog) cancels
    before transmission. Confirm is immediate only after review. A changed task or lost
    feed prevents sending; unconfirmed sends are never retried automatically.
 4. Narrate the receipt accurately: server acceptance → **Approved by operator; boat
    delivery not yet confirmed** → **Boat acknowledgment delivered; execution is not
-   implied**. Only delivered observations change coverage; receipt is not a completed
+   implied**. If paused, resume after acceptance so the radio can deliver the command.
+   Only delivered observations change coverage; receipt is not a completed
    look. Do not narrate a camera image that is not supplied.
 5. For a separate restore take, use **Exercise → Exercise boat → Switch off / Switch
    back on**. Resume if paused: injections apply at the next simulation tick. Show the

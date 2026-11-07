@@ -8,6 +8,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
 }) => {
   test.setTimeout(120000);
   let shore: Snapshot | undefined;
+  let resetAcknowledged = false;
   const sent: { cmd: string; id?: string; kind?: string; a?: number }[] = [];
   const sockets: string[] = [];
   const errors: string[] = [];
@@ -19,6 +20,8 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     );
     socket.on("framereceived", ({ payload }) => {
       const value = JSON.parse(String(payload));
+      if (value.type === "ack" && value.cmd === "reset" && value.ok)
+        resetAcknowledged = true;
       if (Array.isArray(value.boats) && value.view === "shore")
         shore = value as Snapshot;
     });
@@ -35,7 +38,12 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
   await expect(
     page.getByRole("button", { name: "Resume simulation" }),
   ).toBeVisible({ timeout: 30000 });
-  await expect.poll(() => shore?.t).toBe(6900);
+  // Resume may still describe the previous take while the real warm-up reset runs.
+  await expect
+    .poll(() => resetAcknowledged && shore?.t === 6900 && shore.speed === 0, {
+      timeout: 30000,
+    })
+    .toBe(true);
   await page.getByRole("combobox", { name: "Simulation speed" }).click();
   await page.getByRole("option", { name: "60×", exact: true }).click();
   await page.getByRole("button", { name: "Resume simulation" }).click();
