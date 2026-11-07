@@ -175,19 +175,36 @@ uv run python -c 'from pathlib import Path; from world.check import config_hash;
   integrated replay checks for protocol/shore evidence. F1–F4 regression passes do not
   sign off D's five-seed, both-speed, median/range results or static definition.
 
+### Follow-up review against main 6c75b20 (AIS clip + two-laptop proof batch)
+
+On `main` at **`6c75b20`** (includes merged #77, #78, #80, #82, #83), with the private AIS clip placed locally at `data/ais-clip-box.csv` (gitignored, SHA-256 `efa167190fe84b5d5e78d506dbccb078532b0aae1c39858911ae95ba76140057`):
+
+```bash
+uv run ruff check . && uv run pytest -q tests/smoke
+uv run python -m eval.run_batch --modes elysa --seeds 1 --out runs/offline
+```
+
+Result on **Mac14,9, macOS 26.6 arm64, Python 3.12.13**:
+- `ais_present: true`, `crossings_after_T: 9`, `crossings_in_view: 5` (transfer verified).
+- `warm_hash`: `738e5c8f51b188708fc6ff3934ed4da0b02c7d4b4cad12a19ccd98fc579d8b5f`
+- `state_hash_T1`: `04597a1bb77b18a5336f8820c4e9fdbd1d76779a0a3d22c01af198a701511e22`
+- `final_hash`: `22d472ca2efc7933063cd06ef98de2373287192d9dda8e6efe38f52cb5322198`
+- `digest`: `0a541597e3b3a35830cce6b55958b030d5b476a2f4a57f4c1f11dbebbaeda608`
+- `config_sha256`: `8fd3628db41ce34a` (`world.check.config_hash`: `5e40fd4e386aa4475b4f7939b016c5b5ae4101843a16c06d2407ea218e4cd4d3`)
+- `agents_sha256`: `68d5a3b8015997ea12e00d0434a58504302070889d7b9d1755ea2d342aa37d72`
+
 ## Human gates / coordination record
 
 | Item | Status and next owner |
 |---|---|
 | B world integration, restoration and actual contact answers | Local evidence above; no benchmark claim |
-| C clean web test command | Fails on tested main; C action linked above |
-| Actual two-laptop offline rehearsal | **NOT RUN**. C/D asked to confirm machines/OS and availability on [#72](https://github.com/elysassecret/EDTH_07/issues/72#issuecomment-6705827977). Use `server/DEMO.md` rehearsal steps on both clean clones; record revision, OS, Python/Node/pnpm, startup timing, feed loss/reconnect and missing assets. B's machine details above are local only. |
-| Offline vectors | Land and infrastructure GeoJSON present; clean browser map rendered |
-| Satellite | `web/public/geo/s2_box.png` and `s2_box.json` absent; keep optional toggle disabled; D #9 |
-| Private AIS handoff | No CSV locally. D asked to agree transfer privately; do not attach CSV/private URLs to public issues or commits. Completion is not claimed. Core runs without it. |
-| Full core video | No accepted complete video link supplied to this handoff; C #73 / D #74 must provide revision and signed-out-accessible recording |
+| C clean web test command | Fixed on `main` (`6c75b20` via #83 `vitest.config.ts`) |
+| Two-laptop offline proof hashes (B macOS side) | Recorded above on `6c75b20` for D (`deck/RELEASE.md` comparison with Windows 11) |
+| Offline vectors & satellite | Land, infrastructure, depth (`depth.geojson`) and Sentinel-2 (`s2_box.png`, `s2_box.json`) present on `main` (#80) |
+| Private AIS handoff | Received privately, placed at `data/ais-clip-box.csv` (gitignored), SHA-256 & `eval.run_batch` crossings verified (`9` total, `5` in view on seed 1) |
+| Full core video | Waiting on C #73 / D #74 |
 | #52 / triage gate | **BLOCKED** pending D's features 1–25 acceptance on selected main **and** full video evidence. No replay, range filtering or triage started. |
-| Cross-OS determinism / final evaluation | D/team acceptance still required; one-Mac tests cannot certify it |
+| Cross-OS determinism / final evaluation | D/team acceptance in `deck/RELEASE.md` |
 
-Keep #72 open for the remaining human handoffs. Gazebo, independent runtimes, advanced
+Keep #72 / #19 updated with two-laptop comparison results. Gazebo, independent runtimes, advanced
 energy management and calibrated hull physics remain roadmap, not new release scope.
