@@ -79,6 +79,7 @@ class Agent:
         self.action: Action | None = None
         self.driving = False  # SENTINEL correction under way
         self.started = False
+        self.detoured = False  # the stand-off ring made me skip or round part of my sweep
         self.majority_since: int | None = None
         self.majority = False
         mine = sorted(k for k, o in mission.initial if o == me and kind(k) == "seg")
@@ -298,12 +299,17 @@ class Agent:
         r = self.params.standoff_m + STANDOFF_MARGIN_M
         rings = [(o["x"], o["y"]) for k, o in sorted(self.contacts.tracks.items())
                  if not o["ais"] and not self.contacts.stale(k, self.t)]
+        if self.detoured and not rings and a.mode == PATROL:
+            self.detoured = False  # the ring has gone: what it made me skip is now the oldest
+            self.head_for_oldest()
+            return Action(a.mode, self.follow.target(self.pos), a.speed_mm_s)
         target = a.target
         if a.mode == PATROL:
             for _ in range(sum(len(self.tours.way(leg)) for leg in self.follow.legs)):
                 if not any(dist(target, c) <= r for c in rings):
                     break
                 self.follow.skip()
+                self.detoured = True
                 target = self.follow.target(self.pos)
         for c in rings:
             if dist(target, c) <= r:  # a station inside the ring: hold on its edge instead
@@ -312,6 +318,7 @@ class Agent:
                 target = ring_point(c, self.pos, r + STANDOFF_MARGIN_M)  # straight out
             elif dist_to_line(c, (self.pos, target)) < r:
                 target = round_ring(self.pos, c, r, target)
+                self.detoured = True
         return Action(a.mode, target, a.speed_mm_s)
 
     def heartbeat(self) -> dict:
