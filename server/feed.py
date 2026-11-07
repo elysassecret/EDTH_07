@@ -21,6 +21,8 @@ import asyncio
 import json
 import logging
 import mimetypes
+import zlib
+from bisect import bisect_right
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -54,6 +56,36 @@ def boat_model() -> dict:
     return {"speed_mps": float(boat["speed_mps"]), "endurance_s": int(boat["endurance_s"]),
             "reserve_s": int(boat["reserve_s"])}
 WEB_DIST = ROOT / "web" / "dist"
+RECORD_EVERY_S = 30  # the replay timeline keeps the shore picture every 30 sim-seconds
+
+
+class History:
+    """The officer's picture (/shore) as it was, for the replay timeline: one frame every
+    RECORD_EVERY_S sim-seconds since the run started, zlib-compressed JSON (about 10 KB each,
+    so a 12 h run is a few tens of MB). Replay only looks at it: the simulation keeps running."""
+
+    def __init__(self) -> None:
+        self.times: list[int] = []
+        self.frames: list[bytes] = []
+
+    def add(self, snap: dict) -> None:
+        t = int(snap["t"])
+        if self.times and t < self.times[-1] + RECORD_EVERY_S:
+            return
+        self.times.append(t)
+        self.frames.append(zlib.compress(json.dumps(snap).encode(), 3))
+
+    def span(self) -> dict:
+        return {"from": self.times[0] if self.times else None,
+                "to": self.times[-1] if self.times else None, "every_s": RECORD_EVERY_S,
+                "frames": len(self.times)}
+
+    def at(self, t: float) -> bytes | None:
+        """The frame recorded at or just before sim time t (the first one if t is earlier)."""
+        if not self.times:
+            return None
+        i = max(bisect_right(self.times, t) - 1, 0)
+        return zlib.decompress(self.frames[i])
 log = logging.getLogger("feed")
 
 
@@ -67,6 +99,8 @@ class Feed:
         self.hz = hz
         self.world = factory(seed)
         self.narrator = self._new_narrator()
+        self.history = History()
+        self.history.add(self.world.snapshot("shore", 0))  # the first state: replay starts here
         self.clients: dict = {}  # connection -> channel
         self.start_paused = start_paused  # demo: every (re)start waits for "Run"
         self.paused = start_paused
@@ -81,6 +115,8 @@ class Feed:
                 getattr(self.world, "close", lambda: None)()  # e.g. finish the run log
                 self.world = self.factory(self.seed)
                 self.narrator = self._new_narrator()
+                self.history = History()  # a new run: its replay starts again
+                self.history.add(self.world.snapshot("shore", 0))
                 self.paused = self.paused or self.start_paused
                 return {"ok": True}
             if cmd == "pause":
@@ -145,6 +181,7 @@ class Feed:
         shore = self._snap("shore", speed)
         self.narrator.update(shore)
         shore["narration"] = self.narrator.lines[-12:]
+        self.history.add(shore)
         truth = self._snap("truth", speed)
         truth["eval"] = compare(shore, truth)
         # hook for D's three-mode scorecard: a source may offer scorecard() -> dict (eval/)
@@ -205,6 +242,21 @@ async def _api(feed: Feed, connection, request):
     from evidence.report import report, tamper_demo
 
     url = urlsplit(request.path)
+    if url.path in ("/api/history", "/api/frame"):  # replay timeline: real sim and mock
+        if url.path == "/api/history":
+            body = json.dumps(feed.history.span()).encode()
+        else:
+            q = parse_qs(url.query)
+            try:
+                frame = feed.history.at(float(q["t"][0]))
+            except (KeyError, ValueError):
+                return connection.respond(400, "need ?t=<sim seconds>\n")
+            if frame is None:
+                return connection.respond(404, "nothing recorded yet\n")
+            body = frame
+        return Response(200, "OK", Headers([("Content-Type", "application/json"),
+                                            ("Access-Control-Allow-Origin", "*"),
+                                            ("Content-Length", str(len(body)))]), body)
     log_ = getattr(feed.world, "log", None)
     if log_ is None:
         return connection.respond(404, "No run log: real sim only, without --no-log\n")

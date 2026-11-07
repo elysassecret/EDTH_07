@@ -79,6 +79,7 @@ import {
   PriorityAlert,
 } from "./ui/LiveTools";
 import { ChartNotices, CoverageLine, StatusDetails } from "./ui/LiveStatus";
+import { ReplayBar } from "./ui/Timeline";
 import { AttentionRail, FleetRail, Splitter, TimelineRail, useLayout, useViewport } from "./ui/Panels";
 import { fit, inline, roomFor } from "./panels";
 
@@ -104,6 +105,7 @@ export function App() {
   const toggleEval = useStore((s) => s.toggleEval);
   const send = useStore((s) => s.send);
   const ack = useStore((s) => s.lastAck);
+  const replayT = useStore((s) => s.replayT);
   const commandError = useStore((s) => s.commandError);
   const [satellite, setSatellite] = useState(false);
   const [satelliteState, setSatelliteState] = useState<
@@ -227,19 +229,21 @@ export function App() {
   const open = pendingDecisions(snap);
   const exercises = snap?.exercises?.length ?? 0;
   const source = snap?.source ?? scene?.source;
-  const paused = snap?.speed === 0 || snap?.warp_mode === "paused";
+  // run controls follow the live picture, also while a replay frame is on screen
+  const run = useStore((s) => s.live) ?? snap;
+  const paused = run?.speed === 0 || run?.warp_mode === "paused";
   // the chosen warp (kept while paused); older servers without warp_set: as before
-  const speedValue = snap?.warp_set !== undefined
-    ? String(snap.warp_set)
-    : snap?.warp_mode === "auto" || !snap || paused ? "auto" : String(snap.speed);
+  const speedValue = run?.warp_set !== undefined
+    ? String(run.warp_set)
+    : run?.warp_mode === "auto" || !run || paused ? "auto" : String(run.speed);
   const speeds = [
     ...new Set([
       1,
       5,
       60,
       240,
-      ...(snap && snap.speed > 0 ? [snap.speed] : []),
-      ...(typeof snap?.warp_set === "number" ? [snap.warp_set] : []),
+      ...(run && run.speed > 0 ? [run.speed] : []),
+      ...(typeof run?.warp_set === "number" ? [run.warp_set] : []),
     ]),
   ].sort((a, b) => a - b);
   const attention = (
@@ -296,10 +300,12 @@ export function App() {
               <time>{wall.toISOString().slice(11, 19)}Z</time>
             </div>
             <div className="hidden sm:block">
-              <p className="text-xs text-muted-foreground">
-                Scenario UTC · simulation
+              <p className="text-xs text-muted-foreground" title="The simulated clock: the run starts at 10:15Z on 3 Nov 2026 (the day of the real AIS recording) and runs faster than real time">
+                {replayT !== null ? "Sim time · REPLAY" : `Sim time · ${paused ? "paused" : `${run?.speed ?? 0}×`}`}
               </p>
-              <time>{snap ? utc(t0Of(snap), snap.t) : "Waiting for feed"}</time>
+              <time className={replayT !== null ? "text-red-500" : undefined}>
+                {snap ? utc(t0Of(snap), snap.t) : "Waiting for feed"}
+              </time>
             </div>
             <Button
               variant="outline"
@@ -350,7 +356,7 @@ export function App() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            {snap?.near_event && snap.warp_mode === "auto" && !paused && (
+            {run?.near_event && run.warp_mode === "auto" && !paused && (
               <Badge variant="secondary">slowing for event</Badge>
             )}
             {!OPERATOR_MODE && (
@@ -403,6 +409,7 @@ export function App() {
           </div>
         </header>
         <PriorityAlert />
+        <ReplayBar />
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
           <CoverageLine />
           <div className="flex gap-2">

@@ -1,6 +1,6 @@
 // Retains the legacy StatusLine/CoverageBox logic using the live shadcn surfaces.
 import { useState } from "react";
-import { CircleAlert, Eye, WifiOff } from "lucide-react";
+import { CircleAlert, Eye, Radio, WifiOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +19,11 @@ export function ChartNotices() {
   const evalOn = useStore((s) => s.evalOn);
   const placing = useStore((s) => s.placing);
   const scene = useStore((s) => s.scene);
+  const replayT = useStore((s) => s.replayT);
+  const showReplay = useStore((s) => s.showReplay);
   const setPlacing = useStore((s) => s.setPlacing);
   return <div className="absolute left-3 top-3 z-10 flex max-h-[45%] w-96 max-w-[calc(100%_-_1.5rem)] flex-col gap-2 overflow-y-auto overscroll-contain" data-testid="chart-notices">
+    {replayT !== null && snap && <Alert className="border-red-500/60"><Radio className="text-red-500" /><AlertTitle>REPLAY {utc(t0Of(snap), snap.t)}: what the shore knew then</AlertTitle><AlertDescription>The simulation keeps running. Commands are off while you watch. <Button variant="outline" size="sm" onClick={() => showReplay(null)}>Go live</Button></AlertDescription></Alert>}
     {conn !== "live" && <Alert variant={conn === "lost" ? "destructive" : "default"}><WifiOff /><AlertTitle>{conn === "lost" ? "FEED LOST" : "CONNECTING"} — {snap ? `display frozen at ${utc(t0Of(snap), snap.t)}` : "no data received"}</AlertTitle><AlertDescription>Last-known positions only. Commands disabled; queued unsent answers cancelled. Reconnecting automatically.</AlertDescription></Alert>}
     {(channel === "truth" || evalOn) && <Alert><Eye /><AlertTitle>{channel === "truth" ? "TRUTH VIEW — evaluator only" : "EVALUATOR COMPARISON ENABLED"}</AlertTitle><AlertDescription>{channel === "truth" ? "Not the shore picture. Operator decisions are disabled." : "Purple annotations use the separate /truth channel, not delivered shore observations."}</AlertDescription></Alert>}
     <SegmentList />
