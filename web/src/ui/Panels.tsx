@@ -1,6 +1,7 @@
 // Owner: C. Panel layout state (remembered in this browser) and the drag handle (splitter)
 // between a panel and the chart. Rules live in ../panels.ts.
 import { useEffect, useRef, useState } from "react";
+import { PanelBottomOpen, PanelLeftOpen, PanelRightOpen } from "lucide-react";
 import { create } from "zustand";
 import {
   DEFAULT_LAYOUT,
@@ -147,5 +148,45 @@ export function Splitter({
         setPanel(id, next);
       }}
     />
+  );
+}
+
+/**
+ * A closed panel leaves a slim tab on the same edge it closed to: click it to bring the panel
+ * back at its last size. Left and right tabs run the full height with the name written
+ * vertically; the bottom tab is a thin bar across the window.
+ */
+export function EdgeTab({
+  side,
+  name,
+  count,
+  onOpen,
+}: {
+  side: "left" | "right" | "bottom";
+  name: string;
+  count?: number;
+  onOpen: () => void;
+}) {
+  const Icon = side === "left" ? PanelLeftOpen : side === "right" ? PanelRightOpen : PanelBottomOpen;
+  const vertical = side !== "bottom";
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Show ${name.toLowerCase()}${count !== undefined ? `, ${count}` : ""}`}
+      title={`Show ${name.toLowerCase()}`}
+      className={[
+        "group flex shrink-0 items-center gap-2 bg-muted/40 text-sm text-muted-foreground transition-colors",
+        "hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+        vertical ? "w-9 flex-col py-3" : "h-8 w-full border-t px-4",
+        side === "left" ? "border-r" : side === "right" ? "border-l" : "",
+      ].join(" ")}
+    >
+      <Icon className="size-4 shrink-0" />
+      <span className={vertical ? "font-medium [writing-mode:vertical-rl]" : "font-medium"}>{name}</span>
+      {count !== undefined && (
+        <span className="rounded-full border px-1.5 text-xs tabular-nums">{count}</span>
+      )}
+    </button>
   );
 }
