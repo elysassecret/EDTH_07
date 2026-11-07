@@ -2,18 +2,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
-  CircleAlert,
-  Eye,
   Keyboard,
   Menu,
   Pause,
   Play,
   Settings2,
   Waves,
-  WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,9 +48,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   canOperate,
-  coverageRows,
   pendingDecisions,
-  staleBoat,
 } from "./console-model";
 import { dur, utc } from "./format";
 import { Chart } from "./map/Chart";
@@ -63,6 +57,7 @@ import { OPERATOR_MODE, t0Of } from "./types";
 import {
   DecisionReview,
   DecisionWorkspace,
+  QueuedAnswer,
   useDecisionFlow,
 } from "./ui/LiveDecisions";
 import {
@@ -75,11 +70,12 @@ import {
 } from "./ui/LivePanels";
 import {
   ConnectionContext,
-  DigestSummary,
   EvidenceTools,
   ExerciseTools,
   LiveAlerts,
+  PriorityAlert,
 } from "./ui/LiveTools";
+import { ChartNotices, FleetStatus } from "./ui/LiveStatus";
 
 export function App() {
   const snap = useStore((s) => s.snap);
@@ -96,7 +92,6 @@ export function App() {
   const selected = useStore((s) => s.selected);
   const selectedContact = useStore((s) => s.selectedContact);
   const selectedSegment = useStore((s) => s.selectedSegment);
-  const placing = useStore((s) => s.placing);
   const setPlacing = useStore((s) => s.setPlacing);
   const evalOn = useStore((s) => s.evalOn);
   const toggleEval = useStore((s) => s.toggleEval);
@@ -202,18 +197,6 @@ export function App() {
   }, []);
 
   const open = pendingDecisions(snap);
-  const rows = snap ? coverageRows(snap, scene) : [];
-  const unknown = rows.filter((r) => r.age === null).length;
-  const overdue = rows.filter(
-    (r) =>
-      r.age !== null &&
-      scene?.revisit_target_s !== undefined &&
-      r.age > scene.revisit_target_s,
-  ).length;
-  const fresh =
-    snap?.boats.filter((boat) => !staleBoat(boat, snap, scene, conn)).length ??
-    0;
-  const latestExercise = snap?.events.filter((e) => e.exercise).at(-1);
   const source = snap?.source ?? scene?.source;
   const paused = snap?.speed === 0 || snap?.warp_mode === "paused";
   const speedValue =
@@ -289,12 +272,13 @@ export function App() {
             </div>
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               disabled={conn !== "live"}
-              aria-label={paused ? "Resume simulation" : "Pause simulation"}
+              aria-label={paused ? "Run simulation" : "Pause simulation"}
               onClick={() => send({ cmd: "pause", on: !paused })}
             >
               {paused ? <Play /> : <Pause />}
+              {paused ? "Run" : "Pause"}
             </Button>
             <Select
               value={speedValue}
@@ -374,19 +358,28 @@ export function App() {
         <PriorityAlert />
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
           <FleetStatus />
+          <span className="text-sm text-muted-foreground" title={snap ? `T+${dur(snap.t)}` : undefined}>
+            {snap
+              ? `${paused ? "PAUSED" : `${snap.speed}× ${snap.warp_mode ?? "server"}`}${snap.near_event && snap.warp_mode === "auto" && !paused ? " · slowing for event" : ""}`
+              : "No observations received"}
+          </span>
           <div className="flex gap-2">
             <Badge variant="secondary">{open.length} pending decision{open.length === 1 ? "" : "s"}</Badge>
             <Button variant="outline" size="sm" className="min-[1440px]:hidden" onClick={() => setDrawer("fleet")}><ShipIcon />Fleet · {snap?.boats.length ?? 0}</Button>
-            <Button variant="outline" size="sm" className="min-[1440px]:hidden" onClick={() => { setTab("attention"); setDrawer("attention"); }}>Attention · {open.length}</Button>
+            <Button variant="outline" size="sm" className="xl:hidden" onClick={() => { setTab("attention"); setDrawer("attention"); }}>Attention · {open.length}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setPanel("help")}>
+              <Keyboard />
+              Help
+            </Button>
           </div>
         </div>
         <main
           id="main"
-          className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)_352px]"
+          className="grid min-h-0 flex-1 grid-cols-1 min-[1280px]:grid-cols-[minmax(0,1fr)_352px] min-[1440px]:grid-cols-[260px_minmax(0,1fr)_352px]"
           tabIndex={-1}
         >
           <aside
-            className="hidden min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain border-r p-2 xl:flex"
+            className="hidden min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain border-r p-2 min-[1440px]:flex"
             aria-label="Fleet overview"
           >
             <div className="flex items-center justify-between p-1">
@@ -400,6 +393,7 @@ export function App() {
             aria-label="Operational chart"
           >
             <Chart satellite={satellite} onSatelliteState={onSatelliteState} />
+            <ChartNotices />
           </section>
           <aside
             className="hidden min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain border-l p-3 xl:flex"
@@ -410,16 +404,6 @@ export function App() {
           </aside>
         </main>
         <EventTimeline />
-        <footer className="console-footer flex shrink-0 items-center justify-between gap-2 border-t px-4 pt-2 text-sm text-muted-foreground">
-          <span>
-            Korsør shore station ·{" "}
-            {channel === "shore" ? "received reports" : "evaluator truth"}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => setPanel("help")}>
-            <Keyboard />
-            Help
-          </Button>
-        </footer>
         <Sheet
           open={drawer !== null}
           onOpenChange={(open) => {
@@ -447,6 +431,7 @@ export function App() {
           </SheetContent>
         </Sheet>
         <DecisionReview flow={flow} />
+        <QueuedAnswer flow={flow} />
         <ExerciseTools
           open={panel === "inject"}
           onOpenChange={(open) => {

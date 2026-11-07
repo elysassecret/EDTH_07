@@ -36,7 +36,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     .getByRole("button", { name: "Reset simulation to seed 1", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Resume simulation" }),
+    page.getByRole("button", { name: "Run simulation" }),
   ).toBeVisible({ timeout: 30000 });
   // Resume may still describe the previous take while the real warm-up reset runs.
   await expect
@@ -46,7 +46,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     .toBe(true);
   await page.getByRole("combobox", { name: "Simulation speed" }).click();
   await page.getByRole("option", { name: "60×", exact: true }).click();
-  await page.getByRole("button", { name: "Resume simulation" }).click();
+  await page.getByRole("button", { name: "Run simulation" }).click();
 
   const card = page.getByRole("article", {
     name: /Decision close:contact:C-07\./,
@@ -54,7 +54,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
   await expect(card).toBeVisible({ timeout: 45000 });
   await page.getByRole("button", { name: "Pause simulation" }).click();
   await expect(
-    page.getByRole("button", { name: "Resume simulation" }),
+    page.getByRole("button", { name: "Run simulation" }),
   ).toBeVisible();
   expect(shore?.contacts.some((c) => c.track === "C-07" && !c.ais)).toBe(true);
 
@@ -89,7 +89,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
   expect(
     shore?.decisions.find((d) => d.id === "close:contact:C-07")?.state,
   ).toBe("approved");
-  await page.getByRole("button", { name: "Resume simulation" }).click();
+  await page.getByRole("button", { name: "Run simulation" }).click();
   await expect
     .poll(
       () => shore?.decisions.find((d) => d.id === "close:contact:C-07")?.state,
@@ -100,7 +100,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
   ).toBeVisible();
   await page.getByRole("button", { name: "Pause simulation" }).click();
   await expect(
-    page.getByRole("button", { name: "Resume simulation" }),
+    page.getByRole("button", { name: "Run simulation" }),
   ).toBeVisible();
 
   const before = shore!.boats.find((b) => b.id === 2)!;
@@ -112,7 +112,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     .getByRole("dialog")
     .getByRole("button", { name: "Close", exact: true })
     .click();
-  await page.getByRole("button", { name: "Resume simulation" }).click();
+  await page.getByRole("button", { name: "Run simulation" }).click();
   await expect
     .poll(() =>
       shore?.events.some((event) => event.text.includes("USV 02 switched off")),
@@ -120,7 +120,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     .toBe(true);
   await page.getByRole("button", { name: "Pause simulation" }).click();
   await expect(
-    page.getByRole("button", { name: "Resume simulation" }),
+    page.getByRole("button", { name: "Run simulation" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Exercise controls" }).click();
@@ -131,7 +131,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     .getByRole("dialog")
     .getByRole("button", { name: "Close", exact: true })
     .click();
-  await page.getByRole("button", { name: "Resume simulation" }).click();
+  await page.getByRole("button", { name: "Run simulation" }).click();
   await expect
     .poll(() =>
       shore?.events.some((event) =>

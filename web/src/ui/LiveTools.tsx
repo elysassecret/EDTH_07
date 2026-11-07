@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CircleAlert, FileCheck, Settings2, SquareAlert, TriangleAlert } from "lucide-react";
+import { CircleAlert, FileCheck, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -39,10 +39,18 @@ import { dur, utc } from "../format";
 import { apiUrl, useStore } from "../store";
 import { t0Of, type Alert as AlertRecord, type Command } from "../types";
 
+// Each level has its own shape and colour, so it reads without colour too (ship's bridge style):
+// ALARM red triangle · WARNING orange circle · CAUTION yellow square.
 export function LevelIcon({ level }: { level: AlertRecord["level"] }) {
-  const Icon = level === "alarm" ? TriangleAlert : level === "warning" ? CircleAlert : SquareAlert;
-  const colour = level === "alarm" ? "text-red-300" : level === "warning" ? "text-orange-300" : "text-yellow-200";
-  return <Icon aria-hidden="true" className={`size-5 shrink-0 ${colour}`} data-level={level} />;
+  const fill = level === "alarm" ? "fill-red-500" : level === "warning" ? "fill-orange-400" : "fill-yellow-300";
+  return (
+    <svg aria-hidden="true" data-level={level} viewBox="0 0 18 18" className={`size-5 shrink-0 ${fill}`}>
+      {level === "alarm" && <path d="M9 1.5 17 16.5H1z" />}
+      {level === "warning" && <circle cx="9" cy="9" r="7.5" />}
+      {level === "caution" && <rect x="2" y="2" width="14" height="14" />}
+      <text x="9" y={level === "alarm" ? 14.5 : 13} textAnchor="middle" fontSize="11" fontWeight="700" className="fill-neutral-950">!</text>
+    </svg>
+  );
 }
 
 export function PriorityAlert() {

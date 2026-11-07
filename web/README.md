@@ -70,7 +70,7 @@ uv run python -m server --serve-web --demo
 ```
 
 1. Open `http://localhost:8765/?operator`. The real seed-1 demo starts paused at sim
-   6900 s / 12:10:00Z. Use **Resume simulation** to start; keep Auto for the recording.
+   6900 s / 12:10:00Z. Use **Run** to start; keep Auto for the recording.
 2. After the delivered C-07 contact and held close proposal appear, use **Review &
    approve**, or focus that decision card itself and press **A**. On a laptop, open
    **Attention** first. A opens review; it does not send. Esc/Back cancels review.

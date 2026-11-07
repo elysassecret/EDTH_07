@@ -524,13 +524,13 @@ test("real simulator handshake and pause work without the template fixture", asy
   await expect(page.getByText("FEED LIVE", { exact: true })).toBeVisible();
   await expect(page.getByTestId("fleet-4")).toBeVisible();
   await expect(page.locator(".maplibregl-canvas")).toBeVisible();
-  await page.getByRole("button", { name: "Resume simulation" }).click();
+  await page.getByRole("button", { name: "Run simulation" }).click();
   await expect(
     page.getByRole("button", { name: "Pause simulation" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Pause simulation" }).click();
   await expect(
-    page.getByRole("button", { name: "Resume simulation" }),
+    page.getByRole("button", { name: "Run simulation" }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

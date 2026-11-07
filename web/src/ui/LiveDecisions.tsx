@@ -274,7 +274,7 @@ export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
             tabIndex={0}
             role="article"
             aria-label={`Decision ${d.id}. Focus this card for decision shortcuts.`}
-            className="max-h-[min(36rem,calc(100dvh_-_16rem))] gap-3 overflow-hidden py-3"
+            className="max-h-[max(18rem,min(36rem,calc(100dvh_-_25rem)))] gap-3 overflow-hidden py-3"
             onKeyDown={(event) => {
               if (
                 event.target !== event.currentTarget ||

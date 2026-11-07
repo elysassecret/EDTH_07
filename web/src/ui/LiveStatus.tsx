@@ -41,7 +41,7 @@ export function FleetStatus() {
     <Badge variant="outline">Cables watched {watched}/{segments.length}{watched < segments.length ? " · GAP" : ""}</Badge>
     <Badge variant="outline">At sea {atSea}/{snap.boats.length}</Badge>
     <Badge variant="outline">Links {count("direct")} direct · {count("peer")} peer · {count("none")} none</Badge>
-    <span className="text-muted-foreground">{snap.source === "mock" ? "MOCK" : "Simulation"} · {snap.view === "shore" ? "shore-reported" : "evaluator truth"}</span>
+    <span className="text-muted-foreground">{snap.source === "mock" ? "MOCK" : "Sim"} · {snap.view === "shore" ? "shore-reported" : "evaluator truth"}</span>
   </div>;
 }
 

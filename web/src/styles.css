@@ -76,7 +76,6 @@
 .maplibregl-ctrl-scale { background: #0a0a0acc; color: #e5e5e5; border-color: #a3a3a3; font-size: 14px; }
 html[data-display="night"] .chart { filter: grayscale(1) sepia(1) hue-rotate(-40deg) saturate(3) brightness(.65); }
 .console-header { padding-top: max(.75rem, env(safe-area-inset-top)); }
-.console-footer { padding-bottom: max(.5rem, env(safe-area-inset-bottom)); }
 @media (pointer: coarse) {
   input, select, textarea { font-size: 16px; }
   [data-slot="button"], [data-slot="select-trigger"] { min-height: 44px; }
