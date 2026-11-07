@@ -27,7 +27,27 @@ uv run python -m server --serve-web --mock   # same with the mock feed
   tick it arrived at, both snapshots every 10 sim-s and a replay hash every 60 sim-s. A full
   14 400 s run is about 8 MB. `uv run python -m server.replay runs/<file>.jsonl` rebuilds the
   run from the seed and the commands and names the first hash that differs.
+- `evaluator.py`: the evaluator comparison, added by `feed.py` to **/truth frames only** (key
+  `eval`): true vs last-known boat positions and data age, true contacts the shore picture lacks,
+  links where truth and shore belief differ, true vs shore revisit age. /shore never carries it.
+- `demo.toml` + `DEMO.md`: the video preset (`uv run python -m server --serve-web --demo`):
+  seed 1, starts paused at 6900 s, relay loss injected at 11 100 s, about 2:26 after Run.
+  Shot list, timings and narration in `DEMO.md`; `tests/server/test_demo.py` checks the beats.
+- `narrator.py`: plain lines about what changed between consecutive /shore frames (task owners,
+  modes, links, data age), e.g. "USV 04 took cable seg:G:0, seg:G:1; lane picket S now
+  uncovered". Shore data only; it says "took", not why (the shore does not see bids). `feed.py`
+  adds the latest lines to /shore frames as `narration`; the console shows them under
+  "What changed".
 - `mock_feed.py`: deterministic fake of the whole story, for UI work without the sim.
+  `--tracks N` adds synthetic AIS-like tracks along the lane (labelled MOCK AIS, own random
+  stream, so the story is unchanged) for the N4 load test:
+  `uv run python -m server --serve-web --mock --tracks 240`. The evaluator view shows a frame
+  readout (screen fps, feed frames/s, contacts).
+
+  **Measured (7 Nov 2026, MacBook Pro M4, 24 GB, macOS 26.6.2):** 240 tracks at 240× auto:
+  server frame 10.5 ms on average (150 frames, 1 h sim; budget 100 ms at 10 Hz); console in the
+  Claude desktop browser pane: screen 120 fps, feed 9.5–10 frames/s, 240 contacts. Re-measure
+  in Chrome on each demo laptop before quoting it.
 - `alerts.py`: alerts for the real sim (feature 23), made from the shore picture and the
   console's own exercise events, never from truth. Alarm: held decision unanswered 05:00.
   Warning: held decision waiting; boat not heard for `stale_after_s`. Caution: no link,
@@ -46,6 +66,12 @@ cut at 7320 s, C-07 (camera only, no AIS) seen near 7500 s, keep-in-view and the
 decision cards, "cannot hold" at 9200 s, link back at 10 800 s. Every number in it is a mock
 input, not a sim result. Snapshots validate against `contract/views.py`
 (`tests/server/test_mock_feed.py`).
+
+Exercise injections on the real sim (`inject`): `battery_low`, `boat_off`, `link_off`/`link_on`
+(any boat, any directed link) and `contact_start` with `lat`/`lon` (and optional `ais`): a
+synthetic contact snapped to the nearest cable sample, with C-07's scripted speed and class;
+truth only, so the shore learns of it only if a boat sees it. `boat_restore` waits for world
+support (issue #34).
 
 Messages (JSON): `scene` once on connect (segment geometry, stations, `revisit_target_s` from
 `config/run.toml`), then contract snapshots at

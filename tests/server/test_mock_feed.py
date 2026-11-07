@@ -139,3 +139,19 @@ def test_websocket_roundtrip():
             task.cancel()
 
     asyncio.run(go())
+
+
+def test_load_test_tracks_are_extra_and_leave_the_story_alone():
+    """G4: --tracks 240 adds synthetic AIS-like tracks; the default 6-track story is unchanged."""
+    import json as _json
+
+    from server.mock_feed import MockWorld
+
+    a, b = MockWorld(1), MockWorld(1, tracks=240)
+    for _ in range(20):
+        a.step(24_000)
+        b.step(24_000)
+    ta, tb = a.snapshot("truth"), b.snapshot("truth")
+    assert len([c for c in tb["contacts"] if c["ais"]]) == 240
+    assert _json.dumps(ta["boats"]) == _json.dumps(tb["boats"])
+    assert all(c["track"].startswith("AIS-") for c in tb["contacts"] if c["ais"])

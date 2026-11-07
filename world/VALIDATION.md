@@ -33,7 +33,27 @@ that the complete contact demo/video is delivered.
   server-loss banner appeared in 112 ms in that one run. Do not generalize these into
   platform-wide guarantees, complete startup certification or abrupt-failure timing.
 
-## Seeded world audit (diagnostic, not eval/)
+## Seeded starting-position follow-up (#28)
+
+The earlier fixed-phase audit below is historical (engine `00e892d`). The new default
+reset uses deterministic, policy/speed-independent cable offsets for sweepers. Pickets
+and relay keep stations. Seed 1 retains the existing demo reference. No historic visits,
+lease state or battery depletion are fabricated. `vary_start_phase=False` is an explicit
+legacy-position control; truth initial_phase metadata records the strategy and placements.
+
+Validated with original PR #27 in an isolated worktree: all 15 cases (5 seeds x 3 modes,
+14,000 s) complete; F1–F5 pass and each mode has 5 distinct coverage outcomes. The overall
+batch still exits 1 / PRELIMINARY because shore-gap checks fail. No headline is claimed.
+Raw local artifacts: `/tmp/edth-seeded-eval.json` and `/tmp/edth-seeded-eval.txt`.
+
+Full seed-2 elysa through 14,000 s passes D1 (fresh processes with different PYTHONHASHSEED)
+and D2 (mid-run reset versus fresh), recorded in `/tmp/edth-seeded-repeat.txt`.
+Original eval tests: 14 pass and 1 expected gap xfail. Newer d/eval-warm integration tests:
+29 pass and 1 expected gap xfail; no eval/ edits made. Its warm-up helper can explicitly
+disable world placement before using its own phase algorithm. Cold spatial variation is
+not the same as a pre-mission sensor history; D still owns final warm-state semantics.
+
+## Historical fixed-phase world audit (diagnostic, not eval/)
 
 ```bash
 uv run python -m world.check --jobs 4 > /tmp/edth-world-audit.json

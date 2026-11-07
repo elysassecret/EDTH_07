@@ -18,6 +18,7 @@ from contract.geo import dist, to_lonlat, to_xy
 from contract.mission import Action, Detection, Mission, Own, Params, load_params
 from world.current import Current
 from world.motion import Boat
+from world.phase import STRATEGY, placements
 from world.radio import Radio, RadioConfig
 from world.routes import load_scene
 from world.sensors import Contact, observe
@@ -45,11 +46,13 @@ class World:
         agent_factory: AgentFactory | None = None,
         shore_factory: ShoreFactory | None = None,
         current_enabled: bool = True,
+        vary_start_phase: bool = True,
     ):
         self.root = Path(root)
         self.seed = seed
         self.agent_factory = agent_factory
         self.shore_factory = shore_factory
+        self.vary_start_phase = vary_start_phase
         self.scene = load_scene(self.root)
         self.mission = self.scene.mission
         self.params = load_params(self.root)
@@ -90,11 +93,11 @@ class World:
         self.t = 0
         self.started = False
         self.radio = Radio(self.radio_config, self.seed)
-        tasks = {task.id: task for task in self.mission.tasks}
-        self.boats = {}
-        for boat in self.mission.boats:
-            first = next(task for task, owner in self.mission.initial if owner == boat)
-            self.boats[boat] = Boat.at(boat, tasks[first].pts[0], self.params.endurance_ms)
+        self.start_placements = placements(self.mission, self.seed, enabled=self.vary_start_phase)
+        self.boats = {
+            boat: Boat.at(boat, placement.point, self.params.endurance_ms)
+            for boat, placement in self.start_placements.items()
+        }
         self.nodes = (
             {
                 boat: self.agent_factory(boat, self.mission, self.params)
@@ -138,7 +141,10 @@ class World:
             raise ValueError("injection time must be an unprocessed tick boundary")
         self.event_seq += 1
         queued = {**deepcopy(event), "origin": "injected", "exercise": True}
-        if queued.get("kind") in ("battery_low", "boat_off") and "boat" not in queued:
+        if (
+            queued.get("kind") in ("battery_low", "boat_off", "boat_restore")
+            and "boat" not in queued
+        ):
             queued["boat"] = queued["a"]
         self.pending.append((when, self.event_seq, queued))
         self.pending.sort(key=lambda item: (item[0], item[1]))
@@ -169,8 +175,8 @@ class World:
             )
             # Same measured-current rule as the agent; this remains a chosen injection.
             boat.charge_ms = min(boat.charge_ms, threshold)
-        elif kind == "boat_off":
-            self.boats[event.get("boat", event.get("a"))].enabled = False
+        elif kind in ("boat_off", "boat_restore"):
+            self.boats[event.get("boat", event.get("a"))].enabled = kind == "boat_restore"
         elif kind in ("link_off", "link_on"):
             dst = 0 if event["b"] == "shore" else int(event["b"])
             self.radio.link(int(event["a"]), dst, kind == "link_on")
@@ -205,6 +211,7 @@ class World:
                     in (
                         "battery_low",
                         "boat_off",
+                        "boat_restore",
                         "link_off",
                         "link_on",
                         "contact_start",
@@ -343,6 +350,14 @@ class World:
         return {
             "t": self.t,
             "seed": self.seed,
+            "initial_phase": {
+                "strategy": STRATEGY,
+                "enabled": self.vary_start_phase,
+                "placements": {
+                    str(boat): asdict(placement)
+                    for boat, placement in sorted(self.start_placements.items())
+                },
+            },
             "boats": [
                 {
                     "id": boat,

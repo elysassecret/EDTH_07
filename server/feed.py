@@ -25,6 +25,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from server.evaluator import compare
+from server.narrator import Narrator
+
 ROOT = Path(__file__).resolve().parents[1]
 WEB_DIST = ROOT / "web" / "dist"
 log = logging.getLogger("feed")
@@ -33,13 +36,16 @@ log = logging.getLogger("feed")
 class Feed:
     """Owns one source, steps it at a fixed real rate and broadcasts to clients."""
 
-    def __init__(self, factory: Callable[[int], Any], seed: int, hz: float = 10.0):
+    def __init__(self, factory: Callable[[int], Any], seed: int, hz: float = 10.0,
+                 start_paused: bool = False):
         self.factory = factory
         self.seed = seed
         self.hz = hz
         self.world = factory(seed)
+        self.narrator = self._new_narrator()
         self.clients: dict = {}  # connection -> channel
-        self.paused = False
+        self.start_paused = start_paused  # demo: every (re)start waits for "Run"
+        self.paused = start_paused
         self.speed_override: int | None = None
 
     def handle_command(self, msg: dict) -> dict:
@@ -50,6 +56,8 @@ class Feed:
                 self.seed = int(msg.get("seed", self.seed))
                 getattr(self.world, "close", lambda: None)()  # e.g. finish the run log
                 self.world = self.factory(self.seed)
+                self.narrator = self._new_narrator()
+                self.paused = self.paused or self.start_paused
                 return {"ok": True}
             if cmd == "pause":
                 self.paused = bool(msg.get("on", not self.paused))
@@ -92,19 +100,40 @@ class Feed:
     def _speed(self) -> int:
         return 0 if self.paused else (self.speed_override or self.world.speed())
 
-    def _frame(self, channel: str, speed: int) -> str:
+    def _snap(self, channel: str, speed: int) -> dict:
         out = self.world.snapshot(channel, speed)
         # console extras (feature 25): who sets the warp, and whether auto-warp is slowed
         out["warp_mode"] = ("paused" if self.paused else
                             "manual" if self.speed_override else "auto")
         out["near_event"] = out["warp_mode"] == "auto" and bool(self.world.near_event())
-        return json.dumps(out)
+        return out
+
+    def _new_narrator(self) -> Narrator:
+        scene = self.world.scene_msg()
+        return Narrator(int(scene.get("stale_after_s", 60)))
+
+    def _frames(self, speed: int) -> dict[str, dict]:
+        """Both channels. Only /truth carries "eval" (shore belief next to truth): the
+        operator's /shore picture never does. /shore carries "narration", made from /shore
+        frames alone (server/narrator.py)."""
+        shore = self._snap("shore", speed)
+        self.narrator.update(shore)
+        shore["narration"] = self.narrator.lines[-12:]
+        truth = self._snap("truth", speed)
+        truth["eval"] = compare(shore, truth)
+        # hook for D's three-mode scorecard: a source may offer scorecard() -> dict (eval/)
+        if hasattr(self.world, "scorecard"):
+            truth["scorecard"] = self.world.scorecard()
+        return {"shore": shore, "truth": truth}
+
+    def _frame(self, channel: str, speed: int) -> str:
+        return json.dumps(self._frames(speed)[channel])
 
     def tick(self) -> dict[str, str]:
         """One frame: advance the source and render both channels (no I/O, testable)."""
         speed = self._speed()
         self.world.step(int(speed * 1000 / self.hz))
-        return {ch: self._frame(ch, speed) for ch in ("shore", "truth")}
+        return {ch: json.dumps(snap) for ch, snap in self._frames(speed).items()}
 
     async def run(self) -> None:
         period = 1.0 / self.hz
@@ -139,12 +168,54 @@ def _static(connection, request):
                                         ("Content-Length", str(len(body)))]), body)
 
 
+async def _api(feed: Feed, connection, request):
+    """GET /api/report.md?from=S&to=S (incident report) and /api/tamper-demo (JSON).
+    Real sim with a run log only. The work runs in a thread so frames keep flowing."""
+    from urllib.parse import parse_qs, urlsplit
+
+    from websockets.datastructures import Headers
+    from websockets.http11 import Response
+
+    from evidence.report import report, tamper_demo
+
+    url = urlsplit(request.path)
+    log_ = getattr(feed.world, "log", None)
+    if log_ is None:
+        return connection.respond(404, "No run log: real sim only, without --no-log\n")
+    log_.flush()
+    try:
+        if url.path == "/api/report.md":
+            q = parse_qs(url.query)
+            t_from = int(q["from"][0]) if "from" in q else None
+            t_to = int(q["to"][0]) if "to" in q else None
+            body = (await asyncio.to_thread(report, log_.path, t_from=t_from, t_to=t_to)).encode()
+            name = log_.path.stem + ".report.md"
+            headers = [("Content-Type", "text/markdown; charset=utf-8"),
+                       ("Content-Disposition", f'attachment; filename="{name}"')]
+        elif url.path == "/api/tamper-demo":
+            body = json.dumps(await asyncio.to_thread(tamper_demo, log_.path)).encode()
+            headers = [("Content-Type", "application/json")]
+        else:
+            return connection.respond(404, "Unknown API path\n")
+    except (ValueError, OSError) as e:
+        log.warning("api %s failed: %s", url.path, e)
+        return connection.respond(500, f"Could not build it: {e}\n")
+    return Response(200, "OK", Headers([*headers, ("Content-Length", str(len(body)))]), body)
+
+
 async def serve(factory: Callable[[int], Any], host: str, port: int, seed: int, hz: float = 10.0,
-                ready=None, serve_web: bool = False, name: str = "feed") -> None:
+                ready=None, serve_web: bool = False, name: str = "feed",
+                start_paused: bool = False) -> None:
     from websockets.asyncio.server import serve as ws_serve
 
-    feed = Feed(factory, seed, hz)
-    extra = {"process_request": _static} if serve_web else {}
+    feed = Feed(factory, seed, hz, start_paused)
+
+    async def process_request(connection, request):
+        if request.path.startswith("/api/"):
+            return await _api(feed, connection, request)
+        return _static(connection, request) if serve_web else None
+
+    extra = {"process_request": process_request}
     async with ws_serve(feed.handler, host, port, **extra) as server:
         bound = server.sockets[0].getsockname()[1]
         log.info("%s on ws://%s:%d/shore and /truth, seed %d", name, host, bound, seed)

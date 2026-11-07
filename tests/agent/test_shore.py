@@ -1,4 +1,5 @@
 """ShoreNode picture and watch-officer commands; relay election rules P7 and S6."""
+from agent.shore import ShoreNode
 from contract.constants import CLAIMED, SHORE_SILENCE, VETOED
 from contract.mission import load_params
 from contract.tasks import Rec
@@ -23,7 +24,7 @@ def test_picture_shows_only_what_the_shore_received():
     assert links == {1: "direct", 2: "peer", 3: "peer", 4: "direct", 5: "direct"}
     via = {b.id: b.via for b in pic.boats}
     assert via[1] == via[4] == via[5] == 0 and via[2] == via[3] == 5  # north talks via the relay
-    assert pic.seg_age["seg:G:1"] <= 10 and pic.seg_age["seg:M:0"] >= 30  # M:0 not visited yet
+    assert pic.seg_age["seg:M:0"] == pic.t  # never reported: aged from t = 0
     boat1 = next(b for b in pic.boats if b.id == 1)
     assert boat1.sog == PARAMS.speed_mm_s and boat1.mode == "PATROL"
 
@@ -85,6 +86,18 @@ def test_s6_relay_lost_nobody_cut_off_relay_stays_open():
     for b in (1, 2):
         t = s.agents[b].table
         assert t.recs["relay"].owner == 3 and t.is_open("relay", s.t)  # open and visible
+
+
+def test_seg_age_is_the_worst_sample_not_any_touch():
+    """#22, #29: touching one end of a segment does not refresh the far end."""
+    shore = ShoreNode(scene_mission(), PARAMS)
+    seg = "seg:G:0"
+    for sp in shore.samples[seg]:
+        shore.credit(sp, 1_000)  # whole segment swept at t = 1 s
+    shore.credit(shore.samples[seg][0], 50_000)  # later only its start end is touched
+    ages = shore.picture(60_000).seg_age
+    assert ages[seg] == 59  # the far end still dates from t = 1 s
+    assert ages["seg:M:0"] == 60  # never reported: aged from t = 0
 
 
 def test_one_way_cut_is_not_a_direct_shore_hop():
