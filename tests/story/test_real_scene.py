@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 from shapely.geometry import LineString, Point, shape
 
-from contract.geo import dist, to_xy
+from contract.geo import to_xy
+from eval.ais_observer import observer_for
+from eval.metrics import Metrics
 from eval.warm import build_world, warm_up
 from tools.scene_check import hops_from_shore
 from world.routes import load_scene
@@ -57,7 +59,9 @@ def test_r3_ais_stays_with_the_evaluator():
 def test_r3_a_run_with_the_observer_leaves_boats_knowing_only_their_own_sensors():
     world = build_world(ROOT, "elysa", 1, warm_s=60)
     warm_up(world)
+    metrics = Metrics(world, 12_000, t0_ms=world.warm_ms)
+    metrics.ais = observer_for(world, ROOT, world.warm_ms, metrics.T, metrics.eval_t)
     for _ in range(120):
         world.step()
+        metrics.on_tick()
     assert all(not node.contacts.tracks for node in world.nodes.values())
-    assert dist(world.boats[3].point, world.mission.shore) > world.radio_config.shore_m

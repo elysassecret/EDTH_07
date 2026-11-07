@@ -53,7 +53,13 @@ def record(s: Story) -> None:
     if mt > FAIL_S:
         table = w.nodes[2].table
         lost = [k for k in s.fail_held if table.recs[k].state == CLAIMED and table.recs[k].owner != 1]
-        if s.first_claim_s is None and lost:
+        # The first claim is timed on the claimer: boat 2 hears it a radio delay later.
+        if s.first_claim_s is None and any(
+            node.table.recs[k].state == CLAIMED and node.table.recs[k].owner == b
+            for b, node in w.nodes.items()
+            for k in s.fail_held
+            if b != 1
+        ):
             s.first_claim_s = mt
         if s.all_owned_s is None and len(lost) == len([k for k in s.fail_held if kind(k) == "seg"]):
             s.all_owned_s = mt
@@ -99,7 +105,7 @@ def test_s1_battery_return_releases_tasks_and_they_are_re_owned(story):
     assert story.fail_held, "boat 1 held nothing before the failure"
     assert story.boat1_mode == RETURNING
     assert story.world.nodes[2].table.held_by(1) == []
-    assert story.first_claim_s - FAIL_S <= 2 * SLOT // 1000 + 1
+    assert story.first_claim_s - FAIL_S <= 2 * SLOT // 1000
     assert story.all_owned_s - FAIL_S <= 60  # one bid per slot, measured in eval/results.md
 
 
