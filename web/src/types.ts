@@ -83,7 +83,8 @@ export type Command =
   | { cmd: "speed"; value: number | "auto" }
   | { cmd: "pause"; on?: boolean }
   | { cmd: "reset"; seed?: number }
-  | { cmd: "inject"; kind: "contact_start"; lat: number; lon: number; ais?: boolean };
+  | { cmd: "inject"; kind: "contact_start"; lat: number; lon: number; ais?: boolean }
+  | { cmd: "inject"; kind: "boat_restore"; a: number };
 
 export const T0_FALLBACK = "2026-11-03T10:15:00Z"; // scenarios/fixed.toml ais_t0 (UTC, unverified)
 export const t0Of = (s: { t0_utc?: string } | null) => s?.t0_utc ?? T0_FALLBACK;
@@ -108,6 +109,7 @@ export interface Scorecard {
   source: string; // e.g. "eval/run_batch.py"
   seeds: number[];
   rows: { mode: string; metric: string; median: number; min: number; max: number; unit: string }[];
+  preliminary?: boolean; // eval prints PRELIMINARY: show the word, never pass it off as final
 }
 
 /** ?operator in the URL: the watch officer's screen, no evaluator or truth controls. */

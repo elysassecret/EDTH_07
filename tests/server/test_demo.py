@@ -61,8 +61,12 @@ def test_demo_beats_still_happen():
     assert b[4].link == "peer", "link-loss beat moved"
     p, b = at(7870)
     assert b[2].mode == "SHADOWING", "keep-in-view beat (USV 02) moved"
+    p, b = at(7870)
+    assert any(c.track == "C-07" and not c.ais for c in p.contacts), "contact-on-shore beat moved"
     p, b = at(8060)
     assert "contact:C-07" in b[3].roles, "keep-in-view beat (USV 03) moved"
+    held = [d for d in p.decisions if d.tier == "held" and d.state == "pending"]
+    assert held and "500 m" in held[0].text, "approval-card beat moved"
     p, b = at(8280)
     assert b[2].mode == "PATROL", "USV 02 relieved beat moved"
     p, b = at(9270)

@@ -7,7 +7,9 @@ Truth is never used.
 Three levels, the bridge alert words (docs/research/operations_incidents_law.md):
 - alarm:   a held decision unanswered for ALARM_AFTER_S ("Unanswered: repeats in 05:00,
            then alarm")
-- warning: a held decision waiting for the watch officer; a boat not heard for stale_after_s
+- warning: a held decision waiting for the watch officer; a boat not heard for stale_after_s;
+           a contact on the shore picture with no AIS match ("cue for a look"); a contact the
+           boats cannot hold
 - caution: no link to shore, a boat returning to Korsør, a lane picket uncovered
            ("since HH:MMZ": when the console first saw it open), a cable segment past the
            revisit target ("no visit since HH:MMZ", from the shore's own segment age),
@@ -82,6 +84,14 @@ class AlertBook:
                 text = f"Cable {k} overdue: no visit since {self._hhmm(t - age)} (shore-reported)"
             want[f"overdue:{k}"] = ("caution", text)
 
+        for c in pic.contacts:
+            if c.flags.cannot_hold:
+                want[f"contact:{c.track}"] = (
+                    "warning", f"Cannot hold {c.track}: leaving faster than our boats")
+            elif not c.ais:
+                want[f"contact:{c.track}"] = (
+                    "warning", f"{c.track}: camera contact, no AIS match. Cue for a look.")
+
         for d in pic.decisions:
             if d.state != "pending" or d.tier != "held":
                 continue
@@ -98,6 +108,8 @@ class AlertBook:
                 continue
             if e["kind"] == "link_off" and e["pair"] not in cuts:
                 continue  # restored since
+            if not e.get("active", True):
+                continue  # boat switched back on since
             want[aid] = ("caution", e["text"])
 
         for aid in sorted(set(self.active) - set(want)):
