@@ -115,6 +115,8 @@ function ringLayers(snap: Snap, scene: Scene, r: NonNullable<Scene["ranges"]>): 
   ];
 }
 
+// zoom from which depth contours and their labels show (about 0.5 nm on the scale bar)
+const DEPTH_DETAIL_ZOOM = 13;
 const FONT = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 const M_PER_DEG_LAT = 111_320;
 
@@ -146,13 +148,20 @@ const style: StyleSpecification = {
     land: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     infra: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     depth: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+    depth_bands: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     box: { type: "geojson", data: boxGeo },
     cables: { type: "geojson", data: cablesGeo },
     lane: { type: "geojson", data: laneGeo },
   },
   layers: [
     { id: "sea", type: "background", paint: { "background-color": T.SEA } },
-    { id: "depth", type: "line", source: "depth", paint: { "line-color": T.DEPTH, "line-width": 1, "line-opacity": 0.7 } },
+    // #88: depth as four shades of the sea colour, darker is deeper (bands from #89 when present)
+    {
+      id: "depth-bands", type: "fill", source: "depth_bands",
+      paint: { "fill-color": ["step", ["to-number", ["get", "depth_min_m"], 0], T.DEPTH_0, 10, T.DEPTH_10, 20, T.DEPTH_20, 30, T.DEPTH_30] },
+    },
+    // contour lines only when zoomed in; at box scale they cluttered the chart (#88)
+    { id: "depth", type: "line", source: "depth", minzoom: DEPTH_DETAIL_ZOOM, paint: { "line-color": T.DEPTH, "line-width": 1, "line-opacity": 0.7 } },
     { id: "land", type: "fill", source: "land", paint: { "fill-color": T.LAND } },
     { id: "coast", type: "line", source: "land", paint: { "line-color": T.COAST, "line-width": 1 } },
     {
@@ -187,6 +196,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [geo, setGeo] = useState<Partial<Record<GeoName, GeoFile | null>>>({});
+  const [detail, setDetail] = useState(false); // zoomed in far enough for depth labels
   const snap = useStore((s) => s.snap);
   const scene = useStore((s) => s.scene);
   const conn = useStore((s) => s.conn);
@@ -238,6 +248,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     });
     ro.observe(el.current);
     map.on("error", (e) => console.error("map:", e.error?.message ?? e));
+    map.on("zoom", () => setDetail(map.getZoom() >= DEPTH_DETAIL_ZOOM));
     map.on("load", async () => {
       setLoaded(true);
       const files = await Promise.all(GEO_FILES.map(async (n) => [n, await loadGeo(n)] as const));
@@ -280,8 +291,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   }, [satellite, loaded]);
 
   const geoText = useMemo(
-    () => [...infraLabels(geo.infra?.data ?? null), ...depthLabels(geo.depth?.data ?? null)],
-    [geo],
+    () => [...infraLabels(geo.infra?.data ?? null), ...(detail ? depthLabels(geo.depth?.data ?? null) : [])],
+    [geo, detail],
   );
 
   useEffect(() => {

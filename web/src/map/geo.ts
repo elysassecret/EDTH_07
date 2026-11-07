@@ -1,19 +1,21 @@
 // Owner: C. Optional map files from tools/ (issue #9), all in web/public/geo/, all offline:
 //   land.geojson   coastline polygons (OSM land polygons)
 //   infra.geojson  lines with {kind: "bridge" | "ferry" | "pier", name}
-//   depth.geojson  depth contour lines with {depth_m}
+//   depth.geojson  depth contour lines with {depth_m} (drawn only when zoomed in, #88)
+//   depth_bands.geojson  filled depth bands with {depth_min_m, depth_max_m} (#89), under everything
 // A missing, empty or broken file just means "not drawn"; the chart says which are missing.
 // A file may carry a top-level "attribution" string; otherwise the credit below is used.
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 
-export type GeoName = "land" | "infra" | "depth";
-export const GEO_FILES: GeoName[] = ["land", "infra", "depth"];
+export type GeoName = "land" | "infra" | "depth" | "depth_bands";
+export const GEO_FILES: GeoName[] = ["land", "infra", "depth", "depth_bands"];
 
 // Credits for the sources named in issue #9. A file's own "attribution" wins.
 const DEFAULT_CREDIT: Record<GeoName, string | null> = {
   land: "© OpenStreetMap contributors",
   infra: "© OpenStreetMap contributors",
   depth: null, // source not fixed yet: only the file's own attribution is shown
+  depth_bands: null,
 };
 
 export interface GeoFile { data: FeatureCollection; credit: string | null }
