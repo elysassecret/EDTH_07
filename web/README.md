@@ -51,8 +51,47 @@ the existing store and server protocol. No runtime font, tile, or CDN request is
    delivered positions, contacts, links and revisit ages (`src/map/evaluator.ts`). Add
    `?operator` to the URL for the watch officer's screen: no evaluator or truth switches.
 7. **Tools** — `LiveTools.tsx` retains alerts/acknowledgment, inactivity digest, exercise
-   injection, reviewed reset, incident-report downloads and server tamper checks. Bring-boat-back
-   stays disabled until bridge support lands (issue #63).
+   injection, reviewed reset, incident-report downloads and server tamper checks. **Switch
+   back on** uses #70's `boat_restore`: same boat and agent, no reset/teleport/recharge.
+   A depleted boat stays depleted; new shore reports still require radio delivery.
+
+## Recording the integrated UI (#70 / #76)
+
+Use the existing scenario and narration beats in `server/DEMO.md`, but use the controls
+below for this UI. The legacy instruction **A → sending** is no longer the interaction:
+review must precede authorization. This section is an operator runbook, not evidence
+that a complete video or a physical two-laptop rehearsal has been recorded.
+
+```bash
+pnpm --dir web build
+uv run python -m server --serve-web --demo
+```
+
+1. Open `http://localhost:8765/?operator`. The real seed-1 demo starts paused at sim
+   6900 s / 12:10:00Z. Use **Resume simulation** to start; keep Auto for the recording.
+2. After the delivered C-07 contact and held close proposal appear, use **Review &
+   approve**, or focus that decision card itself and press **A**. On a laptop, open
+   **Attention** first. A opens review; it does not send. Esc/Back cancels review.
+3. Read the actual boat/task/action. Choose **Authorize & send**. Approve/Decline/Stop
+   queue for five real seconds; **Undo queued answer** (or Esc outside a dialog) cancels
+   before transmission. Confirm is immediate only after review. A changed task or lost
+   feed prevents sending; unconfirmed sends are never retried automatically.
+4. Narrate the receipt accurately: server acceptance → **Approved by operator; boat
+   delivery not yet confirmed** → **Boat acknowledgment delivered; execution is not
+   implied**. Only delivered observations change coverage; receipt is not a completed
+   look. Do not narrate a camera image that is not supplied.
+5. For a separate restore take, use **Exercise → Exercise boat → Switch off / Switch
+   back on**. Resume if paused: injections apply at the next simulation tick. Show the
+   labelled event and a newly delivered boat report, not an instant truth-derived card.
+   A reviewed simulation reset is a different action, not a restore shortcut.
+6. Show remaining gaps and the relay-loss stale-data/reconnect beat; do not cut these
+   from the full video. View settings holds comms/display/satellite/evidence. For a
+   separate evaluator shot use a non-operator window and enable **Evaluator comparison**;
+   scorecards appear only there, with source/seeds and an explicit PRELIMINARY warning
+   when supplied. Missing scorecards show a waiting state, never substitute numbers.
+
+Re-time the final full take after choosing the accepted revision. C owns the canonical
+`server/DEMO.md` shot list; D verifies feature/video evidence and the release gate.
 
 ## Map symbols (colour always paired with shape or words)
 
@@ -99,11 +138,15 @@ pnpm --dir web exec playwright install chromium
 pnpm --dir web test:e2e                     # production build + browser checks
 ```
 
-Browser checks start a separate real server on port 18870 with logging disabled.
+Browser checks start a separate real `--demo` server on port 18870, paused at 6900 s,
+with logging disabled.
 Most cases intercept only the WebSocket with explicit protocol fixtures to exercise
 review/undo, expiry, feed loss/recovery, provenance, operator mode, responsive sheets
-and automated accessibility checks. A separate case uses the real simulator handshake
-and pause/resume with no protocol interception. Tests and Tailwind scanning exclude
+and automated accessibility checks, restore command routing, missing/preliminary evaluator
+scorecards, and unconfirmed-answer isolation. Separate cases use the real simulator
+handshake and an actual reset/contact/keyboard-review/authorization/delivery/off/restore
+flow without protocol interception. The latter uses manual 60× speed for a bounded
+regression, not the Auto recording timing or proof of a full video. Tests and Tailwind scanning exclude
 `template/`; that prototype keeps its own tests and build.
 
 Coverage remains conservative: the shore protocol encodes missing sample history as

@@ -335,11 +335,19 @@ export function ExerciseTools({
           </p>
           <Button
             variant="outline"
-            disabled
-            title="Bridge support is tracked in issue #63"
+            disabled={disabled}
+            title="Same boat and agent; no reset, teleport or battery recharge"
+            onClick={() => {
+              if (id !== undefined)
+                fire([{ cmd: "inject", kind: "boat_restore", a: id }]);
+            }}
           >
-            Bring boat back · server enablement pending
+            Switch back on
           </Button>
+          <p className="text-sm text-muted-foreground">
+            Restores the same boat and agent, with battery as it was. A depleted
+            boat stays depleted; shore reports resume only when delivered.
+          </p>
           <Separator />
           <Field>
             <FieldLabel htmlFor="reset-seed">Reset seed</FieldLabel>

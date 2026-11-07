@@ -12,7 +12,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "uv run python -m server --serve-web --no-log --host 127.0.0.1 --port 18870",
+      "uv run python -m server --serve-web --demo --no-log --host 127.0.0.1 --port 18870",
     cwd: "..",
     url: "http://127.0.0.1:18870",
     reuseExistingServer: false,

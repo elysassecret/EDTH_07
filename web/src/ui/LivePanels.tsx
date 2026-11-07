@@ -1,6 +1,7 @@
 // Template presentation, operational data exclusively from the existing live store.
 import { useState } from "react";
 import { Activity, ArrowRight, Eye, Radio, Ship } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -630,10 +631,16 @@ export function EvaluatorWorkspace() {
           <>
             <p>
               {card.source} · seeds {card.seeds.join(", ")}
-              {"preliminary" in card && card.preliminary
-                ? " · PRELIMINARY"
-                : ""}
             </p>
+            {card.preliminary && (
+              <Alert>
+                <AlertTitle>PRELIMINARY</AlertTitle>
+                <AlertDescription>
+                  The evaluator marks these results as preliminary, not final
+                  accepted figures.
+                </AlertDescription>
+              </Alert>
+            )}
             <table className="w-full text-left">
               <thead>
                 <tr>

@@ -97,18 +97,16 @@ export function useDecisionFlow() {
         ? { ...old, [answering]: { ...old[answering], phase: "sent" } }
         : old,
     );
-    const timer = window.setTimeout(
-      () =>
-        setAttempts((old) =>
-          old[answering]?.phase === "sent"
-            ? {
-                ...old,
-                [answering]: { ...old[answering], phase: "unconfirmed" },
-              }
-            : old,
-        ),
-      10000,
-    );
+    const timer = window.setTimeout(() => {
+      setAttempts((old) =>
+        old[answering]?.phase === "sent"
+          ? { ...old, [answering]: { ...old[answering], phase: "unconfirmed" } }
+          : old,
+      );
+      // Keep this attempt blocked against duplicate retries, but release other tasks.
+      if (useStore.getState().answering === answering)
+        useStore.setState({ answering: null });
+    }, 10000);
     return () => window.clearTimeout(timer);
   }, [answering]);
   useEffect(() => {

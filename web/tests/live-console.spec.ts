@@ -1,6 +1,6 @@
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import type { SceneMsg, Snapshot } from "../src/types";
+import type { SceneMsg, Scorecard, Snapshot } from "../src/types";
 
 const url = "/?feed=ws://127.0.0.1:18870";
 const scene: SceneMsg = {
@@ -107,27 +107,51 @@ function snapshot(): Snapshot {
   };
 }
 
-async function feed(page: Page) {
+async function feed(page: Page, options: { acknowledge?: boolean } = {}) {
   let data = snapshot();
   let frozen = false;
+  let scorecard: Scorecard | undefined;
   const clients = new Set<WebSocketRoute>();
-  const commands: { cmd: string; id?: string }[] = [];
+  const commands: { cmd: string; id?: string; kind?: string; a?: number }[] =
+    [];
+  function deliver(socket: WebSocketRoute) {
+    const truth = socket.url().endsWith("/truth");
+    socket.send(
+      JSON.stringify({
+        ...data,
+        view: truth ? "truth" : "shore",
+        ...(truth
+          ? {
+              eval: {
+                t: data.t,
+                boats: [],
+                contacts: [],
+                links: [],
+                seg_age: {},
+                cable_overdue: null,
+              },
+              scorecard,
+            }
+          : {}),
+      }),
+    );
+  }
   await page.routeWebSocket(/\/shore$|\/truth$/, (socket) => {
     clients.add(socket);
     socket.send(JSON.stringify(scene));
-    const view = socket.url().endsWith("/truth") ? "truth" : "shore";
-    socket.send(JSON.stringify({ ...data, view }));
+    deliver(socket);
     socket.onMessage((raw) => {
       const command = JSON.parse(String(raw));
       commands.push(command);
-      socket.send(
-        JSON.stringify({
-          type: "ack",
-          cmd: command.cmd,
-          id: command.id ?? null,
-          ok: true,
-        }),
-      );
+      if (options.acknowledge !== false)
+        socket.send(
+          JSON.stringify({
+            type: "ack",
+            cmd: command.cmd,
+            id: command.id ?? null,
+            ok: true,
+          }),
+        );
     });
     socket.onClose(() => clients.delete(socket));
   });
@@ -138,14 +162,7 @@ async function feed(page: Page) {
       t: data.t + 0.1,
       boats: data.boats.map((b) => ({ ...b, last_heard: data.t })),
     };
-    clients.forEach((socket) =>
-      socket.send(
-        JSON.stringify({
-          ...data,
-          view: socket.url().endsWith("/truth") ? "truth" : "shore",
-        }),
-      ),
-    );
+    clients.forEach(deliver);
   }, 100);
   return {
     commands,
@@ -157,6 +174,9 @@ async function feed(page: Page) {
     },
     update: (patch: Partial<Snapshot>) => {
       data = { ...data, ...patch };
+    },
+    scorecard: (value: Scorecard | undefined) => {
+      scorecard = value;
     },
     stop: () => clearInterval(timer),
   };
@@ -371,6 +391,130 @@ test("primary screen and focused review pass automated accessibility checks", as
   }
 });
 
+test("restoration sends boat_restore for the selected boat and requires a fresh feed", async ({
+  page,
+}) => {
+  const wire = await feed(page);
+  try {
+    await page.goto(url);
+    await page.getByRole("button", { name: "Exercise controls" }).click();
+    const dialog = page.getByRole("dialog", { name: "Exercise controls" });
+    await dialog.getByRole("combobox", { name: "Exercise boat" }).click();
+    await page.getByRole("option", { name: "USV 03", exact: true }).click();
+    const restore = dialog.getByRole("button", {
+      name: "Switch back on",
+      exact: true,
+    });
+    await expect(restore).toBeEnabled();
+    await restore.click();
+    await expect
+      .poll(() => wire.commands)
+      .toEqual([{ cmd: "inject", kind: "boat_restore", a: 3 }]);
+    wire.freeze();
+    await expect(restore).toBeDisabled({ timeout: 15000 });
+    wire.resume();
+    await expect(restore).toBeEnabled();
+    expect(wire.commands).toHaveLength(1);
+  } finally {
+    wire.stop();
+  }
+});
+
+test("scorecard stays evaluator-only and preserves provenance, preliminary and missing states", async ({
+  page,
+}) => {
+  const wire = await feed(page);
+  try {
+    wire.scorecard({
+      source: "test-fixture/evaluator",
+      seeds: [1, 2],
+      preliminary: true,
+      rows: [
+        {
+          mode: "elysa",
+          metric: "fixture metric",
+          median: 1,
+          min: 0,
+          max: 2,
+          unit: "km",
+        },
+      ],
+    });
+    await page.goto(url);
+    await expect(page.getByText(/test-fixture\/evaluator/)).toHaveCount(0);
+    await page.getByRole("button", { name: "View settings" }).click();
+    await page.getByRole("switch", { name: /Evaluator comparison/ }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
+    await expect(page.getByText("PRELIMINARY", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("test-fixture/evaluator · seeds 1, 2", { exact: true }),
+    ).toBeVisible();
+    wire.scorecard(undefined);
+    await expect(
+      page.getByText("Waiting for eval/ scorecard. No results are invented.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByText("PRELIMINARY", { exact: true })).toHaveCount(0);
+  } finally {
+    wire.stop();
+  }
+});
+
+test("an unconfirmed answer blocks its own retry but releases unrelated decisions", async ({
+  page,
+}) => {
+  const wire = await feed(page, { acknowledge: false });
+  try {
+    const first = snapshot().decisions[0];
+    wire.update({
+      decisions: [
+        first,
+        {
+          ...first,
+          id: "close:contact:C-08",
+          task: "contact:C-08",
+          text: "A separate delivered proposal",
+          t: 951,
+        },
+      ],
+    });
+    await page.goto(url);
+    const original = page.getByRole("article", {
+      name: /Decision close:contact:C-07\./,
+    });
+    await original.getByRole("button", { name: /Review & approve/ }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Authorize & send" })
+      .click();
+    await expect(
+      original.getByText("DELIVERY UNCONFIRMED", { exact: true }),
+    ).toBeVisible({ timeout: 20000 });
+    await expect(
+      original.getByRole("button", { name: /Review & approve/ }),
+    ).toBeDisabled();
+    const other = page.getByRole("article", {
+      name: /Decision close:contact:C-08\./,
+    });
+    await other.getByRole("button", { name: /Review & approve/ }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Authorize & send" })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Undo queued answer" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Undo queued answer" }).click();
+    expect(wire.commands.filter((c) => c.cmd === "approve")).toHaveLength(1);
+  } finally {
+    wire.stop();
+  }
+});
+
 test("real simulator handshake and pause work without the template fixture", async ({
   page,
 }) => {
@@ -380,13 +524,13 @@ test("real simulator handshake and pause work without the template fixture", asy
   await expect(page.getByText("FEED LIVE", { exact: true })).toBeVisible();
   await expect(page.getByTestId("fleet-4")).toBeVisible();
   await expect(page.locator(".maplibregl-canvas")).toBeVisible();
-  await page.getByRole("button", { name: "Pause simulation" }).click();
-  await expect(
-    page.getByRole("button", { name: "Resume simulation" }),
-  ).toBeVisible();
   await page.getByRole("button", { name: "Resume simulation" }).click();
   await expect(
     page.getByRole("button", { name: "Pause simulation" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Pause simulation" }).click();
+  await expect(
+    page.getByRole("button", { name: "Resume simulation" }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

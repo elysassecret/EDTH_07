@@ -119,6 +119,15 @@ describe("operational transport retained by the template integration", () => {
       clock.mockRestore();
     }
   });
+  it("releases the transport slot after loss without fabricating an acknowledgment", async () => {
+    const { useStore, socket } = await setup();
+    useStore.setState({ answering: "close:contact:C-07" });
+    socket.close();
+    expect(useStore.getState().conn).toBe("lost");
+    expect(useStore.getState().answering).toBeNull();
+    expect(useStore.getState().lastAck).toBeNull();
+    expect(socket.sent).toEqual([]);
+  });
   it("does not transmit a queued decision that expires during its undo window", async () => {
     const { useStore, socket } = await setup();
     useStore

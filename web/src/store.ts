@@ -208,7 +208,8 @@ window.setInterval(() => {
 
 function loseFeed(): void {
   const cancelled = hold.undo();
-  useStore.setState({ conn: "lost", ...(cancelled ? {
+  // An in-flight answer is unconfirmed, not permission to block unrelated tasks forever.
+  useStore.setState({ conn: "lost", answering: null, ...(cancelled ? {
     commandError: "Queued answer cancelled on feed loss; nothing was transmitted.",
   } : {}) });
 }
