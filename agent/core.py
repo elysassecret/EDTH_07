@@ -3,11 +3,13 @@
 Sees only its own sensors and its radio inbox; returns an action and bytes to broadcast.
 No clock, no files, no randomness: time is the argument t (sim ms).
 """
+from math import isqrt
+
 from agent.auction import Auction, ms
 from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
 from agent.table import Table
-from agent.tour import Follower, Leg, Tours, Visits
+from agent.tour import Follower, Leg, Tours, Visits, dist_to_line
 from contract.constants import (
     CLAIMED,
     HEARTBEAT,
@@ -29,8 +31,29 @@ from contract.mission import Action, Detection, Mission, Own, Params
 from contract.tasks import Rec, from_wire, kind, to_wire
 
 HOME_M = 50  # at the shore station
+STANDOFF_MARGIN_M = 50  # steer round the stand-off ring this far outside it
+AIM_M = 500  # while rounding a ring, aim this far ahead along the tangent
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
 ACTIVE_WINDOW = 600_000  # a boat silent this long no longer counts towards the majority
+
+
+def round_ring(p: tuple[int, int], c: tuple[int, int], r: int,
+               goal: tuple[int, int]) -> tuple[int, int]:
+    """A point AIM_M ahead of p along the tangent to circle (c, r) on the goal's side. Recomputed
+    every tick, this walks the boat round the circle until the goal is in clear view."""
+    dx, dy = p[0] - c[0], p[1] - c[1]
+    d2 = dx * dx + dy * dy
+    s = isqrt(max(d2 - r * r, 0))
+    tangents = [(c[0] + (r * r * dx + k * r * s * -dy) // d2, c[1] + (r * r * dy + k * r * s * dx) // d2)
+                for k in (1, -1)]
+    t = min(tangents, key=lambda q: (dist(q, goal), q))
+    vx, vy = t[0] - p[0], t[1] - p[1]
+    n = isqrt(vx * vx + vy * vy)
+    if n < AIM_M // 10:  # on the ring itself: the tangent is the perpendicular
+        vx, vy = min(((-dy, dx), (dy, -dx)),
+                     key=lambda w: dist((p[0] + w[0], p[1] + w[1]), goal))
+        n = isqrt(vx * vx + vy * vy) or 1
+    return p[0] + vx * AIM_M // n, p[1] + vy * AIM_M // n
 
 
 class Agent:
@@ -101,7 +124,7 @@ class Agent:
             self.net.send(t, "REC", {"recs": [to_wire(r) for r in self.table.recs.values()]})
             for task in self.contacts.flags:
                 self.net.send(t, "CONTACT", self.contacts.message(task))
-        action = self.behave()
+        action = self.avoid(self.behave())
         self.mode, self.action = action.mode, action
         return action, self.net.flush()
 
@@ -264,6 +287,32 @@ class Agent:
         if self.legs():
             return Action(PATROL, self.follow.target(self.pos), v)
         return Action(SENTINEL, None, 0)
+
+    # safety filter (PLAN 7.9) --------------------------------------------------------------
+    def avoid(self, a: Action) -> Action:
+        """A patrol or station target never takes the boat inside the stand-off ring of a contact
+        with no AIS: a look closer than 1 nm is the watch officer's call (the close card). The
+        boat skips waypoints inside the ring and steers round it on the tangent."""
+        if a.mode not in (PATROL, SENTINEL) or a.target is None:
+            return a
+        r = self.params.standoff_m + STANDOFF_MARGIN_M
+        rings = [(o["x"], o["y"]) for k, o in sorted(self.contacts.tracks.items())
+                 if not o["ais"] and not self.contacts.stale(k, self.t)]
+        target = a.target
+        if a.mode == PATROL:
+            for _ in range(sum(len(self.tours.way(leg)) for leg in self.follow.legs)):
+                if not any(dist(target, c) <= r for c in rings):
+                    break
+                self.follow.skip()
+                target = self.follow.target(self.pos)
+        for c in rings:
+            if dist(target, c) <= r:  # a station inside the ring: hold on its edge instead
+                target = ring_point(c, target, r)
+            if dist(self.pos, c) <= r:
+                target = ring_point(c, self.pos, r + STANDOFF_MARGIN_M)  # straight out
+            elif dist_to_line(c, (self.pos, target)) < r:
+                target = round_ring(self.pos, c, r, target)
+        return Action(a.mode, target, a.speed_mm_s)
 
     def heartbeat(self) -> dict:
         legs = self.legs()
