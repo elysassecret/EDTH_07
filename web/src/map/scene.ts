@@ -59,7 +59,12 @@ export const boxGeo: Feature = {
   geometry: { type: "Polygon", coordinates: [boxRing] },
 };
 
-export interface Label { pos: [number, number]; text: string; kind: string }
+// ref: "boat:3" or a contact id, so the selected one keeps its label (map/declutter.ts);
+// band: segment-age colour; geoKind: the depth/infra kind of a geo label
+export interface Label {
+  pos: [number, number]; text: string; kind: string; ref?: string;
+  band?: "recent" | "due" | "over" | "none"; geoKind?: string;
+}
 
 /** Cable names at a middle vertex inside the box. */
 export function cableLabels(): Label[] {
