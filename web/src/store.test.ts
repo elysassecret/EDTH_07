@@ -108,12 +108,16 @@ describe("operational transport retained by the template integration", () => {
   });
   it("rechecks report age at dispatch even before the watchdog runs", async () => {
     const { useStore, socket } = await setup();
-    const clock = vi.spyOn(performance, "now").mockReturnValue(useStore.getState().lastMsgAt + 2100);
+    const clock = vi
+      .spyOn(performance, "now")
+      .mockReturnValue(useStore.getState().lastMsgAt + 2100);
     try {
       expect(useStore.getState().send({ cmd: "pause" })).toBe(false);
       expect(useStore.getState().conn).toBe("lost");
       expect(socket.sent).toEqual([]);
-    } finally { clock.mockRestore(); }
+    } finally {
+      clock.mockRestore();
+    }
   });
   it("does not transmit a queued decision that expires during its undo window", async () => {
     const { useStore, socket } = await setup();

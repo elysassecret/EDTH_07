@@ -457,11 +457,13 @@ export function App() {
           <div className="flex flex-wrap gap-3">
             <span>
               {snap
-                ? `${fresh}/${snap.boats.length} reports current`
+                ? `${fresh}/${snap.boats.length} ${channel === "shore" ? "reports" : "truth states"} current`
                 : "Waiting for fleet picture"}
             </span>
             <span className="text-muted-foreground">
-              Coverage: {unknown} unknown · {overdue} over target
+              {!snap || !scene
+                ? "Coverage picture not yet available"
+                : `Coverage: ${unknown} unknown · ${scene.revisit_target_s === undefined ? "target not supplied" : `${overdue} over target`}`}
             </span>
           </div>
           <Badge variant="secondary">

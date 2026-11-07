@@ -155,7 +155,12 @@ export function CoveragePanel() {
           {snap.view === "shore"
             ? "Delivered shore observations"
             : "Evaluator truth"}{" "}
-          · {unknown.length} unknown · {overdue.length} over target
+          {scene
+            ? ` · ${unknown.length} unknown`
+            : " · segment inventory not supplied"}
+          {target === undefined
+            ? " · target not supplied"
+            : ` · ${overdue.length} over target`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 px-4">
