@@ -6,7 +6,7 @@ Rule: only D edits files here. Others open an issue or ask in chat.
 
 | File | Feature | What |
 |---|---|---|
-| `warm.py` | 12 | 3 h warm-up: seed-drawn place on each sweeper's tour loop, battery held full, bidding off, tape and tide shifted. Same warm hash in every mode |
+| `warm.py` | 12 | 3 h warm-up: seed-drawn place on each sweeper's tour loop, battery held full, bidding off, tape and tide shifted. Same warm hash in every mode. Each run card records `warm_state`: the seeded phases, every boat's position, follower index and charge at mission time 0, and that `place_boats` overwrote World's cold placement (#72) |
 | `metrics.py` | 3 | Truth: sample ages, km overdue from real interval lengths, km never visited, ownership, claims, contact timeline |
 | `ais_observer.py` | 12 | Real cargo and tanker crossings of the patrolled cables after T, in view or not. Reads the private clip; agents never see it |
 | `report.py` | 12 | Scorecard, median and range over seeds; fairness F1-F5 |
@@ -30,6 +30,6 @@ Definitions:
 - **km overdue:** cable length whose newest visit is older than `revisit_target_s` at `evaluate_s`, using each sample's real interval length. Sums to 23.6 km, not 24.1.
 - **Never visited** is None, reported as its own km and never inside km overdue. `Overdue plus never visited` is the sum.
 - **Mean km overdue after T:** km overdue every 60 s from the first failure to `evaluate_s`, averaged.
-- **Modes** differ in `policy` only (F4). `static` means no sweeping and no bids; a boat that sees a candidate still holds it. `off` stops bidding at T.
+- **Modes** differ in `policy` only (F4). `static` means fixed stations forever: no sweeping, no bids, no shadowing. A static boat that sees a candidate still detects and reports it (the shore gets the contact) but never leaves its station, so `static` can be "in view" of a contact by luck of geometry only. Agreed with A in #19; locked by `tests/agent/test_contact.py::test_static_boats_report_the_contact_but_never_leave_station` and `tests/agent/test_protocol.py::test_policy_static_parks_every_boat`. `off` stops bidding at T.
 
 `run_batch` exits 1 and prints `PRELIMINARY` until every fairness and gap check passes. Do not put its numbers on a slide before that.

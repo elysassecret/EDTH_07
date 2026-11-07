@@ -23,7 +23,7 @@ from eval.ais_observer import observer_for
 from eval.gap import GapAudit
 from eval.metrics import Metrics
 from eval.report import headline_ok, print_report
-from eval.warm import WARM_S, build_world, warm_up
+from eval.warm import WARM_S, build_world, warm_state, warm_up
 from world.check import config_hash
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,6 +61,7 @@ def run_case(case) -> dict:
     cfg = run_config(root)
     world = build_world(root, policy, seed, speed, radio, warm_s)
     warm_hash = warm_up(world)
+    warm = warm_state(world, seed)  # at mission time 0, before anything moves
     rows: list[dict] = []
     metrics = Metrics(
         world, cfg["revisit_target_s"], t0_ms=world.warm_ms, log=rows.append, gap=GapAudit()
@@ -73,6 +74,7 @@ def run_case(case) -> dict:
         metrics.on_tick()
     card = metrics.evaluated or metrics.scorecard()
     card["warm_hash"] = warm_hash
+    card["warm_state"] = warm
     card["final_hash"] = world.state_hash()
     card["agents_sha256"] = digest([node.view() for _, node in sorted(world.nodes.items())])
     card["params"] = asdict(world.final_params)

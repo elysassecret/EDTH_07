@@ -74,14 +74,21 @@ class Visits:
         self.r, self.pts = r, segs
         self.samples = {k: every(v, self.STEP_M) for k, v in segs.items()}
         self.seen = {k: [-1] * len(v) for k, v in self.samples.items()}
+        self.box = {k: (min(x for x, _ in v) - r, min(y for _, y in v) - r,
+                        max(x for x, _ in v) + r, max(y for _, y in v) + r)
+                    for k, v in self.samples.items() if v}
+        self.lim = (r + 1) ** 2  # isqrt(d2) <= r exactly when d2 < (r + 1)^2
 
     def credit(self, pos: Point, t: int) -> None:
-        for k, pts in self.pts.items():
-            if dist_to_line(pos, pts) > self.r:
+        """Runs every tick on every boat, so it skips far segments by bounding box and compares
+        squared distances; the result is the same as dist(pos, sample) <= r."""
+        x, y = pos
+        for k, (x0, y0, x1, y1) in self.box.items():
+            if not (x0 <= x <= x1 and y0 <= y <= y1):
                 continue
             seen = self.seen[k]
-            for i, p in enumerate(self.samples[k]):
-                if seen[i] < t and dist(pos, p) <= self.r:
+            for i, (px, py) in enumerate(self.samples[k]):
+                if seen[i] < t and (px - x) ** 2 + (py - y) ** 2 < self.lim:
                     seen[i] = t
 
     def oldest(self, task: str) -> int:

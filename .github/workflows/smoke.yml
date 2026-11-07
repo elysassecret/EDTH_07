@@ -4,7 +4,7 @@ jobs:
   smoke:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]  # one runner while the org spending limit blocks jobs (#74); add macos/windows back when billing is restored
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
