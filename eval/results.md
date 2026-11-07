@@ -1,6 +1,8 @@
 # Measured results on the team world
 
-**Status: accepted runs on `main` at `86806cb` (merge of #70), 2026-11-07.** `run_batch` exits 0 on every batch below: fairness F1–F5 and the console gap check pass, no PRELIMINARY. Re-run on the frozen `final` tag on Sunday morning and replace the revision. Every number is **truth** (evaluator), not shore-reported.
+**Status: headline and five-seed batches rerun on `main` at `b922b40` (merge of #113) plus the eval changes of #109, 2026-11-07 (no `world/` or `agent/` change in #109). Sensitivities are still from `86806cb`.** `run_batch` exits 0 on every batch below: fairness F1–F5 and the console gap check pass, no PRELIMINARY.
+
+**Fixed before this rerun:** since #113, `World.reset()` restores the current from `_base_current`, which undid the warm-up's tide shift, so the tide flipped during the warm-up instead of at mission 9,000 s. On that broken path the five-seed headline read 19.1 / 5.7 / 0.0 km. `eval/warm.py` now shifts `_base_current` too, and `tests/eval/test_energy_metrics.py::test_warm_up_tide_shift_survives_reset` guards it. With the fix every headline number below equals the `86806cb` run. Re-run on the frozen `final` tag on Sunday morning and replace the revision. Every number is **truth** (evaluator), not shore-reported.
 
 ## Setup
 
@@ -17,15 +19,23 @@
 | Cable km overdue at end | 6.7 (2.1 to 11.8) | **1.4** (0.0 to 5.6) | elysa better 30, equal 0, worse 0. Median gain 4.8 km |
 | Mean km overdue, T to end | 2.3 (0.5 to 4.6) | **0.2** (0.0 to 2.5) | elysa better 30, equal 0, worse 0. Median gain 1.5 km |
 | Worst sample age at end (s) | 16,558 (14,375 to 17,871) | **12,798** (9,499 to 17,860) | elysa better 24, equal 6, worse 0 |
-| Real cargo and tanker crossings in view after T (of 9) | **9** (9 to 9) | 5 (3 to 9) | elysa worse 20, equal 10, better 0 |
+| Real cargo and tanker crossings in view after T (of 9) | **9** (9 to 9) | 5 (2 to 9) | elysa worse 20, equal 10, better 0 |
 | T to all segments owned by a live boat (s) | not reached | 60 (60 to 60) | |
 | Segments with no live owner at end | 4 (4 to 7) | 0 | |
+| Unserved task-seconds, T to end (no live owner) | 27,204 (27,204 to 43,446) | **6,945** (6,945 to 16,650) | elysa better 30, equal 0, worse 0. Median gain 20,259 |
+| of which lane pickets / cable segments | 0 / 27,204 | 6,777 / 168 | |
+| Reserve violations (boat-seconds at sea under the 30 min reserve) | 0 | 0 | equal 30 |
+| Recovery outcome at end | not recovered 30 of 30 | cables only 30 of 30 | |
 
 ```bash
 uv run python -m eval.run_batch --modes off,elysa --seeds 1,...,30 --jobs 8 --out runs/paired30
 ```
 
 **The trade-off (#68), stated plainly.** After boat 1 goes home, repair sends boat 4 off its south lane picket to the cables, oldest segment first. The cables stay fresh: 1.4 km overdue instead of 6.7 km, better in every one of 30 seeds. The south picket is empty in both modes, but `off` keeps its 9 of 9 crossings in view because boat 4 never moves and the four crossings near picket S happen to be within camera range. With repair, boat 4 is on the far cable when those ships cross, so 20 of 30 seeds drop to 5 of 9. Decision: keep #55 and show both numbers on the slide. "Crossings in view" is the evaluator's reading of the private AIS clip; it says a live boat was within camera range, nothing more. The boats never see AIS.
+
+**The three energy and recovery metrics (#109), read plainly.** No boat in either mode ever ran under its reserve away from Korsør: the return rule held in all 60 runs, so this scene does not separate the modes on energy. Unserved work is where they differ. Without repair, four cable segments sit with no live owner from the failure to the end. With repair, the cables have an owner again within a minute (168 task-seconds) and what stays unserved is the south lane picket that boat 4 left. That is the trade-off below, measured a second way. "Cables only" means every segment and the relay have a live owner at the end and at least one picket does not; it happened in every repair seed. Definitions: `eval/README.md`. Per-seed values: `runs/paired30/scorecard.json`.
+
+The 30 paired runs changed in one place since `86806cb`: the fewest crossings in view in an `elysa` seed is now 2, was 3 (#97, AIS replay into boat sensors, merged in between).
 
 ## Five seeds, all three modes
 
@@ -42,6 +52,9 @@ Median (min to max). The batch the build plan names.
 | Segments with no live owner at end | 4 | 4 (4 to 7) | 0 |
 | Claims after T | 0 | 0 | 4 (4 to 9) |
 | Console shows a segment fresher than truth, up to (s) | 1 | 2 | 2 |
+| Unserved task-seconds, T to end | 27,204 | 27,204 (27,204 to 27,933) | 6,945 (6,945 to 8,649) |
+| Reserve violations (boat-seconds) | 0 | 0 | 0 |
+| Recovery outcome at end | not recovered 5 of 5 | not recovered 5 of 5 | cables only 5 of 5 |
 
 Paired on these 5 seeds: elysa better 5 of 5 on km overdue (median gain 3.3 km). **Quote the 30-seed table, not this one, for off against elysa.**
 
@@ -76,4 +89,4 @@ Detected in 10 of 30 seeds at 2.3 m/s (same seeds in `off` and `elysa`: detectio
 
 **What repair did not do.** It does not keep the south lane picket. It does not detect the contact more often. At 4 km radio it does not get a watcher onto the contact at all.
 
-**Test evidence for this revision.** `uv run pytest -q` on Windows 11, Python 3.12: 271 passed, 1 skipped, 1 failed. The failure is `tests/server/test_evidence.py::test_private_key_is_owner_only`, a POSIX file-mode check that cannot pass on NTFS; it is C's and passes on Linux. CI is blocked by org billing (see `deck/RELEASE.md`), so this is local evidence.
+**Test evidence for the `86806cb` revision.** `uv run pytest -q` on Windows 11, Python 3.12: 271 passed, 1 skipped, 1 failed. The failure is `tests/server/test_evidence.py::test_private_key_is_owner_only`, a POSIX file-mode check that cannot pass on NTFS; it is C's and passes on Linux. CI is blocked by org billing (see `deck/RELEASE.md`), so this is local evidence.

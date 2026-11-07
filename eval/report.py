@@ -26,6 +26,8 @@ ROWS = [
     ("time_to_all_segs_owned_s", "T to all segments owned by a live boat (s)", "{:.0f}"),
     ("segs_unowned_at_end", "Segments with no live owner at end", "{:.0f}"),
     ("repair_claims_after_T", "Claims after T", "{:.0f}"),
+    ("unserved_task_s_post_T", "Unserved task-seconds, T to end (no live owner)", "{:.0f}"),
+    ("reserve_violation_s", "Reserve violations: boat-seconds at sea under reserve", "{:.0f}"),
     ("operator_actions", "Operator actions (batch has no operator)", "{:.0f}"),
 ]
 PAIRED_ROWS = [
@@ -33,7 +35,11 @@ PAIRED_ROWS = [
     ("mean_km_overdue_post_T", "Mean km overdue, T to end", "{:.1f}", -1),
     ("worst_age_s", "Worst sample age at end (s)", "{:.0f}", -1),
     ("crossings_in_view", "Real cargo and tanker crossings in view after T", "{:.0f}", +1),
+    ("unserved_task_s_post_T", "Unserved task-seconds, T to end", "{:.0f}", -1),
+    ("reserve_violation_s", "Reserve violation boat-seconds", "{:.0f}", -1),
 ]
+OUTCOMES = ("all tasks", "cables only", "not recovered")
+SUMMARY_KEYS = [k for k, _, _ in ROWS] + ["detect_s", "watcher_in_view_s"]
 CONTACT_ROWS = [
     ("detect_s", "Contact start to first detection, {c} (s)"),
     ("watcher_in_view_s", "Contact start to watcher in view, {c} (s)"),
@@ -62,6 +68,12 @@ def table(cards: list[dict]) -> str:
             f"| {label} | " + " | ".join(fmt_stat([c.get(key) for c in per[m]], fmt) for m in modes)
             + " |"
         )
+    lines.append("| Recovery outcome at end (seeds) | "
+                 + " | ".join(outcome_text(per[m]) for m in modes) + " |")
+    unserved = [", ".join(f"{k} {fmt_stat([c.get('unserved_s_by_kind', {}).get(k, 0) for c in per[m]],
+                                               '{:.0f}')}"
+                          for k in kinds(cards)) or "none" for m in modes]
+    lines.append("| Unserved task-seconds by kind | " + " | ".join(unserved) + " |")
     contacts = sorted({x for c in cards for x in c["contacts"]})
     for cid in contacts:
         for key, label in CONTACT_ROWS:
@@ -77,6 +89,19 @@ def table(cards: list[dict]) -> str:
                      + " | ".join(cells) + " |")
     lines.append("| Seeds | " + " | ".join(str(len(per[m])) for m in modes) + " |")
     return "\n".join(lines)
+
+
+def kinds(cards: list[dict]) -> list[str]:
+    return sorted({k for c in cards for k in c.get("unserved_s_by_kind", {})})
+
+
+def outcomes(cards: list[dict]) -> dict[str, int]:
+    return {o: sum(c.get("recovery_outcome") == o for c in cards) for o in OUTCOMES}
+
+
+def outcome_text(cards: list[dict]) -> str:
+    n = outcomes(cards)
+    return ", ".join(f"{o} {k}" for o, k in n.items() if k) or "not measured"
 
 
 def paired(cards: list[dict], a: str = "off", b: str = "elysa") -> list[dict]:
@@ -175,6 +200,40 @@ def console_scorecard(cards: list[dict], source: str = "eval/run_batch.py") -> d
     }
 
 
+def summary(cards: list[dict], source: str = "eval/run_batch.py") -> dict:
+    """scorecard.json: per mode, median and range of every table row, the recovery outcome
+    count and the seeds behind them. Truth. `preliminary` follows the same checks as the slide."""
+    modes = list(dict.fromkeys(c["mode"] for c in cards))
+    out = {"source": source, "label": "truth", "seeds": sorted({c["seed"] for c in cards}),
+           "preliminary": not headline_ok(cards), "modes": {}}
+    for m in modes:
+        per = [c for c in cards if c["mode"] == m]
+        stats = {}
+        for key in SUMMARY_KEYS:
+            vals = [c.get(key) for c in per]
+            if vals and isinstance(vals[0], dict):
+                continue
+            got = [v for v in vals if v is not None]
+            stats[key] = ({"median": statistics.median(got), "min": min(got), "max": max(got),
+                           "reached": len(got), "of": len(vals)} if got else
+                          {"median": None, "reached": 0, "of": len(vals)})
+        out["modes"][m] = {
+            "seeds": sorted(c["seed"] for c in per),
+            "metrics": stats,
+            "recovery_outcome": outcomes(per),
+            "recovery_outcome_by_seed": {c["seed"]: c.get("recovery_outcome") for c in per},
+            "reserve_violation_boats_by_seed": {c["seed"]: c.get("reserve_violation_boats")
+                                                for c in per},
+            "unserved_s_by_kind": {k: statistics.median(
+                [c.get("unserved_s_by_kind", {}).get(k, 0) for c in per]) for k in kinds(per)},
+        }
+    out["paired_off_vs_elysa"] = [
+        {k: r[k] for k in ("key", "seeds", "compared", "better", "equal", "worse", "median_gain")}
+        for r in paired(cards)
+    ]
+    return out
+
+
 def print_report(cards: list[dict], out: Path | None = None) -> None:
     head = (
         "# Scorecard (truth)\n\nMedian (min to max) over seeds. Mission seconds: T is the first "
@@ -194,6 +253,9 @@ def print_report(cards: list[dict], out: Path | None = None) -> None:
     print(text)
     if out is not None:
         (Path(out) / "scorecard.md").write_text(text, encoding="utf-8")
+        (Path(out) / "scorecard.json").write_text(
+            json.dumps(summary(cards), indent=1), encoding="utf-8"
+        )
         (Path(out) / "scorecard_console.json").write_text(
             json.dumps(console_scorecard(cards), indent=1), encoding="utf-8"
         )

@@ -8,6 +8,20 @@ are both world time and mission time is world time minus `t0_ms`.
 A sample that was never visited has age None, not a large number. It is reported as
 `never_visited_km`, beside `cable_km_overdue` and never inside it, so the headline cannot
 quietly mix "late" with "unknown". `overdue_or_never_km` is the two added together.
+
+Energy and recovery (#109, from world/PRODUCT_BRIEF.md: judge energy work on reserve
+violations, unserved work and recovery outcome, never on energy saved):
+
+- **Reserve violation:** an enabled boat more than `HOME_M` from the Korsør station with less
+  than `reserve_s` of charge left. Counted in boat-seconds over the whole mission. A boat at 0
+  away from the station is also listed as `stranded_boats`. A switched-off boat is not counted:
+  that is an injected failure, not an energy decision.
+- **Unserved work:** task-seconds from T to evaluation in which a fixed mission task (cable
+  segment, lane picket, relay) has no live owner, split by kind. Contact tasks are not in it;
+  the contact rows cover them.
+- **Recovery outcome** at evaluation: `all tasks` (every fixed task has a live owner),
+  `cables only` (every segment does, some picket or the relay does not), `not recovered`
+  (some segment has no live owner). `unowned_at_end` names the tasks.
 """
 
 import hashlib
@@ -17,6 +31,8 @@ from math import hypot
 from contract.constants import CLAIMED, RETURNING, UNAVAILABLE
 from contract.mission import FAILURES
 from contract.tasks import kind
+
+HOME_M = 50  # at the shore station; same radius as agent/core.py HOME_M
 
 EVERY_MS = 60_000  # one metric row per minute; ages only change at visits
 
@@ -106,6 +122,11 @@ class Metrics:
         self.worst_post_ms = 0
         self.post_rows: list[float] = []
         self.evaluated: dict | None = None
+        self.tasks = [t.id for t in world.mission.tasks]
+        self.reserve_ms = world.params.reserve_ms
+        self.reserve_viol_ms: dict[int, int] = {}
+        self.stranded: set[int] = set()
+        self.unserved_ms: dict[str, int] = {}
 
     # helpers ----------------------------------------------------------------------------------
     def live(self) -> list[int]:
@@ -134,6 +155,9 @@ class Metrics:
         self._claims(t)
         self._ownership(t, live)
         self._contacts(t, live)
+        self._reserve()
+        if self.T <= t <= self.eval_t:
+            self._unserved(live)
         if self.ais is not None:
             self.ais.on_tick(t - self.t0, [w.boats[b].point for b in live])
         if t == self.T - w.tick_ms:
@@ -166,6 +190,32 @@ class Metrics:
             self.broken_t = t
         elif owned and self.broken_t is not None:
             self.owned_t = t
+
+    def _reserve(self) -> None:
+        w = self.w
+        shore = w.mission.shore
+        for b, s in sorted(w.boats.items()):
+            if not s.enabled:
+                continue
+            x, y = s.point
+            if hypot(x - shore[0], y - shore[1]) <= HOME_M:
+                continue
+            if s.charge_ms < self.reserve_ms:
+                self.reserve_viol_ms[b] = self.reserve_viol_ms.get(b, 0) + w.tick_ms
+            if s.charge_ms <= 0:
+                self.stranded.add(b)
+
+    def _unserved(self, live: list[int]) -> None:
+        for task in self.tasks:
+            if not self.owned(task, live):
+                k = kind(task)
+                self.unserved_ms[k] = self.unserved_ms.get(k, 0) + self.w.tick_ms
+
+    def recovery(self, live: list[int]) -> tuple[str, list[str]]:
+        unowned = [task for task in self.tasks if not self.owned(task, live)]
+        if any(kind(task) == "seg" for task in unowned):
+            return "not recovered", unowned
+        return ("cables only" if unowned else "all tasks"), unowned
 
     def _contacts(self, t: int, live: list[int]) -> None:
         w = self.w
@@ -230,6 +280,7 @@ class Metrics:
         worst = worst_age_ms(visits, t)
         live = self.live()
         since = self.contact_start
+        outcome, unowned = self.recovery(live)
         out = {
             "t_s": (t - self.t0) // 1000,
             "seed": w.seed,
@@ -254,6 +305,13 @@ class Metrics:
             "segs_unowned_at_end": sum(1 for task in self.segs if not self.owned(task, live)),
             "repair_claims_after_T": sum(self.claims_after.values()),
             "claims_after_T": dict(sorted(self.claims_after.items())),
+            "reserve_violation_s": sum(self.reserve_viol_ms.values()) // 1000,
+            "reserve_violation_boats": sorted(self.reserve_viol_ms),
+            "stranded_boats": sorted(self.stranded),
+            "unserved_task_s_post_T": sum(self.unserved_ms.values()) // 1000,
+            "unserved_s_by_kind": {k: v // 1000 for k, v in sorted(self.unserved_ms.items())},
+            "recovery_outcome": outcome,
+            "unowned_at_end": unowned,
             "operator_actions": len(getattr(w.shore, "decisions", {})),
             "boat_km": {b: round(mm / 1_000_000, 1) for b, mm in sorted(self.boat_mm.items())},
             "boats_end": {

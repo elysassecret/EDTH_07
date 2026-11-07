@@ -51,7 +51,7 @@ A juror picks a failure. The swarm repairs what it can. The gap it cannot close 
 
 Three modes on identical inputs, differing in one config key. Same warm state per seed. Truth.
 
-Numbers from `eval/results.md`, `main` at `86806cb`, 2026-11-07. Replace the revision from the `final` tag on Sunday.
+Numbers from `eval/results.md`, `main` at `b922b40` with the #109 eval changes (same values as `86806cb`), 2026-11-07. Replace the revision from the `final` tag on Sunday.
 
 | Truth, 5 seeds | static | off | elysa |
 |---|---|---|---|
@@ -63,6 +63,8 @@ Numbers from `eval/results.md`, `main` at `86806cb`, 2026-11-07. Replace the rev
 **30 paired seeds, off against elysa:** km overdue 6.7 vs 1.4 (median), elysa better in 30 of 30, equal 0, worse 0, median gain 4.8 km. Worst age better in 24, equal in 6.
 
 **The cost, on the same slide:** after a loss we keep the cables at the cost of the south lane picket. Real cargo and tanker crossings in view after the failure: 9 of 9 without repair, 5 of 9 with it (worse in 20 of 30 seeds). The boats never see AIS; "in view" is the evaluator checking camera range against the private AIS day. Without repair the picket is empty too; the crossings stay in view only because boat 4 never moves.
+
+**Energy and recovery, 30 paired seeds, truth:** no boat ever below its reserve away from Korsør in either mode (0 boat-seconds). Unserved task-seconds after the failure: 27,204 without repair, 6,945 with it, better in 30 of 30; what stays unserved with repair is the south lane picket. Recovery outcome: without repair "not recovered" in 30 of 30, with repair "cables only" in 30 of 30.
 
 Sensitivities: at 3.0 m/s the gain holds (4.0 vs 0.1 km). At 4 km boat radio it shrinks (4.9 vs 2.6 km) and the contact is never handed to a watcher: say so.
 
@@ -146,7 +148,24 @@ Built between Friday and Sunday. As of `main` at `86806cb` on Saturday: 273 test
 4. Boats launch from a harbour or Home Guard vessel, patrol a shift, return and charge. Shifts overlap.
 5. Updates are signed. Logs give an evidence trail.
 
-## 13. Team and ask [pitch]
+## 13. Roadmap: what comes next [feasibility, size of opportunity]
+
+Every row is **proposed, not implemented** unless it says otherwise. Status as of `main` on Sat 7 Nov; refresh at the `final` tag. Source: `world/PRODUCT_BRIEF.md`, issues #103 to #114.
+
+| Next step | What it adds | Status, said plainly |
+|---|---|---|
+| Gazebo testbed, stage 1 | One boat, one route in a fuller physics and sensor sim, through the same agent code | Proposed. An adapter and its tests are on `main` (#113), never run against a Gazebo install (`world/GAZEBO.md`) |
+| ArduPilot SITL | The same agent driving a real autopilot in software, then a supervised real boat | Proposed, not implemented (#114, plan only) |
+| Explainable assignments | Why this boat: travel time, energy left, the role it drops | One-line reason on the shore picture is on `main` (#102). The factor breakdown is proposed (#103) |
+| Response-cost preview | Before approving: trip, energy left after, cable that goes overdue meanwhile | Proposed (#112, open). **A model estimate**: straight line, cruise speed, no current, shore-reported ages. Not a measurement |
+| Energy management | Admit a task only if the boat can finish it and return with its reserve; hand over before the reserve is used | Proposed, not implemented (#104, #106). Will be judged on reserve violations, unserved task-seconds and recovery outcome, which `eval/` now measures (#109), never on "energy saved" |
+| Independent runtimes | Each boat and the shore as separate processes; shore can stop, boats keep working | Partly: wire boundary on `main` (#113) with a smoke test (#109); separate processes and command reconciliation proposed (#105) |
+
+Say on the slide: "Proposed, not built: these are the next steps, not this weekend's result."
+
+**[SHOT: none; a table slide]**
+
+## 14. Team and ask [pitch]
 
 Javier: swarm brain. Simeone: world and data. Alexandru: operator console. Franco: proof and pitch.
 
