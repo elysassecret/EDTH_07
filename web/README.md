@@ -144,9 +144,11 @@ The fleet list (left), the attention workspace (right) and the event timeline (b
 resized by dragging their edge next to the chart.
 - Each panel stops at its maximum, and never takes the space the chart needs (the chart keeps
   at least 360 px wide; the timeline takes at most half the window height).
-- Drag a panel below its smallest size and it holds there; push on and it **collapses to a
-  narrow icon sidebar** on the same edge, and the chart gets the space. The collapse icon in each
-  panel header does the same. Nothing disappears:
+- A drag never closes a panel. Below its smallest size it gives a little (24 px) and settles
+  back at the minimum when you let go. When the drag ends, the cursor and text selection are
+  normal again.
+- The collapse icon in each panel header **collapses it to a narrow icon sidebar** on the same
+  edge, and the chart gets the space. Nothing disappears:
   - Fleet sidebar: one numbered dot per boat (dashed when its report is old). Click a dot to
     select the boat.
   - Attention sidebar: decisions waiting, alerts not acknowledged (red with an alarm), contacts,

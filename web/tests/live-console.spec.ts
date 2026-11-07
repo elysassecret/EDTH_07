@@ -372,7 +372,7 @@ test("laptop sheets preserve chart space and operator mode never exposes truth",
   }
 });
 
-test("panels resize between limits, close when pushed past the minimum and come back", async ({
+test("panels resize between limits, never close on a drag, reset the cursor, collapse and come back", async ({
   page,
 }) => {
   const wire = await feed(page);
@@ -396,7 +396,20 @@ test("panels resize between limits, close when pushed past the minimum and come 
     await drag(1000); // far past the maximum
     await expect(fleetEdge).toHaveAttribute("aria-valuenow", "520");
     expect((await chart.boundingBox())!.width).toBeLessThan(before);
-    await drag(-600); // pushed past the minimum: collapses to the icon sidebar, the chart takes the space
+    // pushed far past the minimum: the panel does not close, it settles at its minimum
+    const box = (await fleetEdge.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x - 600, box.y + box.height / 2, { steps: 8 });
+    await expect(fleetEdge).toHaveAttribute("aria-valuenow", "216"); // 240 minimum less 24 slack while held
+    expect(await page.evaluate(() => document.documentElement.dataset.resizing)).toBe("col");
+    await page.mouse.up();
+    await expect(fleetEdge).toHaveAttribute("aria-valuenow", "240"); // settled back at the minimum
+    // the cursor and text selection are the page's own again
+    expect(await page.evaluate(() => document.documentElement.dataset.resizing)).toBeUndefined();
+    expect(await chart.evaluate((el) => getComputedStyle(el).cursor)).not.toBe("col-resize");
+    // collapsing is a deliberate act: the icon in the panel header
+    await page.getByRole("button", { name: "Collapse fleet panel" }).click();
     await expect(fleetEdge).toHaveCount(0);
     await expect(page.getByRole("complementary", { name: "Fleet overview" })).toHaveCount(0);
     expect((await chart.boundingBox())!.width).toBeGreaterThan(before);
@@ -408,7 +421,7 @@ test("panels resize between limits, close when pushed past the minimum and come 
     await expect(fleetRail.getByRole("button", { name: /^USV \d\d/ }).first()).toBeVisible();
     await fleetRail.getByRole("button", { name: "Expand fleet panel" }).click();
     await expect(fleetRail).toHaveCount(0);
-    await expect(page.getByRole("separator", { name: "Resize fleet panel" })).toHaveAttribute("aria-valuenow", "520");
+    await expect(page.getByRole("separator", { name: "Resize fleet panel" })).toHaveAttribute("aria-valuenow", "240"); // its size when collapsed
     // keyboard: arrows resize, Enter hides; the layout is remembered across a reload
     const attEdge = page.getByRole("separator", { name: "Resize attention panel" });
     await attEdge.focus();
