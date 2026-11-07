@@ -232,6 +232,13 @@ export function useDecisionFlow() {
 }
 export type DecisionFlow = ReturnType<typeof useDecisionFlow>;
 
+export function QueuedAnswer({ flow }: { flow: DecisionFlow }) {
+  if (!flow.held) return null;
+  return <div className="fixed bottom-14 left-1/2 z-[60] w-96 max-w-[calc(100%_-_1.5rem)] -translate-x-1/2 shadow-xl">
+    <Alert role="status"><Undo2 /><AlertTitle>Not sent · {flow.remaining}s undo window</AlertTitle><AlertDescription><p>{flow.held.label}</p><Button size="sm" variant="outline" onClick={flow.undo}>Undo queued answer</Button></AlertDescription></Alert>
+  </div>;
+}
+
 export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
   const { snap, attempts, held } = flow;
   const localError = useStore((s) => s.commandError);
@@ -251,18 +258,6 @@ export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
           <AlertDescription>{localError}</AlertDescription>
         </Alert>
       )}
-      {held && (
-        <Alert role="status">
-          <Undo2 />
-          <AlertTitle>Not sent · {flow.remaining}s undo window</AlertTitle>
-          <AlertDescription>
-            <p>{held.label}</p>
-            <Button size="sm" variant="outline" onClick={flow.undo}>
-              Undo queued answer
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       {open.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No decisions waiting. No proposal is manufactured from template data.
@@ -279,7 +274,7 @@ export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
             tabIndex={0}
             role="article"
             aria-label={`Decision ${d.id}. Focus this card for decision shortcuts.`}
-            className="gap-4 py-4"
+            className="max-h-[min(36rem,calc(100dvh_-_16rem))] gap-3 overflow-hidden py-3"
             onKeyDown={(event) => {
               if (
                 event.target !== event.currentTarget ||
@@ -313,7 +308,7 @@ export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
                 {d.boat ? ` · ${usv(d.boat)}` : ""}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 px-4 text-sm">
+            <CardContent className="min-h-0 space-y-3 overflow-y-auto px-4 text-sm">
               <p>
                 {d.tier === "delegated"
                   ? "Already running under a standing order; you may confirm or request a stop."
@@ -438,6 +433,7 @@ export function DecisionWorkspace({ flow }: { flow: DecisionFlow }) {
 }
 
 export function DecisionReview({ flow }: { flow: DecisionFlow }) {
+  const authorizeButton = useRef<HTMLButtonElement>(null);
   const d = flow.snap?.decisions.find((item) => item.id === flow.review?.id);
   const valid =
     !!d &&
@@ -453,7 +449,12 @@ export function DecisionReview({ flow }: { flow: DecisionFlow }) {
         if (!open) flow.setReview(null);
       }}
     >
-      <DialogContent className="max-h-[85dvh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto" onOpenAutoFocus={(event) => {
+        if (authorizeButton.current && !authorizeButton.current.disabled) {
+          event.preventDefault();
+          authorizeButton.current.focus();
+        }
+      }}>
         <DialogHeader>
           <DialogTitle>
             {flow.review
@@ -506,6 +507,7 @@ export function DecisionReview({ flow }: { flow: DecisionFlow }) {
             <Button variant="outline">Back to review</Button>
           </DialogClose>
           <Button
+            ref={authorizeButton}
             disabled={!valid || locked || !!flow.held}
             onClick={flow.authorize}
           >

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CircleAlert, FileCheck, Settings2 } from "lucide-react";
+import { CircleAlert, FileCheck, Settings2, SquareAlert, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -34,10 +34,30 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { endpoint, usv } from "../console-model";
+import { endpoint, sortedAlerts, usv } from "../console-model";
 import { dur, utc } from "../format";
 import { apiUrl, useStore } from "../store";
-import { t0Of, type Command } from "../types";
+import { t0Of, type Alert as AlertRecord, type Command } from "../types";
+
+export function LevelIcon({ level }: { level: AlertRecord["level"] }) {
+  const Icon = level === "alarm" ? TriangleAlert : level === "warning" ? CircleAlert : SquareAlert;
+  const colour = level === "alarm" ? "text-red-300" : level === "warning" ? "text-orange-300" : "text-yellow-200";
+  return <Icon aria-hidden="true" className={`size-5 shrink-0 ${colour}`} data-level={level} />;
+}
+
+export function PriorityAlert() {
+  const snap = useStore((s) => s.snap);
+  const conn = useStore((s) => s.conn);
+  const channel = useStore((s) => s.channel);
+  const send = useStore((s) => s.send);
+  const setDigest = useStore((s) => s.setDigest);
+  const top = sortedAlerts(snap?.alerts ?? []).find((a) => !a.ack && a.level !== "caution");
+  if (!top) return null;
+  return <section aria-label="Priority alert" role="alert" className="flex shrink-0 items-center gap-3 border-b px-4 py-2 text-sm">
+    <LevelIcon level={top.level} /><strong>{top.level.toUpperCase()}</strong><span className="min-w-0 flex-1 truncate" title={top.text}>{top.text}</span>
+    <Button variant="outline" size="sm" disabled={conn !== "live" || channel !== "shore"} onClick={() => { if (send({ cmd: "ack", id: top.id })) setDigest(true); }}>Acknowledge</Button>
+  </section>;
+}
 
 export function LiveAlerts() {
   const snap = useStore((s) => s.snap);
@@ -47,13 +67,7 @@ export function LiveAlerts() {
   const setDigest = useStore((s) => s.setDigest);
   const [all, setAll] = useState(false);
   if (!snap) return null;
-  const rank = { alarm: 0, warning: 1, caution: 2 };
-  const alerts = [...snap.alerts].sort(
-    (a, b) =>
-      Number(!!a.ack) - Number(!!b.ack) ||
-      rank[a.level] - rank[b.level] ||
-      b.t - a.t,
-  );
+  const alerts = sortedAlerts(snap.alerts);
   return (
     <section className="space-y-2" aria-label="Alerts">
       <div className="flex items-center justify-between">
@@ -72,7 +86,7 @@ export function LiveAlerts() {
           key={a.id}
           variant={a.level === "alarm" ? "destructive" : "default"}
         >
-          <CircleAlert />
+          <LevelIcon level={a.level} />
           <AlertTitle className="flex flex-wrap justify-between gap-2">
             <span>{a.level.toUpperCase()}</span>
             <time className="font-normal text-muted-foreground">

@@ -1,5 +1,5 @@
 // Live-data selectors shared by the integrated template and its tests. No demo fixtures.
-import type { Boat, Decision, LogEvent, SceneMsg, Snapshot } from "./types";
+import type { Alert, Boat, Decision, LogEvent, SceneMsg, Snapshot } from "./types";
 import { segAges } from "./coverage";
 
 export type DecisionAction = "confirm" | "stop" | "approve" | "decline";
@@ -7,6 +7,13 @@ export type Selection =
   { kind: "boat"; id: number } | { kind: "contact" | "segment"; id: string };
 export const usv = (id: number) => `USV ${String(id).padStart(2, "0")}`;
 export const endpoint = (id: number) => (id === 0 ? "shore" : usv(id));
+
+export function sortedAlerts(alerts: Alert[]): Alert[] {
+  const rank = { alarm: 0, warning: 1, caution: 2 };
+  return [...new Map(alerts.map((alert) => [alert.id, alert])).values()].sort(
+    (a, b) => Number(!!a.ack) - Number(!!b.ack) || rank[a.level] - rank[b.level] || b.t - a.t,
+  );
+}
 
 export function canOperate(conn: string, channel: string): boolean {
   return conn === "live" && channel === "shore";

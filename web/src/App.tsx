@@ -371,121 +371,14 @@ export function App() {
             </Badge>
           </div>
         </header>
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-sm text-muted-foreground">
-          <span>
-            {source === "sim"
-              ? "Simulation · modeled boats, sensors and radio"
-              : source === "mock"
-                ? "MOCK FEED · synthetic demonstration snapshots"
-                : "Waiting for source identification"}{" "}
-            ·{" "}
-            {channel === "shore"
-              ? "delivered shore picture"
-              : "evaluator truth"}
-          </span>
-          <span>
-            {snap
-              ? `T+${dur(snap.t)} · ${paused ? "PAUSED" : `${snap.speed}× ${snap.warp_mode ?? "server"}`}${snap.near_event && snap.warp_mode === "auto" ? " · slowing for event" : ""}`
-              : "No observations received"}
-          </span>
-        </div>
-        {conn !== "live" && (
-          <Alert
-            variant={conn === "lost" ? "destructive" : "default"}
-            className="shrink-0 rounded-none border-x-0 border-t-0"
-          >
-            <WifiOff />
-            <AlertTitle>
-              {conn === "lost" ? "FEED LOST" : "CONNECTING"} —{" "}
-              {snap
-                ? `display frozen at ${utc(t0Of(snap), snap.t)}`
-                : "no data received"}
-            </AlertTitle>
-            <AlertDescription>
-              Last-known positions only. Commands disabled; queued unsent
-              answers are cancelled. Reconnecting automatically.
-            </AlertDescription>
-          </Alert>
-        )}
-        {(channel === "truth" || evalOn) && (
-          <Alert className="shrink-0 rounded-none border-x-0 border-t-0">
-            <Eye />
-            <AlertTitle>
-              {channel === "truth"
-                ? "TRUTH VIEW — evaluator only"
-                : "EVALUATOR COMPARISON ENABLED"}
-            </AlertTitle>
-            <AlertDescription>
-              {channel === "truth"
-                ? "Not the shore picture. Operator decisions are disabled."
-                : "Purple map annotations come from the separate /truth channel, not delivered shore observations."}
-            </AlertDescription>
-          </Alert>
-        )}
-        {latestExercise && (
-          <Alert className="shrink-0 rounded-none border-x-0 border-t-0 py-2">
-            <Settings2 />
-            <AlertTitle>
-              EXERCISE — injected or scripted simulation condition
-            </AlertTitle>
-            <AlertDescription className="text-sm">
-              {utc(t0Of(snap), latestExercise.t)} ·{" "}
-              {latestExercise.text.replace(/^EXERCISE: /, "")}
-            </AlertDescription>
-          </Alert>
-        )}
-        {placing && (
-          <Alert className="shrink-0 rounded-none border-x-0 border-t-0">
-            <CircleAlert />
-            <AlertTitle>
-              Click the chart to place a synthetic contact
-            </AlertTitle>
-            <AlertDescription>
-              Truth only until a boat reports it.{" "}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPlacing(null)}
-              >
-                Cancel placement
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-        <DigestSummary />
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-sm">
-          <div className="flex flex-wrap gap-3">
-            <span>
-              {snap
-                ? `${fresh}/${snap.boats.length} ${channel === "shore" ? "reports" : "truth states"} current`
-                : "Waiting for fleet picture"}
-            </span>
-            <span className="text-muted-foreground">
-              {!snap || !scene
-                ? "Coverage picture not yet available"
-                : `Coverage: ${unknown} unknown · ${scene.revisit_target_s === undefined ? "target not supplied" : `${overdue} over target`}`}
-            </span>
+        <PriorityAlert />
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
+          <FleetStatus />
+          <div className="flex gap-2">
+            <Badge variant="secondary">{open.length} pending decision{open.length === 1 ? "" : "s"}</Badge>
+            <Button variant="outline" size="sm" className="min-[1440px]:hidden" onClick={() => setDrawer("fleet")}><ShipIcon />Fleet · {snap?.boats.length ?? 0}</Button>
+            <Button variant="outline" size="sm" className="min-[1440px]:hidden" onClick={() => { setTab("attention"); setDrawer("attention"); }}>Attention · {open.length}</Button>
           </div>
-          <Badge variant="secondary">
-            {open.length} pending decision{open.length === 1 ? "" : "s"}
-          </Badge>
-        </div>
-        <div className="flex shrink-0 justify-between gap-2 border-b p-2 xl:hidden">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDrawer("fleet")}
-          >
-            <ShipIcon />
-            Fleet · {snap?.boats.length ?? 0}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDrawer("attention")}
-          >
-            Attention · {open.length}
-          </Button>
         </div>
         <main
           id="main"
