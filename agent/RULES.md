@@ -62,8 +62,10 @@ delegated (keep in view, reassign cables, take over the relay), **3** held for a
 ## The `why` on the shore picture
 
 When a boat claims a task it sends one line, under 120 characters, built from what it knows at
-that moment, e.g. `USV 04: cheapest of 3 bids at 4 h 34 m (USV 03 5 h 41 m, USV 02 6 h 26 m);
-23 min away, battery 91% [battery return]`. The tag in brackets says why the task was open:
+that moment, e.g. `USV 04: cheapest of 3 bids (USV 03 +1 h 06 m); 23
+min away, battery ~4 h 09 m after, drops pick:S [battery return]`: the next bidder and how much
+more its bid was, the travel time, a model estimate of the battery left after doing the task once
+and getting home, and the role the boat gives up (rule 8). The tag in brackets says why the task was open:
 
 | Tag | Meaning |
 |---|---|

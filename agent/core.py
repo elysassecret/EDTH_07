@@ -12,7 +12,7 @@ from math import isqrt
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from agent.auction import Auction, ms
+from agent.auction import DROPS, Auction, ms
 from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
 from agent.table import Table
@@ -190,10 +190,8 @@ class Agent:
     def claim(self, task: str, cost: int, deputy: int, why: str = "") -> None:
         self.why[task] = why
         self.publish(Rec(task, self.table.max_ver(task) + 1, CLAIMED, cost, self.me, deputy))
-        k = kind(task)
-        drop = ("pick",) if k == "seg" else ("seg", "pick") if k in ("relay", "contact") else ()
         for other in self.table.held_by(self.me):
-            if kind(other) in drop:
+            if kind(other) in DROPS.get(kind(task), ()):
                 self.release(other)  # PLAN F6: free the work this boat can no longer do
         self.sync_tour()
 
