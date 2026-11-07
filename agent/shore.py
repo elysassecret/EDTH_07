@@ -6,7 +6,8 @@ the /shore snapshot from that alone: a boat whose link is down keeps its old dat
 `command()` turns the watch officer's answers into VETO and CMD messages, retried until the
 boat that owns the task acknowledges, or the message expires.
 """
-from math import atan2, degrees
+from itertools import pairwise
+from math import atan2, degrees, hypot
 
 from agent.net import Every, Net
 from agent.table import Table
@@ -18,6 +19,7 @@ from contract.mission import Mission, Params
 from contract.tasks import Rec, from_wire, kind, to_wire
 from contract.views import Boat, Decision, Event, Link, Snapshot, TaskView
 
+SAMPLE_M = 100  # the evaluator's sample step (config/scene.toml sample_step_m)
 ANSWERS = {"approve": "approved", "decline": "declined", "stop": "stopped",
            "confirm": "confirmed"}
 
@@ -30,7 +32,8 @@ class ShoreNode:
         self.segs = {s.id: s.pts for s in mission.tasks if kind(s.id) == "seg"}
         self.boats: dict[int, tuple[int, int, dict]] = {}  # boat -> (tc, hops, payload) newest HB
         self.direct: dict[int, int] = {}  # boat -> tc of newest HB heard with 0 hops
-        self.visited: dict[str, int] = {}  # seg -> tc of newest report of a boat on it
+        self.samples = {k: samples(pts) for k, pts in self.segs.items()}
+        self.seen: dict[str, list[int | None]] = {k: [None] * len(v) for k, v in self.samples.items()}
         self.decisions: dict[str, dict] = {}  # decision id -> Decision fields + msg id
         self.events: list[dict] = []
         self.hb_due = Every(HEARTBEAT)
@@ -59,14 +62,24 @@ class ShoreNode:
             if m.tc > self.boats.get(m.src, (-1, 0, {}))[0]:
                 self.boats[m.src] = (m.tc, m.hops, m.p)
                 pos = (m.p["x"], m.p["y"])
-                for seg, pts in self.segs.items():
-                    if dist_to_line(pos, pts) <= self.params.r_verify_m:
-                        self.visited[seg] = max(self.visited.get(seg, 0), m.tc)
+                self.credit(pos, m.tc)
         elif m.kind in ("REC", "VETO"):
             for w in m.p["recs"] if m.kind == "REC" else [m.p["rec"]]:
                 self.table.apply(from_wire(w))
         elif m.kind == "ACK":
             self.on_ack(m.src, m.p["of"], m.tc)
+
+    def credit(self, pos: tuple[int, int], tc: int) -> None:
+        """A reported position visits every sample within r_verify_m, as the evaluator counts
+        visits (#22, #29): touching one end of a segment does not refresh the far end."""
+        r = self.params.r_verify_m
+        for seg, pts in self.segs.items():
+            if dist_to_line(pos, pts) > r:
+                continue
+            seen = self.seen[seg]
+            for i, sp in enumerate(self.samples[seg]):
+                if dist(pos, sp) <= r and (seen[i] is None or seen[i] < tc):
+                    seen[i] = tc
 
     # watch officer ----------------------------------------------------------------------------
     def command(self, t: int, cmd: dict) -> bool:
@@ -157,9 +170,25 @@ class ShoreNode:
                     links.append(Link(a=b, b=n, state="up"))
         tasks = {k: TaskView(v=r.ver, owner=r.owner, deputy=r.deputy, state=r.state)
                  for k, r in sorted(self.table.recs.items())}
-        ages = {k: (t - self.visited.get(k, 0)) // 1000 for k in sorted(self.segs)}
+        # worst sample per segment; a never-reported sample counts from t = 0, as the evaluator
+        # does, and the console shows an age equal to the run time as "no visit reported"
+        ages = {k: (t - min(x or 0 for x in v)) // 1000 for k, v in sorted(self.seen.items())}
         decisions = [Decision(**{k: v for k, v in d.items() if k not in ("msg", "te")})
                      for d in self.decisions.values()]
         return Snapshot(view="shore", t=t // 1000, speed=speed, boats=boats, tasks=tasks,
                         seg_age=ages, links=links, contacts=[], decisions=decisions, alerts=[],
                         events=[Event(**e) for e in self.events])
+
+
+def samples(pts: tuple[tuple[int, int], ...]) -> list[tuple[int, int]]:
+    """Points every SAMPLE_M along the polyline from its start, endpoint excluded, placed the
+    way world/routes.py samples routes. Display only: floats never touch agent state."""
+    out, offset, walked = [], 0, 0.0
+    for a, b in pairwise(pts):
+        d = hypot(b[0] - a[0], b[1] - a[1])
+        while offset < walked + d:
+            f = (offset - walked) / d
+            out.append((round(a[0] + (b[0] - a[0]) * f), round(a[1] + (b[1] - a[1]) * f)))
+            offset += SAMPLE_M
+        walked += d
+    return out
