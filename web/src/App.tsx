@@ -43,6 +43,7 @@ function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }
               title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
               {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
             </button>
+            <DisplayToggle />
             <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
             <button onClick={onEvidence} className={evidence ? "on" : ""}>Evidence</button>
           </div>
@@ -51,6 +52,14 @@ function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }
       <StatusLine />
     </header>
   );
+}
+
+const NEXT = { dusk: "night", night: "day", day: "dusk" } as const;
+
+function DisplayToggle() {
+  const d = useStore((s) => s.display);
+  const set = useStore((s) => s.setDisplay);
+  return <button onClick={() => set(NEXT[d])} title="Day, dusk and night display (feature 33)">Display: {d.toUpperCase()}</button>;
 }
 
 function EvalToggle() {
@@ -89,8 +98,9 @@ export function App() {
   const onSatState = useCallback((s: "none" | "ready") => setSatState(s), []);
   const [inject, setInject] = useState(false);
   const [evidence, setEvidence] = useState(false);
+  const display = useStore((st) => st.display);
   return (
-    <div className="app">
+    <div className="app" data-display={display}>
       <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} inject={inject} onInject={() => setInject((v) => !v)}
         evidence={evidence} onEvidence={() => setEvidence((v) => !v)} />
       <FeedBanner />
