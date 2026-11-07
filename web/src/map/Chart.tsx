@@ -26,7 +26,7 @@ import type { Decision } from "../types";
 
 // Feature 24: a wide band under each cable segment, coloured by revisit age (legend in the
 // coverage box; the age is also written on the chart, so colour is never the only cue).
-const BAND_RGB: Record<Band, [number, number, number]> = {
+export const BAND_RGB: Record<Band, [number, number, number]> = {
   recent: [90, 190, 170], due: [232, 208, 112], over: [224, 140, 48], none: [150, 156, 162],
 };
 

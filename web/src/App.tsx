@@ -52,6 +52,7 @@ import {
 } from "./console-model";
 import { utc } from "./format";
 import { Chart } from "./map/Chart";
+import { Legend } from "./map/Legend";
 import { useStore, type Display } from "./store";
 import { OPERATOR_MODE, t0Of } from "./types";
 import {
@@ -398,6 +399,7 @@ export function App() {
           >
             <Chart satellite={satellite} onSatelliteState={onSatelliteState} />
             <ChartNotices />
+            <Legend />
           </section>
           <aside
             className="hidden min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain border-l p-3 xl:flex"
