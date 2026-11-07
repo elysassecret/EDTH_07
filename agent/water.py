@@ -17,6 +17,8 @@ from itertools import pairwise
 from contract.geo import dist
 
 Point = tuple[int, int]
+ANCHOR_M = 30  # a point this close to an anchor counts as standing on it
+ANCHORS: tuple[Point, ...] = ()  # points on land a boat may leave or reach (set_anchors)
 EXIT_M = 120  # a boat on land (quay 90 m, landfall 65 m inside the margin) may cross its own coast this far
 
 OBSTACLES: tuple[tuple[Point, ...], ...] = ()
@@ -92,13 +94,26 @@ def _hits(a: Point, b: Point, ring, near_a: bool, near_b: bool) -> bool:
     return False
 
 
+def set_anchors(points) -> None:
+    """The points on land a boat may leave or reach across its own coast (the Korsør quay, cable
+    landfalls). Anywhere else a boat inside the coast margin (pushed there by the current) gets
+    no such allowance: it leaves by the nearest water waypoint. The allowance once let a drifting
+    boat cut across the corner of a bridge pier."""
+    global ANCHORS
+    ANCHORS = tuple(sorted(set(ANCHORS) | {tuple(p) for p in points}))
+
+
+def _anchored(p: Point) -> bool:
+    return any(dist(p, q) <= ANCHOR_M for q in ANCHORS)
+
+
 def blocked(a: Point, b: Point) -> bool:
     lo_x, hi_x = min(a[0], b[0]), max(a[0], b[0])
     lo_y, hi_y = min(a[1], b[1]), max(a[1], b[1])
     for ring, bb in zip(OBSTACLES, BOXES, strict=True):
         if hi_x < bb[0] or lo_x > bb[2] or hi_y < bb[1] or lo_y > bb[3]:
             continue
-        if _hits(a, b, ring, _inside(a, ring), _inside(b, ring)):
+        if _hits(a, b, ring, _inside(a, ring) and _anchored(a), _inside(b, ring) and _anchored(b)):
             return True
     return False
 
