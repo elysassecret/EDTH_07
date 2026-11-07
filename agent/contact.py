@@ -73,6 +73,7 @@ class Contacts:
         p = {"id": task, "first": self.first.get(task.split(":", 1)[1], self.a.t),
              "flags": {k: v for k, v in kw.items() if k in FLAGS}, "course": kw.get("course")}
         if self.on_contact(p):
+            self.a.log("contact", self.message(task))
             self.a.net.send(self.a.t, "CONTACT", self.message(task))
 
     def message(self, task: str) -> dict:

@@ -176,7 +176,7 @@ describe("operational transport retained by the template integration", () => {
     expect(socket.sent).toEqual([]);
   });
   it("discards frames from the previous channel and keeps truth read-only", async () => {
-    const { useStore, socket } = await setup();
+    const { useStore, socket } = await setup("?evaluator");
     useStore.getState().setChannel("truth");
     const truth = Socket.instances.at(-1)!;
     truth.open();
@@ -189,11 +189,17 @@ describe("operational transport retained by the template integration", () => {
     ).toBe(false);
     expect(truth.sent).toEqual([]);
   });
-  it("cannot expose the truth channel in operator mode", async () => {
-    const { useStore } = await setup("?operator");
+  it.each(["", "?operator"])("cannot expose the truth channel on the default operator screen (%s)", async (q) => {
+    const { useStore } = await setup(q);
+    expect(useStore.getState().evalOn).toBe(false);
     useStore.getState().setChannel("truth");
     expect(useStore.getState().channel).toBe("shore");
     useStore.getState().toggleEval();
     expect(useStore.getState().evalOn).toBe(false);
+  });
+  it("?evaluator starts with the comparison on and its /truth socket open (#88)", async () => {
+    const { useStore } = await setup("?evaluator");
+    expect(useStore.getState().evalOn).toBe(true);
+    expect(Socket.instances.some((x) => String(x.url).endsWith("/truth"))).toBe(true);
   });
 });

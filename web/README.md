@@ -48,8 +48,9 @@ the existing store and server protocol. No runtime font, tile, or CDN request is
    not a boat delivery or completed observation. Unconfirmed sends are never auto-retried.
 6. **Evaluator view** (judges and team, off by default) — **View settings → Evaluator
    comparison** opens a separate `/truth` socket. Purple annotations compare actual and
-   delivered positions, contacts, links and revisit ages (`src/map/evaluator.ts`). Add
-   `?operator` to the URL for the watch officer's screen: no evaluator or truth switches.
+   delivered positions, contacts, links and revisit ages (`src/map/evaluator.ts`). The
+   watch officer's screen is the default (no evaluator or truth switches); add `?evaluator` to
+   the URL for the truth view and the comparison, which then starts on.
 7. **Tools** — `LiveTools.tsx` retains alerts/acknowledgment, inactivity digest, exercise
    injection, reviewed reset, incident-report downloads and server tamper checks. **Switch
    back on** uses #70's `boat_restore`: same boat and agent, no reset/teleport/recharge.
@@ -69,7 +70,7 @@ pnpm --dir web build
 uv run python -m server --serve-web --demo
 ```
 
-1. Open `http://localhost:8765/?operator`. The real seed-1 demo starts paused at sim
+1. Open `http://localhost:8765/`. The real seed-1 demo starts paused at sim
    6900 s / 12:10:00Z. Use **Run** to start; keep Auto for the recording.
 2. After the delivered C-07 contact and held close proposal appear, use **Review &
    approve**, or focus that decision card itself and press **A**. On a laptop, open

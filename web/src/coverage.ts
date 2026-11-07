@@ -4,6 +4,7 @@
 // Wording rule: say how old the oldest visit is; never say "coverage restored".
 import type { SceneMsg, Snapshot } from "./types";
 import { CABLE } from "./roles";
+import { hhmm } from "./format";
 
 export type Band = "recent" | "due" | "over" | "none";
 
@@ -48,4 +49,22 @@ export function worst(ages: SegAge[]): SegAge | null {
     else if (w.age !== null && (a.age === null || a.age > w.age)) w = a;
   }
   return w;
+}
+
+/** #88: the one coverage headline in words. Shore-reported ages only; never "restored". */
+export function coverageWords(ages: SegAge[], target: number | undefined, t: number, t0: string): string {
+  const n = ages.length;
+  if (n === 0) return "No cable segments in the picture";
+  const none = ages.filter((a) => a.age === null);
+  if (target === undefined) return `${n - none.length} of ${n} cable segments visited · no revisit target set`;
+  const over = ages.filter((a) => a.age !== null && a.age > target);
+  if (over.length === 0 && none.length === 0) return `All ${n} cable segments within the revisit target`;
+  const parts = [`${n - over.length - none.length} of ${n} cable segments within target`];
+  if (over.length) {
+    const oldest = Math.max(...over.map((a) => a.age as number));
+    const which = over.length === 1 ? over[0].id : `${over.length} segments`;
+    parts.push(`${which} overdue since ${hhmm(t0, t - (oldest - target))}`);
+  }
+  if (none.length) parts.push(`${none.length === 1 ? none[0].id : `${none.length} segments`}: no visit confirmed`);
+  return parts.join(" · ");
 }

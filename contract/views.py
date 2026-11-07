@@ -93,7 +93,7 @@ class Contact(BaseModel):
     source: Literal["ais", "camera", "fused"] = "ais"  # "camera" = NO AIS
     name: str | None = None  # AIS name if any
     trail: list[tuple[float, float]] = []  # recent [lon, lat] positions, oldest first
-    standoff_m: int = 1852  # stand-off ring radius (m, 1852 unless capped)
+    standoff_m: int = 1852  # stand-off ring the boats keep (m): 1852 with no AIS, 0 with AIS
     ship_type: str | None = None  # AIS ship type where present
     length_band_m: int | None = None  # AIS length band (m) where present
     why: str = ""  # short plain-language reason for the watcher / status (#86)

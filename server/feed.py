@@ -29,6 +29,19 @@ from server.evaluator import compare
 from server.narrator import Narrator
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def sensor_ranges() -> dict:
+    """#88 rings: the boat model's ranges from config/boat.toml (B's file), read, never hard-coded.
+    Detection depends on target and light; the console draws the ship-by-day camera range."""
+    import tomllib
+
+    boat = tomllib.loads((ROOT / "config" / "boat.toml").read_text(encoding="utf-8"))
+    return {
+        "detect_ship_day_m": int(boat["r_detect_m"]["ship_day"]),
+        "keep_in_view_m": int(boat["keep_in_view_m"]),
+        "standoff_m": int(boat["standoff_m"]),
+    }
 WEB_DIST = ROOT / "web" / "dist"
 log = logging.getLogger("feed")
 

@@ -2,7 +2,8 @@ import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { SceneMsg, Scorecard, Snapshot } from "../src/types";
 
-const url = "/?feed=ws://127.0.0.1:18870";
+const url = "/?evaluator&feed=ws://127.0.0.1:18870"; // truth view and evaluator controls
+const operatorUrl = "/?feed=ws://127.0.0.1:18870"; // the default: the watch officer's screen
 const scene: SceneMsg = {
   type: "scene",
   schema_version: 1,
@@ -339,7 +340,7 @@ test("laptop sheets preserve chart space and operator mode never exposes truth",
   const wire = await feed(page);
   try {
     await page.setViewportSize({ width: 1024, height: 768 });
-    await page.goto(`${url}&operator`);
+    await page.goto(operatorUrl);
     await expect(page.getByLabel("TRUTH", { exact: true })).toHaveCount(0);
     const map = await page
       .getByRole("region", { name: "Operational chart", exact: true })
@@ -448,14 +449,11 @@ test("scorecard stays evaluator-only and preserves provenance, preliminary and m
         },
       ],
     });
-    await page.goto(url);
+    await page.goto(operatorUrl);
     await expect(page.getByText(/test-fixture\/evaluator/)).toHaveCount(0);
     await page.getByRole("button", { name: "View settings" }).click();
-    await page.getByRole("switch", { name: /Evaluator comparison/ }).click();
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Close", exact: true })
-      .click();
+    await expect(page.getByRole("switch", { name: /Evaluator comparison/ })).toHaveCount(0);
+    await page.goto(url); // ?evaluator turns the comparison on at load
     await expect(page.getByText("PRELIMINARY", { exact: true })).toBeVisible();
     await expect(
       page.getByText("test-fixture/evaluator · seeds 1, 2", { exact: true }),

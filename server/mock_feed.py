@@ -863,6 +863,8 @@ class MockWorld:
         return int(self.sc.ui["warp_near_events" if self.near_event() else "warp_between_events"])
 
     def scene_msg(self) -> dict:
+        from server.feed import sensor_ranges  # local: server.feed imports this module
+
         return {
             "type": "scene", "schema_version": SCHEMA_VERSION, "source": "mock", "t0_utc": T0_UTC,
             "segments": {k: [lonlat(p) for p in v[::5] + [v[-1]]]
@@ -872,6 +874,7 @@ class MockWorld:
             "stale_after_s": self.sc.ui["stale_after_s"],
             "horizon_s": 14400,
             "home_m": _home_m(),
+            "ranges": sensor_ranges(),  # config/boat.toml, for the rings (#88)
             # D's revisit target (config/run.toml, "confirm Friday"), read, never hardcoded
             "revisit_target_s": int(tomllib.loads(
                 (ROOT / "config" / "run.toml").read_text(encoding="utf-8"))["revisit_target_s"]),

@@ -26,7 +26,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
         shore = value as Snapshot;
     });
   });
-  await page.goto("/?operator&feed=ws://127.0.0.1:18870");
+  await page.goto("/?feed=ws://127.0.0.1:18870"); // operator screen is the default
   await expect(page.getByText("FEED LIVE", { exact: true })).toBeVisible();
 
   // Rehearsals share the test server: use the real reviewed reset to start this take.

@@ -10,9 +10,10 @@ pnpm --dir web build                               # once, after any web/ change
 uv run python -m server --serve-web --demo         # real sim, preset in server/demo.toml
 ```
 
-Open **http://localhost:8765/?operator**. `?operator` hides the evaluator and truth switches,
-so the screen is the watch officer's. For the evaluator shots, open a second window without
-`?operator` and turn on **☰ View settings → Evaluator comparison**.
+Open **http://localhost:8765/**. The watch officer's screen is the default: no truth view and no
+evaluator switches. For the evaluator shots, open a second window at
+**http://localhost:8765/?evaluator**: it adds the truth view and starts with the evaluator
+comparison on (☰ View settings → Evaluator comparison turns it off).
 
 Record in a window at least 1440 px wide (full screen 1920×1080 is best): then the fleet column
 shows on the left. Below 1440 px the fleet is behind the **Fleet · 5** button.
@@ -36,7 +37,7 @@ measured on seed 1, 7 Nov 2026, and checked by `tests/server/test_demo.py`.
 
 | Video | Sim time (UTC on screen) | What happens on screen | Brief beat |
 |---|---|---|---|
-| 0:00 | 6900 s (12:10Z) | Paused. Five USVs: 01 and 02 sweep cables, 03 and 04 picket the lane, 05 relays. Coverage headline top left of the chart | Setup |
+| 0:00 | 6900 s (12:10Z) | Paused. Five USVs: 01 and 02 sweep cables, 03 and 04 picket the lane, 05 relays. Coverage headline in words at the top ("6 of 7 cable segments within target · seg:M:0: no visit confirmed"); **Details** shows the counts | Setup |
 | 0:11 | 7200 s (12:15Z) | EXERCISE banner. USV 01 low battery → RTB chip, "Return to Korsør"; caution alert. 04 takes `seg:G:*` (card: "Cable sweep (Great Belt 1 fibre, 60 kV …)"); "Lane picket S uncovered" caution | Battery low and reassign |
 | 0:31 | 7320 s (12:17Z) | Link 04 → shore cut: red ✕ "LINK CUT". 04's card: "Via USV 0…"; its reports keep arriving through 05 | Link loss, store-and-forward |
 | 0:44 | ~7865 s | USV 02 chip turns KEEP IN VIEW (warp slows). C-07 appears on the chart as NO AIS; warning "C-07: camera contact, no AIS match. Cue for a look." | Dark contact |
@@ -47,7 +48,7 @@ measured on seed 1, 7 Nov 2026, and checked by `tests/server/test_demo.py`.
 | 1:51 | 11 100 s (13:20Z) | EXERCISE: USV 05 (relay) switched off | Relay loss |
 | 2:01 | ~11 160 s | 02, 03 and 05 grey out with "… ago" on their cards, warning alerts. The shore shows them as old, never as live | Shore picture goes stale |
 | 2:12 | ~13 305 s (13:57Z) | Shore hears 02 and 03 again; 03's card now says "Relay" (press **3** to see it in Selected) | Relay takeover |
-| 2:26 | 14 000 s (14:08Z) | Evaluate. Coverage headline: oldest cable visit and "Cable zone gap open"; both lane pickets open in alerts | Remaining gap shown |
+| 2:26 | 14 000 s (14:08Z) | Evaluate. Coverage headline names what is overdue or unconfirmed ("… overdue since …", "no visit confirmed"); both lane pickets open in alerts | Remaining gap shown |
 
 Evaluator cut-ins (second window, Evaluator comparison on): at ~0:48 the purple ring "C-07 · truth only,
 not on shore picture"; at ~2:05 purple rings show where 02 and 03 really are while the shore
@@ -73,8 +74,8 @@ Read at a calm pace; every line matches something on screen. No numbers that are
 7. **1:51** "Now the relay boat, 05, is switched off. Boats 02 and 03 can't reach shore, so the
    console greys them out and shows when they were last heard. Old data never looks live."
 8. **2:12** "USV 03 has taken over the relay role, and the shore hears both boats again."
-9. **2:26** "We don't hide what's left: the console still shows the oldest cable visit and the
-   open gap."
+9. **2:26** "We don't hide what's left: the console still shows which cable segments are overdue
+   or have no visit confirmed."
 
 Never say "suspicious", "hostile", "detects dark ships", "coverage restored", "court-ready" or
 "prevents sabotage".
@@ -101,7 +102,7 @@ and the times) for the deck notes.
    `tests/server/test_web_static.py` checks the build for web addresses.
 4. **Turn Wi-Fi off** (and unplug any cable). Keep it off until step 10.
 5. Start a stopwatch, run `uv run python -m server --serve-web --demo`, open
-   `http://localhost:8765/?operator`. Stop the watch when the console shows **12:10:00Z** and five
+   `http://localhost:8765/`. Stop the watch when the console shows **12:10:00Z** and five
    USVs. N8 asks for under 30 s; write down the real time.
 6. Press **Run**. By about 0:31 the link 04→shore is crossed; the decision cards, alerts and the
    event timeline all fill in. Nothing on screen may wait for the network.

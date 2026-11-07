@@ -50,8 +50,10 @@ import {
   canOperate,
   pendingDecisions,
 } from "./console-model";
-import { dur, utc } from "./format";
+import { utc } from "./format";
 import { Chart } from "./map/Chart";
+import { Legend } from "./map/Legend";
+import { GUIDE, Markdown } from "./ui/Markdown";
 import { useStore, type Display } from "./store";
 import { OPERATOR_MODE, t0Of } from "./types";
 import {
@@ -62,7 +64,6 @@ import {
 } from "./ui/LiveDecisions";
 import {
   ContactOverview,
-  CoveragePanel,
   EvaluatorWorkspace,
   EventTimeline,
   FleetOverview,
@@ -75,7 +76,7 @@ import {
   LiveAlerts,
   PriorityAlert,
 } from "./ui/LiveTools";
-import { ChartNotices, FleetStatus } from "./ui/LiveStatus";
+import { ChartNotices, CoverageLine, StatusDetails } from "./ui/LiveStatus";
 
 export function App() {
   const snap = useStore((s) => s.snap);
@@ -87,6 +88,8 @@ export function App() {
   const setDisplay = useStore((s) => s.setDisplay);
   const showComms = useStore((s) => s.showComms);
   const toggleComms = useStore((s) => s.toggleComms);
+  const showRings = useStore((s) => s.showRings);
+  const toggleRings = useStore((s) => s.toggleRings);
   const panel = useStore((s) => s.panel);
   const setPanel = useStore((s) => s.setPanel);
   const selected = useStore((s) => s.selected);
@@ -104,6 +107,7 @@ export function App() {
   >("checking");
   const [tab, setTab] = useState("attention");
   const [drawer, setDrawer] = useState<"fleet" | "attention" | null>(null);
+  const [details, setDetails] = useState(false);
   const [wall, setWall] = useState(() => new Date());
   const flow = useDecisionFlow();
   const flowRef = useRef(flow);
@@ -220,8 +224,7 @@ export function App() {
       </TabsList>
       <TabsContent value="attention" className="space-y-4">
         <DecisionWorkspace flow={flow} />
-        <LiveAlerts />
-        <CoveragePanel />
+        <LiveAlerts flow={flow} />
         <ContactOverview />
         <EvaluatorWorkspace />
       </TabsContent>
@@ -308,6 +311,9 @@ export function App() {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            {snap?.near_event && snap.warp_mode === "auto" && !paused && (
+              <Badge variant="secondary">slowing for event</Badge>
+            )}
             {!OPERATOR_MODE && (
               <ToggleGroup
                 type="single"
@@ -357,14 +363,11 @@ export function App() {
         </header>
         <PriorityAlert />
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-          <FleetStatus />
-          <span className="text-sm text-muted-foreground" title={snap ? `T+${dur(snap.t)}` : undefined}>
-            {snap
-              ? `${paused ? "PAUSED" : `${snap.speed}× ${snap.warp_mode ?? "server"}`}${snap.near_event && snap.warp_mode === "auto" && !paused ? " · slowing for event" : ""}`
-              : "No observations received"}
-          </span>
+          <CoverageLine />
           <div className="flex gap-2">
-            <Badge variant="secondary">{open.length} pending decision{open.length === 1 ? "" : "s"}</Badge>
+            <Button variant="ghost" size="sm" aria-expanded={details} onClick={() => setDetails(!details)}>
+              {details ? "Hide details" : "Details"}
+            </Button>
             <Button variant="outline" size="sm" className="min-[1440px]:hidden" onClick={() => setDrawer("fleet")}><ShipIcon />Fleet · {snap?.boats.length ?? 0}</Button>
             <Button variant="outline" size="sm" className="xl:hidden" onClick={() => { setTab("attention"); setDrawer("attention"); }}>Attention · {open.length}</Button>
             <Button variant="ghost" size="sm" onClick={() => setPanel("help")}>
@@ -373,6 +376,11 @@ export function App() {
             </Button>
           </div>
         </div>
+        {details && (
+          <div className="shrink-0 border-b px-3 py-2">
+            <StatusDetails />
+          </div>
+        )}
         <main
           id="main"
           className="grid min-h-0 flex-1 grid-cols-1 min-[1280px]:grid-cols-[minmax(0,1fr)_352px] min-[1440px]:grid-cols-[260px_minmax(0,1fr)_352px]"
@@ -394,6 +402,7 @@ export function App() {
           >
             <Chart satellite={satellite} onSatelliteState={onSatelliteState} />
             <ChartNotices />
+            <Legend />
           </section>
           <aside
             className="hidden min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain border-l p-3 xl:flex"
@@ -471,6 +480,16 @@ export function App() {
               </Field>
               <Field orientation="horizontal">
                 <Switch
+                  id="rings-visible"
+                  checked={showRings}
+                  onCheckedChange={toggleRings}
+                />
+                <FieldLabel htmlFor="rings-visible">
+                  Sensor rings (model ranges)
+                </FieldLabel>
+              </Field>
+              <Field orientation="horizontal">
+                <Switch
                   id="satellite-visible"
                   checked={satellite}
                   onCheckedChange={setSatellite}
@@ -538,42 +557,58 @@ export function App() {
             if (!open) setPanel(null);
           }}
         >
-          <DialogContent>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Watch guide & keyboard</DialogTitle>
+              <DialogTitle>Watch guide</DialogTitle>
               <DialogDescription>
                 Supervise the swarm. Approve decisions, not steering commands.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 text-sm">
-              <p>
-                Tab moves focus. Enter/Space activates controls. Focus a
-                decision card itself: A/D reviews held actions, C/S reviews
-                delegated actions. Shortcuts open review; they never submit
-                directly.
-              </p>
-              <p>
-                1–9 selects an available USV. Space outside a control
-                acknowledges the top alert. Esc undoes a queued answer;
-                otherwise it cancels placement or selection. ? opens this guide.
-              </p>
-              <p>
-                Review requires a fresh shore feed and an unchanged task record.
-                Approve, Decline and Stop have a five-second local undo window.
-                Server acceptance is not boat delivery, and delivery is not task
-                completion.
-              </p>
-              <p>
-                Coverage updates only from observations. Alert acknowledgment
-                does not clear the condition. Stale reports remain last-known;
-                evaluator truth is explicitly separated.
-              </p>
-              <p>
-                All boats/radio are modeled. Camera imagery is not supplied;
-                satellite may be absent. No scenario fixture, fake identity or
-                template command result is used in this live interface.
-              </p>
-            </div>
+            {GUIDE.operator && <Markdown text={GUIDE.operator} />}
+            <details className="text-sm" open={!GUIDE.operator}>
+              <summary className="cursor-pointer font-medium">Keyboard and sending details</summary>
+              <div className="space-y-2 pt-2 text-sm">
+                <p>
+                  Tab moves focus. Enter/Space activates controls. Focus a
+                  decision card itself: A/D reviews held actions, C/S reviews
+                  delegated actions. Shortcuts open review; they never submit
+                  directly.
+                </p>
+                <p>
+                  1–9 selects an available USV. Space outside a control
+                  acknowledges the top alert. Esc undoes a queued answer;
+                  otherwise it cancels placement or selection. ? opens this guide.
+                </p>
+                <p>
+                  Review requires a fresh shore feed and an unchanged task record.
+                  Approve, Decline and Stop have a five-second local undo window.
+                  Server acceptance is not boat delivery, and delivery is not task
+                  completion.
+                </p>
+                <p>
+                  Coverage updates only from observations. Alert acknowledgment
+                  does not clear the condition. Stale reports remain last-known;
+                  evaluator truth is explicitly separated.
+                </p>
+                <p>
+                  All boats/radio are modeled. Camera imagery is not supplied;
+                  satellite may be absent. No scenario fixture, fake identity or
+                  template command result is used in this live interface.
+                </p>
+              </div>
+            </details>
+            {GUIDE.rules && (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">How the boats decide (agent/RULES.md)</summary>
+                <div className="pt-2"><Markdown text={GUIDE.rules} /></div>
+              </details>
+            )}
+            {GUIDE.model && (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">What the simulator models (world/MODEL.md)</summary>
+                <div className="pt-2"><Markdown text={GUIDE.model} /></div>
+              </details>
+            )}
           </DialogContent>
         </Dialog>
         <Toaster theme={display === "day" ? "light" : "dark"} closeButton />

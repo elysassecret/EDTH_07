@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
+  boatWhy,
   coverageRows,
   endpoint,
   eventCategory,
@@ -43,6 +44,11 @@ import { roleText } from "../roles";
 import { useStore } from "../store";
 import { t0Of } from "../types";
 import { Fps } from "./Fps";
+
+/** #88 item 6: one grey line with the reason the boats gave; the full text on hover. */
+export function Why({ text }: { text: string }) {
+  return <p className="truncate text-sm text-muted-foreground" title={text}>{text}</p>;
+}
 
 export function FleetOverview() {
   const snap = useStore((s) => s.snap);
@@ -99,6 +105,7 @@ export function FleetOverview() {
               <CardDescription className="break-words">
                 {known ? roleText(boat, scene) : "No report received"}
               </CardDescription>
+              {known && boatWhy(boat, snap) && <Why text={boatWhy(boat, snap)} />}
             </CardHeader>
             <CardContent className="space-y-1 px-3 text-sm">
               <div className="flex justify-between gap-2">
@@ -130,76 +137,6 @@ export function FleetOverview() {
         );
       })}
     </div>
-  );
-}
-
-export function CoveragePanel() {
-  const snap = useStore((s) => s.snap);
-  const scene = useStore((s) => s.scene);
-  const select = useStore((s) => s.selectSegment);
-  if (!snap) return null;
-  const rows = coverageRows(snap, scene);
-  const target = scene?.revisit_target_s;
-  const unknown = rows.filter((r) => r.age === null);
-  const overdue = rows.filter(
-    (r) => r.age !== null && target !== undefined && r.age > target,
-  );
-  const oldest = rows.reduce<number | null>(
-    (age, r) => (r.age === null ? age : Math.max(age ?? 0, r.age)),
-    null,
-  );
-  return (
-    <Card className="gap-3 py-4">
-      <CardHeader className="px-4">
-        <CardTitle>Cable coverage</CardTitle>
-        <CardDescription>
-          {snap.view === "shore"
-            ? "Delivered shore observations"
-            : "Evaluator truth"}{" "}
-          {scene
-            ? ` · ${unknown.length} unknown`
-            : " · segment inventory not supplied"}
-          {target === undefined
-            ? " · target not supplied"
-            : ` · ${overdue.length} over target`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3 px-4">
-        <dl className="grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <dt className="text-muted-foreground">Oldest known visit</dt>
-            <dd>{oldest === null ? "Not reported" : dur(oldest)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Revisit target</dt>
-            <dd>{target === undefined ? "Not supplied" : hm(target)}</dd>
-          </div>
-        </dl>
-        <div className="flex flex-wrap gap-1">
-          {rows.map((r) => (
-            <Button
-              key={r.id}
-              variant="outline"
-              size="sm"
-              className="h-auto max-w-full flex-wrap justify-between gap-2 py-2"
-              onClick={() => select(r.id)}
-              title={segName(r.id)}
-            >
-              <span>{r.id}</span>
-              <span className="text-muted-foreground">
-                {r.age === null
-                  ? "Unknown"
-                  : `${dur(r.age)}${target !== undefined && r.age > target ? " · GAP" : ""}`}
-              </span>
-            </Button>
-          ))}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Unknown samples remain unknown. Assigning a task or approving a route
-          does not close a coverage gap.
-        </p>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -239,6 +176,7 @@ export function ContactOverview() {
                   {contact.source ?? (contact.ais ? "AIS" : "camera")} · last
                   seen {dur(snap.t - contact.last_seen)} ago
                 </span>
+                {contact.why && <Why text={contact.why} />}
               </span>
               <Badge variant="outline">{contact.ais ? "AIS" : "NO AIS"}</Badge>
             </Button>
@@ -276,6 +214,7 @@ export function SelectedContext() {
         <CardHeader className="px-4">
           <CardTitle>{usv(boat.id)}</CardTitle>
           <CardDescription>{roleText(boat, scene)}</CardDescription>
+          {boatWhy(boat, snap) && <Why text={boatWhy(boat, snap)} />}
         </CardHeader>
         <CardContent className="space-y-4 px-4">
           <Badge variant="outline">
@@ -335,7 +274,7 @@ export function SelectedContext() {
           <p className="font-medium">Assigned tasks</p>
           <ul className="space-y-1 break-words font-mono text-sm">
             {boat.roles.map((task) => (
-              <li key={task}>{task}</li>
+              <li key={task}>{task}{snap.tasks[task]?.why ? <span className="block font-sans text-muted-foreground">{snap.tasks[task].why}</span> : null}</li>
             ))}
           </ul>
         </CardContent>
@@ -351,6 +290,7 @@ export function SelectedContext() {
             {contact.source ?? (contact.ais ? "AIS" : "camera")} · delivered
             evidence
           </CardDescription>
+          {contact.why && <Why text={contact.why} />}
         </CardHeader>
         <CardContent className="space-y-4 px-4">
           <Badge variant="outline">

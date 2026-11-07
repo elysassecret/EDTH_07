@@ -26,7 +26,7 @@ import type { Decision } from "../types";
 
 // Feature 24: a wide band under each cable segment, coloured by revisit age (legend in the
 // coverage box; the age is also written on the chart, so colour is never the only cue).
-const BAND_RGB: Record<Band, [number, number, number]> = {
+export const BAND_RGB: Record<Band, [number, number, number]> = {
   recent: [90, 190, 170], due: [232, 208, 112], over: [224, 140, 48], none: [150, 156, 162],
 };
 
@@ -75,6 +75,50 @@ function ghostRoutes(snap: NonNullable<ReturnType<typeof useStore.getState>["sna
 
 maplibregl.setWorkerUrl(workerUrl);
 
+type Snap = NonNullable<ReturnType<typeof useStore.getState>["snap"]>;
+type Scene = NonNullable<ReturnType<typeof useStore.getState>["scene"]>;
+export const RING_DETECT: [number, number, number, number] = [96, 170, 255, 110];
+export const RING_KEEP: [number, number, number, number] = [96, 170, 255, 26];
+export const RING_STANDOFF: [number, number, number, number] = [240, 210, 80, 200];
+
+/** A closed ring of points r metres around lon/lat (for dashed rings; Scatterplot has no dash). */
+function circle(lon: number, lat: number, r: number, n = 72): [number, number][] {
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const a = (2 * Math.PI * i) / n;
+    return offset(lon, lat, Math.sin(a) * r, Math.cos(a) * r);
+  });
+}
+
+/** #88 rings: camera range (ship, day) and keep-in-view range around live boats; the 1 nm
+ * stand-off around NO AIS contacts. Ranges are the boat model's (config/boat.toml), not
+ * measured; stale boats get no rings, since their position is only last known. */
+function ringLayers(snap: Snap, scene: Scene): Layer[] {
+  // per boat / contact from the snapshot (#91); the scene's config/boat.toml ranges otherwise
+  const r = scene.ranges;
+  const staleAfter = scene.stale_after_s ?? 60;
+  const live = snap.boats.filter((b) => b.heard !== false && snap.t - b.last_heard <= staleAfter
+    && b.mode !== "UNAVAILABLE" && !isDocked(b, scene));
+  const dark = snap.contacts.filter((k) => !k.ais && snap.t - k.last_seen <= staleAfter);
+  return [
+    new ScatterplotLayer<Boat>({
+      id: "ring-keep", data: live, getPosition: (b) => [b.lon, b.lat], radiusUnits: "meters",
+      getRadius: (b) => b.keep_in_view_m ?? r?.keep_in_view_m ?? 0, filled: true, getFillColor: RING_KEEP, stroked: false,
+    }),
+    new ScatterplotLayer<Boat>({
+      id: "ring-detect", data: live, getPosition: (b) => [b.lon, b.lat], radiusUnits: "meters",
+      getRadius: (b) => b.detect_m ?? r?.detect_ship_day_m ?? 0, filled: false, stroked: true, getLineColor: RING_DETECT,
+      lineWidthUnits: "pixels", getLineWidth: 1,
+    }),
+    new PathLayer<Contact, PathStyleExtensionProps<Contact>>({
+      id: "ring-standoff", data: dark, getPath: (k) => circle(k.lon, k.lat, k.standoff_m ?? r?.standoff_m ?? 0),
+      getColor: RING_STANDOFF, getWidth: 1.5, widthUnits: "pixels",
+      getDashArray: [5, 4], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
+    }),
+  ];
+}
+
+// zoom from which depth contours and their labels show (about 0.5 nm on the scale bar)
+const DEPTH_DETAIL_ZOOM = 13;
 const FONT = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 const M_PER_DEG_LAT = 111_320;
 
@@ -106,13 +150,20 @@ const style: StyleSpecification = {
     land: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     infra: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     depth: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+    depth_bands: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
     box: { type: "geojson", data: boxGeo },
     cables: { type: "geojson", data: cablesGeo },
     lane: { type: "geojson", data: laneGeo },
   },
   layers: [
     { id: "sea", type: "background", paint: { "background-color": T.SEA } },
-    { id: "depth", type: "line", source: "depth", paint: { "line-color": T.DEPTH, "line-width": 1, "line-opacity": 0.7 } },
+    // #88: depth as four shades of the sea colour, darker is deeper (bands from #89 when present)
+    {
+      id: "depth-bands", type: "fill", source: "depth_bands",
+      paint: { "fill-color": ["step", ["to-number", ["get", "depth_min_m"], 0], T.DEPTH_0, 10, T.DEPTH_10, 20, T.DEPTH_20, 30, T.DEPTH_30] },
+    },
+    // contour lines only when zoomed in; at box scale they cluttered the chart (#88)
+    { id: "depth", type: "line", source: "depth", minzoom: DEPTH_DETAIL_ZOOM, paint: { "line-color": T.DEPTH, "line-width": 1, "line-opacity": 0.7 } },
     { id: "land", type: "fill", source: "land", paint: { "fill-color": T.LAND } },
     { id: "coast", type: "line", source: "land", paint: { "line-color": T.COAST, "line-width": 1 } },
     {
@@ -147,12 +198,14 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [geo, setGeo] = useState<Partial<Record<GeoName, GeoFile | null>>>({});
+  const [detail, setDetail] = useState(false); // zoomed in far enough for depth labels
   const snap = useStore((s) => s.snap);
   const scene = useStore((s) => s.scene);
   const conn = useStore((s) => s.conn);
   const selected = useStore((s) => s.selected);
   const selectedContact = useStore((s) => s.selectedContact);
   const showComms = useStore((s) => s.showComms);
+  const showRings = useStore((s) => s.showRings);
   const hoverDecision = useStore((s) => s.hoverDecision);
   const evalData = useStore((s) => s.evalData);
 
@@ -197,6 +250,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     });
     ro.observe(el.current);
     map.on("error", (e) => console.error("map:", e.error?.message ?? e));
+    map.on("zoom", () => setDetail(map.getZoom() >= DEPTH_DETAIL_ZOOM));
     map.on("load", async () => {
       setLoaded(true);
       const files = await Promise.all(GEO_FILES.map(async (n) => [n, await loadGeo(n)] as const));
@@ -215,7 +269,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
           url: "geo/s2_box.png",
           coordinates: meta.coordinates as [[number, number], [number, number], [number, number], [number, number]],
         });
-        map.addLayer({ id: "s2", type: "raster", source: "s2", layout: { visibility: "none" } }, "lane");
+        // Under depth, coastline, bridge, lane and cables (#81): only the sea background is below it.
+        map.addLayer({ id: "s2", type: "raster", source: "s2", layout: { visibility: "none" } }, "depth");
         onSatelliteState("ready");
       } catch {
         onSatelliteState("none");
@@ -232,17 +287,19 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     const map = mapRef.current;
     if (loaded && map?.getLayer("s2")) {
       map.setLayoutProperty("s2", "visibility", satellite ? "visible" : "none");
+      // the flat land fill would hide the image's land; the coastline line stays on top
+      map.setLayoutProperty("land", "visibility", satellite ? "none" : "visible");
     }
   }, [satellite, loaded]);
 
   const geoText = useMemo(
-    () => [...infraLabels(geo.infra?.data ?? null), ...depthLabels(geo.depth?.data ?? null)],
-    [geo],
+    () => [...infraLabels(geo.infra?.data ?? null), ...(detail ? depthLabels(geo.depth?.data ?? null) : [])],
+    [geo, detail],
   );
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData) });
-  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData]);
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings) });
+  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings]);
 
   const credits = [...new Set(GEO_FILES.map((n) => geo[n]?.credit).filter((c): c is string => !!c))];
   if (satellite) credits.push("Contains modified Copernicus Sentinel data");
@@ -267,6 +324,7 @@ function buildLayers(
   hoverDecision: string | null,
   geoText: LineLabel[],
   evalData: EvalData | null,
+  showRings = true,
 ): Layer[] {
   const layers: Layer[] = [];
   if (geoText.length) {
@@ -299,6 +357,7 @@ function buildLayers(
   }
 
   if (snap && scene) layers.push(...coverageLayers(snap, scene, frozen));
+  if (snap && scene && showRings && !frozen) layers.push(...ringLayers(snap, scene));
   if (snap && showComms) layers.push(...commsLayers(snap, scene?.shore ?? null, frozen));
   if (snap) layers.push(...ghostRoutes(snap, hoverDecision));
 
