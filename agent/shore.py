@@ -47,6 +47,8 @@ class ShoreNode:
         self.decisions: dict[str, dict] = {}  # decision id -> Decision fields + msg id
         self.contacts = Contacts(self)  # the boats' merge rules, fed only by delivered messages
         self.trail: dict[str, list[tuple[float, float]]] = {}
+        self.bids: dict[str, dict[int, tuple[int, int]]] = {}  # task -> boat -> (round, cost ms)
+        self.explained: set[tuple[str, int]] = set()  # (task, version) already explained
         self.events: list[dict] = []
         self.hb_due = Every(HEARTBEAT)
         self.t = 0
@@ -78,7 +80,11 @@ class ShoreNode:
                 self.credit(pos, m.tc)
         elif m.kind in ("REC", "VETO"):
             for w in m.p["recs"] if m.kind == "REC" else [m.p["rec"]]:
-                self.table.apply(from_wire(w))
+                r = from_wire(w)
+                if self.table.apply(r)[0] and r.state == CLAIMED and r.ver > 1:
+                    self.explain(m.tc, self.table.recs[r.task])
+        elif m.kind == "BID":
+            self.bids.setdefault(m.p["task"], {})[m.p["boat"]] = (m.p["e"], m.p["cost"])
         elif m.kind == "OBS":
             track, old = m.p["track"], self.contacts.tracks.get(m.p["track"])
             self.contacts.on_obs(m.p)
@@ -98,6 +104,24 @@ class ShoreNode:
                     self.log(m.tc, f"contact_{k}", FLAG_TEXT[k].format(t=track, c=f["course"]))
         elif m.kind == "ACK":
             self.on_ack(m.src, m.p["of"], m.tc)
+
+    def explain(self, t: int, r: Rec) -> None:
+        """Why a boat got a task (roadmap: explain every assignment): its bid, and the bids the
+        shore heard from others in the same round. Only what reached the shore; bids that did
+        not arrive are not guessed."""
+        if r.state != CLAIMED or (r.task, r.ver) in self.explained or not r.owner:
+            return
+        self.explained.add((r.task, r.ver))
+        heard = self.bids.get(r.task, {})
+        e = heard.get(r.owner, (None, 0))[0]
+        others = sorted((c, b) for b, (eb, c) in heard.items() if b != r.owner and eb == e)
+        if others:
+            text = (f"USV {r.owner:02d} took {r.task}: lowest bid {hm(r.bid)}, ahead of "
+                    + ", ".join(f"USV {b:02d} {hm(c)}" for c, b in others))
+        else:
+            text = f"USV {r.owner:02d} took {r.task}: bid {hm(r.bid)}, the only bid shore heard"
+        self.log(t, "assignment", text + " (bid = travel and patrol time plus battery and role "
+                 "penalties)")
 
     # decision cards ---------------------------------------------------------------------------
     def offer(self, t: int) -> None:
@@ -283,3 +307,9 @@ def samples(pts: tuple[tuple[int, int], ...]) -> list[tuple[int, int]]:
             offset += SAMPLE_M
         walked += d
     return out
+
+
+def hm(ms_: int) -> str:
+    """Bid cost (ms) as hours and minutes."""
+    m = ms_ // 60_000
+    return f"{m // 60} h {m % 60:02d} m" if m >= 60 else f"{m} m"
