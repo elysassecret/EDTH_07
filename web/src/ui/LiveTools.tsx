@@ -195,6 +195,48 @@ export function DigestSummary() {
   );
 }
 
+/** Exercise conditions still in effect, from the server, with one-click undo. An undo is an
+ * ordinary inject (link_on / boat_restore), so it is logged and shown as EXERCISE like any other. */
+export function ExercisesInEffect({ onSend }: { onSend: (commands: Command[]) => void }) {
+  const snap = useStore((s) => s.snap);
+  const conn = useStore((s) => s.conn);
+  const items = snap?.exercises;
+  if (!snap || items === undefined) return null;
+  const undoable = items.flatMap((i) => i.undo ?? []);
+  return (
+    <section aria-label="Exercise conditions in effect" className="space-y-2">
+      <h3 className="text-sm font-medium">In effect now · {items.length}</h3>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No exercise condition is in effect.</p>
+      ) : (
+        <ul className="space-y-1">
+          {items.map((i, n) => (
+            <li key={`${i.kind}-${i.t}-${n}`} className="flex items-start justify-between gap-2 rounded-md border p-2 text-sm">
+              <span className="min-w-0">
+                <span className="block">{i.text.replace(/^EXERCISE: /, "").replace(/ \[[^\]]*\]$/, "")}</span>
+                <span className="text-xs text-muted-foreground">
+                  since {utc(t0Of(snap), i.t)} · {i.origin}
+                  {i.undo === null && " · cannot be undone in this run (no recharge in the simulator yet); a reset clears it"}
+                </span>
+              </span>
+              {i.undo && (
+                <Button variant="outline" size="sm" disabled={conn !== "live"} onClick={() => onSend(i.undo!)}>
+                  Undo
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {undoable.length > 1 && (
+        <Button variant="outline" disabled={conn !== "live"} onClick={() => onSend(undoable)}>
+          Undo all {undoable.length} that can be undone
+        </Button>
+      )}
+    </section>
+  );
+}
+
 export function ExerciseTools({
   open,
   onOpenChange,
@@ -253,6 +295,8 @@ export function ExerciseTools({
           </DialogDescription>
         </DialogHeader>
         <FieldGroup>
+          <ExercisesInEffect onSend={fire} />
+          <Separator />
           <Field>
             <FieldLabel>Boat</FieldLabel>
             <Select

@@ -57,6 +57,16 @@ export interface Snapshot extends Omit<C.Snapshot, "boats" | "contacts" | "decis
   narration?: { t: number; text: string }[]; // server/narrator.py, /shore only
   // watch-officer escalations recorded by the server (server/bridge.py); the officer's call
   escalations?: { id: string; track: string; t: number; note: string }[];
+  // exercise conditions still in effect (server/bridge.py), each with the injects that undo it
+  exercises?: ExerciseItem[];
+}
+
+export interface ExerciseItem {
+  t: number;
+  kind: string;
+  text: string;
+  origin: string; // "operator injection" | "exercise script"
+  undo: Command[] | null; // null = cannot be undone in this run (e.g. battery_low, #116)
 }
 
 export interface SceneMsg {

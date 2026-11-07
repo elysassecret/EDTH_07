@@ -123,9 +123,13 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
     page.getByRole("button", { name: "Run simulation" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Exercise controls" }).click();
+  await page.getByRole("button", { name: /Exercise controls, \d+ in effect/ }).click();
+  // the switched-off boat is listed as in effect, and its Undo is the same boat_restore
   await page
-    .getByRole("button", { name: "Switch back on", exact: true })
+    .getByRole("region", { name: "Exercise conditions in effect" })
+    .getByRole("listitem")
+    .filter({ hasText: "USV 02 switched off" })
+    .getByRole("button", { name: "Undo", exact: true })
     .click();
   await page
     .getByRole("dialog")

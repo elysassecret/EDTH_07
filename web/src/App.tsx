@@ -217,6 +217,7 @@ export function App() {
   }, []);
 
   const open = pendingDecisions(snap);
+  const exercises = snap?.exercises?.length ?? 0;
   const source = snap?.source ?? scene?.source;
   const paused = snap?.speed === 0 || snap?.warp_mode === "paused";
   const speedValue =
@@ -353,10 +354,12 @@ export function App() {
               variant="outline"
               size="sm"
               onClick={() => setPanel("inject")}
-              aria-label="Exercise controls"
+              aria-label={exercises ? `Exercise controls, ${exercises} in effect` : "Exercise controls"}
+              className={exercises ? "border-amber-400 text-amber-700 dark:text-amber-300" : undefined}
             >
               <Settings2 />
               <span className="hidden lg:inline">Exercise</span>
+              {exercises > 0 && <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-300">{exercises} in effect</Badge>}
             </Button>
             <Button
               variant="outline"
