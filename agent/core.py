@@ -16,7 +16,7 @@ from agent.auction import DROPS, Auction, ms
 from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
 from agent.table import Table
-from agent.tour import Follower, Leg, Tours, Visits, dist_to_line
+from agent.tour import KORSOR_SHORE, Follower, Leg, Tours, Visits, dist_to_line, route_water
 from contract.constants import (
     CLAIMED,
     HEARTBEAT,
@@ -392,31 +392,34 @@ class Agent:
         """A patrol or station target never takes the boat inside the stand-off ring of a contact
         with no AIS: a look closer than 1 nm is the watch officer's call (the close card). The
         boat skips waypoints inside the ring and steers round it on the tangent."""
-        if a.mode not in (PATROL, SENTINEL) or a.target is None:
+        if a.target is None:
             return a
-        r = self.params.standoff_m + STANDOFF_MARGIN_M
-        rings = [(o["x"], o["y"]) for k, o in sorted(self.contacts.tracks.items())
-                 if not o["ais"] and not self.contacts.stale(k, self.t)]
-        if self.detoured and not rings and a.mode == PATROL:
-            self.detoured = False  # the ring has gone: what it made me skip is now the oldest
-            self.head_for_oldest()
-            return Action(a.mode, self.follow.target(self.pos), a.speed_mm_s)
         target = a.target
-        if a.mode == PATROL:
-            for _ in range(sum(len(self.tours.way(leg)) for leg in self.follow.legs)):
-                if not any(dist(target, c) <= r for c in rings):
-                    break
-                self.follow.skip()
-                self.detoured = True
+        if a.mode in (PATROL, SENTINEL):
+            r = self.params.standoff_m + STANDOFF_MARGIN_M
+            rings = [(o["x"], o["y"]) for k, o in sorted(self.contacts.tracks.items())
+                     if not o["ais"] and not self.contacts.stale(k, self.t)]
+            if self.detoured and not rings and a.mode == PATROL:
+                self.detoured = False  # the ring has gone: what it made me skip is now the oldest
+                self.head_for_oldest()
                 target = self.follow.target(self.pos)
-        for c in rings:
-            if dist(target, c) <= r:  # a station inside the ring: hold on its edge instead
-                target = ring_point(c, target, r)
-            if dist(self.pos, c) <= r:
-                target = ring_point(c, self.pos, r + STANDOFF_MARGIN_M)  # straight out
-            elif dist_to_line(c, (self.pos, target)) < r:
-                target = round_ring(self.pos, c, r, target)
-                self.detoured = True
+            elif a.mode == PATROL:
+                for _ in range(sum(len(self.tours.way(leg)) for leg in self.follow.legs)):
+                    if not any(dist(target, c) <= r for c in rings):
+                        break
+                    self.follow.skip()
+                    self.detoured = True
+                    target = self.follow.target(self.pos)
+            for c in rings:
+                if dist(target, c) <= r:  # a station inside the ring: hold on its edge instead
+                    target = ring_point(c, target, r)
+                if dist(self.pos, c) <= r:
+                    target = ring_point(c, self.pos, r + STANDOFF_MARGIN_M)  # straight out
+                elif dist_to_line(c, (self.pos, target)) < r:
+                    target = round_ring(self.pos, c, r, target)
+                    self.detoured = True
+        if self.mission.shore == KORSOR_SHORE and len(self.tours.pts.get("seg:M:0", ())) > 2:
+            target = route_water(self.pos, target)
         return Action(a.mode, target, a.speed_mm_s)
 
     def heartbeat(self) -> dict:

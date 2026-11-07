@@ -20,7 +20,7 @@ const SWATCH: Record<string, ReactElement> = {
   box: <Line color={T.BOX} width={1.5} dash="2 2" />,
   usv: <svg width="28" height="14" aria-hidden="true"><line x1="14" y1="7" x2="27" y2="2" stroke={rgba(T.FRIEND)} strokeWidth="2" /><circle cx="10" cy="7" r="5" fill={rgba(T.FRIEND, 0.9)} stroke="#0a141e" /></svg>,
   stale: <svg width="28" height="14" aria-hidden="true"><circle cx="10" cy="7" r="5" fill={rgba(T.STALE, 0.47)} stroke="#0a141e" /></svg>,
-  ais: <svg width="28" height="14" aria-hidden="true"><rect x="5" y="2" width="10" height="10" fill={rgba(T.NEUTRAL, 0.35)} stroke={rgba(T.NEUTRAL)} strokeWidth="2" /></svg>,
+  ais: <svg width="28" height="14" aria-hidden="true"><polygon points="10,2 15,12 10,9.5 5,12" fill={rgba(T.NEUTRAL, 0.45)} stroke={rgba(T.NEUTRAL)} strokeWidth="1.5" strokeLinejoin="round" /></svg>,
   dark: <svg width="28" height="14" viewBox="0 0 28 14" aria-hidden="true"><g fill={rgba(T.UNKNOWN, 0.35)} stroke={rgba(T.UNKNOWN)} strokeWidth="1.2"><circle cx="10" cy="3.5" r="3" /><circle cx="10" cy="10.5" r="3" /><circle cx="6.5" cy="7" r="3" /><circle cx="13.5" cy="7" r="3" /></g></svg>,
   link: <svg width="28" height="14" aria-hidden="true"><line x1="1" y1="4" x2="27" y2="4" stroke={rgba(UP)} strokeWidth="1.5" /><line x1="1" y1="10" x2="27" y2="10" stroke={rgba(ROUTE)} strokeWidth="3" /></svg>,
   cut: <svg width="28" height="14" aria-hidden="true"><line x1="1" y1="7" x2="27" y2="7" stroke={rgba(CUT)} strokeWidth="2" strokeDasharray="6 4" /><path d="M10 2L18 12M18 2L10 12" stroke={rgba(CUT)} strokeWidth="2.5" strokeLinecap="round" /></svg>,

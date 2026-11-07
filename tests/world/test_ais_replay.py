@@ -201,3 +201,37 @@ def test_real_clip_if_present_respects_boat_ranges():
             for ping in world.ais_pings_for_boat(boat):
                 limit = class_a_m if ping.ais_class == "Class A" else class_b_m
                 assert dist(state.point, ping.point) <= limit
+    contacts = world.ais_contacts_view()
+    assert len(contacts) > 0
+    assert all(c["ais"] is True and isinstance(c["cog"], int) for c in contacts)
+
+
+def test_water_routing_keeps_transits_off_sprogo_and_halsskov():
+    import json
+
+    from shapely.geometry import LineString, MultiPolygon, Polygon, shape
+    from shapely.ops import unary_union
+
+    from agent.tour import route_water_path
+    from contract.geo import to_xy
+
+    land_fc = json.loads((ROOT / "web/public/geo/land.geojson").read_text(encoding="utf-8"))
+
+    def geom_to_xy(geom):
+        g = shape(geom)
+        if g.geom_type == "Polygon":
+            return Polygon([to_xy(lat, lon) for lon, lat in g.exterior.coords])
+        return MultiPolygon(
+            [Polygon([to_xy(lat, lon) for lon, lat in p.exterior.coords]) for p in g.geoms]
+        )
+
+    land_xy = unary_union([geom_to_xy(feat["geometry"]) for feat in land_fc["features"]])
+    for start, goal in (
+        ((853, -5081), (-2278, -7893)),
+        ((4446, -4976), (-2278, -7893)),
+        ((-2278, -7893), (4446, -4976)),
+        ((797, 8644), (8237, -7605)),
+        ((-5528, 6491), (-2278, -7893)),
+    ):
+        pts = [(-2293, -7950) if p == (-2278, -7893) else p for p in route_water_path(start, goal)]
+        assert LineString(pts).intersection(land_xy).length == 0.0
