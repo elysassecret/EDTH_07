@@ -18,6 +18,20 @@ Status board for the `final` tag. Every line is a check someone ran, with the ev
 | Seeded repeat across processes | `uv run python -m eval.repeat --seeds 1` | same digest |
 | Console starts offline | `uv run python -m server --seed 1` with Wi-Fi off | map renders, no FEED LOST |
 
+### Dry run, 2026-11-07 afternoon, `main` at `2f03806` (merge of #80)
+
+Fresh `gh repo clone` into a temp folder on Windows 11, `uv sync`, no AIS clip copied in.
+
+| Check | Result |
+|---|---|
+| `uv run ruff check .` | clean |
+| `uv run pytest -q tests/smoke` | 3 passed |
+| `uv run python -m tools.scene_check` | 23.60 km, 241 samples |
+| `uv run python -m eval.run_batch --out runs/clean5` | exit 0, no PRELIMINARY; crossing rows say "AIS clip not present" as designed |
+| Hash comparison with the working copy (15 runs: 3 modes x 5 seeds) | `warm_hash`, `final_hash`, `config_sha256`, `agents_sha256` identical in all 15; km overdue identical |
+
+So a clean checkout reproduces the accepted numbers byte for byte on the same machine. The two-laptop run below is the same comparison across machines.
+
 ## Two-laptop offline proof (with B)
 
 1. Clone on both laptops on venue Wi-Fi, `uv sync`, then switch Wi-Fi off.
