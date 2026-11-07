@@ -1,6 +1,6 @@
 # Pitch script: three minutes, spoken
 
-Owner: D (#89). What the presenter says while the screen shows the demo. About 400 words; read at a calm pace it lands near 2:50. **Read it aloud once with a stopwatch and write the time at the bottom.** Beat order and times follow `server/DEMO.md`. Every number is from `eval/results.md` (30 paired seeds, `main` at `86806cb`) and is **truth**, the evaluator's measurement; on Sunday replace them from the `final` tag run (`deck/runbook.md`). Slide-only material (market, price, team) lives in `deck/pitch.md` and `deck/DECK.md`.
+Owner: D (#89). What the presenter says while the screen shows the demo. About 400 words; read at a calm pace it lands near 2:50. **Read it aloud once with a stopwatch and write the time at the bottom.** Beat order and times follow `server/DEMO.md`. Every number is from `eval/results.md` (30 paired seeds, `main` at `789538c` with #109) and is **truth**, the evaluator's measurement; on Sunday replace them from the `final` tag run (`deck/runbook.md`). Slide-only material (market, price, team) lives in `deck/pitch.md` and `deck/DECK.md`.
 
 Bold = say it. *Italic = what is on screen or what you do.*
 
@@ -32,7 +32,7 @@ Bold = say it. *Italic = what is on screen or what you do.*
 
 **1:55 The number** *(results slide, or Evaluator view)*
 
-**We ran thirty paired seeds, same start, with and without repair, measured by an evaluator that sees the truth. With repair, the median cable left overdue at the end is 1.4 kilometres. Without it, 6.7. Better in all thirty seeds.**
+**We ran thirty paired seeds, same start, with and without repair, measured by an evaluator that sees the truth. With repair, the median cable left overdue at the end is 2.0 kilometres. Without it, 6.2. Better in all thirty seeds.**
 
 **2:15 The trade-off** *(same slide, second row)*
 
@@ -52,7 +52,7 @@ Bold = say it. *Italic = what is on screen or what you do.*
 
 | Said | `eval/results.md` row | Label |
 |---|---|---|
-| 30 paired seeds; 1.4 vs 6.7 km; better in 30 of 30 | Headline, "Cable km overdue at end" | truth |
+| 30 paired seeds; 2.0 vs 6.2 km; better in 30 of 30 | Headline, "Cable km overdue at end" | truth |
 | 9 of 9 vs 5 of 9 crossings in view | Headline, "Real cargo and tanker crossings in view after T" | truth |
 | Gain shrinks at 4 km radio, contact never handed over | Sensitivities, "km overdue, 4 km boat radio", "Watcher in view of C-07" | truth |
 | 1 nm, 500 m, 5 s undo | `config/boat.toml`, `deck/standing_orders.md`, the console | config, not measured |

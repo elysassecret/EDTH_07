@@ -91,7 +91,10 @@ def build_world(root, mode: str, seed: int, speed_mm_s=None, radio_m=None, warm_
     world.script = [
         dict(e) if e["kind"] == "reset" else {**e, "t": e["t"] + warm_s} for e in world.script
     ]
-    world.current = Current(world.current.vector, world.current.flip_ms + warm_ms)
+    shifted = Current(world.current.vector, world.current.flip_ms + warm_ms)
+    # Since #113, World.reset() restores `current` from `_base_current`, so the shift must be
+    # set there too, or the tide flips during the warm-up instead of at mission 9,000 s.
+    world._base_current = world.current = shifted
     if radio_m is not None:
         world.radio_config = replace(world.radio_config, boat_m=radio_m)
     world.final_params = replace(

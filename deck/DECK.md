@@ -51,26 +51,28 @@ A juror picks a failure. The swarm repairs what it can. The gap it cannot close 
 
 Three modes on identical inputs, differing in one config key. Same warm state per seed. Truth.
 
-Numbers from `eval/results.md`, `main` at `86806cb`, 2026-11-07. Replace the revision from the `final` tag on Sunday.
+Numbers from `eval/results.md`, `main` at `789538c` (after #110, water-only routing) with the #109 eval changes, 2026-11-07. Replace the revision from the `final` tag on Sunday.
 
 | Truth, 5 seeds | static | off | elysa |
 |---|---|---|---|
-| Cable km overdue at end | 15.2 (14.6 to 15.2) | 3.3 (2.3 to 7.5) | 0.0 (0.0 to 1.7) |
-| Mean km overdue, failure to end | 10.7 (10.2 to 12.2) | 1.0 (0.5 to 2.8) | 0.0 (0.0 to 0.4) |
-| Worst sample age (s) | 24,328 | 16,249 | 11,106 |
+| Cable km overdue at end | 14.6 (14.2 to 15.2) | 3.3 (1.6 to 6.8) | 0.0 (0.0 to 2.3) |
+| Mean km overdue, failure to end | 10.4 (10.1 to 11.8) | 0.8 (0.4 to 2.4) | 0.0 (0.0 to 0.5) |
+| Worst sample age (s) | 24,336 | 16,251 | 10,730 |
 | Failure to all segments owned | not reached | not reached | 60 s |
 
-**30 paired seeds, off against elysa:** km overdue 6.7 vs 1.4 (median), elysa better in 30 of 30, equal 0, worse 0, median gain 4.8 km. Worst age better in 24, equal in 6.
+**30 paired seeds, off against elysa:** km overdue 6.2 vs 2.0 (median), elysa better in 30 of 30, equal 0, worse 0, median gain 4.3 km. Worst age better in 24, equal in 6.
 
-**The cost, on the same slide:** after a loss we keep the cables at the cost of the south lane picket. Real cargo and tanker crossings in view after the failure: 9 of 9 without repair, 5 of 9 with it (worse in 20 of 30 seeds). The boats never see AIS; "in view" is the evaluator checking camera range against the private AIS day. Without repair the picket is empty too; the crossings stay in view only because boat 4 never moves.
+**The cost, on the same slide:** after a loss we keep the cables at the cost of the south lane picket. Real cargo and tanker crossings in view after the failure: 9 of 9 without repair, 5 of 9 with it (worse in all 30 seeds). The boats never see AIS; "in view" is the evaluator checking camera range against the private AIS day. Without repair the picket is empty too; the crossings stay in view only because boat 4 never moves.
 
-Sensitivities: at 3.0 m/s the gain holds (4.0 vs 0.1 km). At 4 km boat radio it shrinks (4.9 vs 2.6 km) and the contact is never handed to a watcher: say so.
+**Energy and recovery, 30 paired seeds, truth:** no boat ever below its reserve away from Korsør in either mode (0 boat-seconds). Unserved task-seconds after the failure (median): 27,204 without repair, 6,945 with it, better in 30 of 30; what stays unserved with repair is the south lane picket. Recovery outcome: without repair "not recovered" in 30 of 30, with repair "cables only" in 30 of 30.
+
+Sensitivities: at 4 km boat radio the gain shrinks (4.6 vs 3.3 km, better in 3 of 5) and the contact is never handed to a watcher: say so. The 3.0 m/s batch is PRELIMINARY on `789538c` (console gap check fails after #110): no 3.0 m/s number on a slide until it passes.
 
 ## 6. The contact [originality]
 
 Watching is pre-approved. Everything beyond watching waits for a person.
 
-Timeline of the synthetic dark contact: detected, held, handed to a watcher, cannot hold when it leaves. Detected in 10 of 30 seeds at 2.3 m/s (4 of 5 at 3.0 m/s), and why not the rest: it depends on where the sweeper is in its loop. Handed to a watcher in 8 of 30, 3 to 30 minutes after it appeared. Never at 4 km radio.
+Timeline of the synthetic dark contact: detected, held, handed to a watcher, cannot hold when it leaves. Detected in 10 of 30 seeds at 2.3 m/s, and why not the rest: it depends on where the sweeper is in its loop. Handed to a watcher in 8 of 30, 3 to 30 minutes after it appeared. Never at 4 km radio.
 
 Standing orders table: `deck/standing_orders.md`.
 
@@ -146,7 +148,26 @@ Built between Friday and Sunday. As of `main` at `86806cb` on Saturday: 273 test
 4. Boats launch from a harbour or Home Guard vessel, patrol a shift, return and charge. Shifts overlap.
 5. Updates are signed. Logs give an evidence trail.
 
-## 13. Team and ask [pitch]
+## 13. Roadmap: what comes next [feasibility, size of opportunity]
+
+Each row says what is on `main` and what is **proposed, not implemented**. Status as of `main` at `789538c`, Sat 7 Nov; refresh at the `final` tag. Source: `world/PRODUCT_BRIEF.md`, issues #103 to #115.
+
+| Next step | What it adds | On `main` now | Proposed, not implemented |
+|---|---|---|---|
+| Gazebo testbed, stage 1 | One boat, one route in a fuller physics and sensor sim, same agent code | An adapter and its tests (#113); never run against a Gazebo install (`world/GAZEBO.md`) | Running it in Gazebo; stages 2 and up |
+| ArduPilot SITL, then a real boat | The same agent driving a real autopilot in software, then a supervised boat | A written plan (`server/INTEGRATION.md`, #114) | All of it: no MAVLink link exists |
+| Explainable assignments | Why this boat: next bidder, minutes away, battery left after, role it drops | On the claim's reason line (#102, #115) | A breakdown view on the console |
+| Response-cost preview | Before approving: trip, energy left after, cable that goes overdue meanwhile | On every decision card (#112). **A model estimate**: straight line, cruise speed, no current, shore-reported ages. Not a measurement | Current and uncertainty in the estimate |
+| Energy management | A task only if the boat can finish it and get home with its reserve; hand over first | Admission, handover under adverse current and a progress health check (#115), tested in the harness | Fleet rotation, charging and dock slots: not modelled |
+| Independent runtimes | Each boat and the shore as separate processes; the shore can stop, boats keep working | One process per boat (#115), the world's wire boundary (#113), a smoke test of the acceptance run with five boat processes (#109) | Shore service restart with an operator command in flight (#105, C) |
+
+Energy work is judged on reserve violations, unserved task-seconds and recovery outcome, which `eval/` now measures (#109), never on "energy saved".
+
+Say on the slide: "Built this weekend: the left column. Proposed, not built: the right column."
+
+**[SHOT: none; a table slide]**
+
+## 14. Team and ask [pitch]
 
 Javier: swarm brain. Simeone: world and data. Alexandru: operator console. Franco: proof and pitch.
 
