@@ -45,6 +45,7 @@ class Params:
     loiter_sog_mm_s: int
     policy: str  # elysa | off | static
     repair_off_after_ms: int  # first failure event in the scenario; same in every mode
+    r_detect_m: int = 5000  # camera detect radius for ship-class target under scene light (m)
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,4 +102,5 @@ def load_params(root: str | Path = ".", scenario: str = "scenarios/fixed.toml") 
         loiter_sog_mm_s=agent["loiter_sog_mm_s"],
         policy=agent["policy"],
         repair_off_after_ms=min(failures) * 1000 if failures else 0,
+        r_detect_m=boat["r_detect_m"]["ship_day"],
     )

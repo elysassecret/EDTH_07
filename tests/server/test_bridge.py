@@ -220,6 +220,44 @@ def test_place_contact_snaps_to_a_cable_sample_and_stays_truth_only(tmp_path):
     assert replay(s.log.path).ok
 
 
-def test_boat_restore_waits_for_world_support():
-    res = SimSource(1).command({"cmd": "inject", "kind": "boat_restore", "a": 3})
-    assert res["ok"] is False and "#34" in res["error"]
+def test_boat_restore_brings_the_same_boat_back_and_replays(tmp_path):
+    """#63: off then restore; same boat, battery as it was; the alert clears; replay matches."""
+    from server.replay import replay
+
+    s = SimSource(1, runs_dir=tmp_path)
+    run_to(s, 120)
+    assert s.command({"cmd": "inject", "kind": "boat_off", "a": 2})["ok"]
+    run_to(s, 400)
+    off = next(b for b in s.snapshot("shore")["boats"] if b["id"] == 2)
+    batt = next(b for b in s.world.truth_view()["boats"] if b["id"] == 2)["batt"]
+    assert off["link"] == "none"
+    assert any(a["text"].startswith("EXERCISE: USV 02 switched off")
+               for a in s.snapshot("shore")["alerts"])
+    assert s.command({"cmd": "inject", "kind": "boat_restore", "a": 2})["ok"]
+    s.step(1_000)
+    t2 = next(b for b in s.world.truth_view()["boats"] if b["id"] == 2)
+    assert t2["enabled"] and t2["batt"] <= batt  # no recharge
+    run_to(s, 520)
+    shore = s.snapshot("shore")
+    back = next(b for b in shore["boats"] if b["id"] == 2)
+    assert back["last_heard"] > off["last_heard"]
+    assert not any("USV 02 switched off" in a["text"] for a in shore["alerts"])
+    assert any("USV 02 switched back on" in e["text"] for e in shore["events"])
+    s.close()
+    assert replay(s.log.path).ok
+
+
+def test_scorecard_is_read_from_eval_output_on_truth_only(tmp_path):
+    card = {"source": "eval/run_batch.py", "seeds": [1, 2], "preliminary": True,
+            "rows": [{"mode": "elysa", "metric": "cable km overdue", "unit": "km",
+                      "median": 1.0, "min": 0.5, "max": 2.0}]}
+    path = tmp_path / "scorecard_console.json"
+    f = Feed(lambda seed: SimSource(seed, scorecard_path=path), seed=1, hz=10)
+    assert "scorecard" not in json.loads(f.tick()["truth"])  # no file yet: panel waits
+    path.write_text(json.dumps(card))
+    frames = {k: json.loads(v) for k, v in f.tick().items()}
+    assert frames["truth"]["scorecard"] == card and "scorecard" not in frames["shore"]
+    path.write_text("{broken")
+    import os
+    os.utime(path, (1, 1))  # force a new mtime
+    assert "scorecard" not in json.loads(f.tick()["truth"])

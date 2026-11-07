@@ -51,22 +51,26 @@ A juror picks a failure. The swarm repairs what it can. The gap it cannot close 
 
 Three modes on identical inputs, differing in one config key. Same warm state per seed. Truth.
 
-| Truth | static | off | elysa |
+Numbers from `eval/results.md`, `main` at `86806cb`, 2026-11-07. Replace the revision from the `final` tag on Sunday.
+
+| Truth, 5 seeds | static | off | elysa |
 |---|---|---|---|
-| Cable km overdue at end | [from Sun 09:00 batch] | [from Sun 09:00 batch] | [from Sun 09:00 batch] |
-| Mean km overdue, failure to end | [from Sun 09:00 batch] | [from Sun 09:00 batch] | [from Sun 09:00 batch] |
-| Worst sample age | [from Sun 09:00 batch] | [from Sun 09:00 batch] | [from Sun 09:00 batch] |
-| Failure to all segments owned | not reached | not reached | [from Sun 09:00 batch] |
+| Cable km overdue at end | 15.2 (14.6 to 15.2) | 3.3 (2.3 to 7.5) | 0.0 (0.0 to 1.7) |
+| Mean km overdue, failure to end | 10.7 (10.2 to 12.2) | 1.0 (0.5 to 2.8) | 0.0 (0.0 to 0.4) |
+| Worst sample age (s) | 24,328 | 16,249 | 11,106 |
+| Failure to all segments owned | not reached | not reached | 60 s |
 
-Seed by seed: elysa better in [k] of [n], equal in [k], worse in [k].
+**30 paired seeds, off against elysa:** km overdue 6.7 vs 1.4 (median), elysa better in 30 of 30, equal 0, worse 0, median gain 4.8 km. Worst age better in 24, equal in 6.
 
-Say what repair did not do: it does not lower the worst age much, and lane crossings in view do not improve. Use paired seeds for off against elysa, median and range, never one seed.
+**The cost, on the same slide:** after a loss we keep the cables at the cost of the south lane picket. Real cargo and tanker crossings in view after the failure: 9 of 9 without repair, 5 of 9 with it (worse in 20 of 30 seeds). The boats never see AIS; "in view" is the evaluator checking camera range against the private AIS day. Without repair the picket is empty too; the crossings stay in view only because boat 4 never moves.
+
+Sensitivities: at 3.0 m/s the gain holds (4.0 vs 0.1 km). At 4 km boat radio it shrinks (4.9 vs 2.6 km) and the contact is never handed to a watcher: say so.
 
 ## 6. The contact [originality]
 
 Watching is pre-approved. Everything beyond watching waits for a person.
 
-Timeline of the synthetic dark contact: detected, held, handed to a watcher, cannot hold when it leaves. Detected in [k] of [n] seeds, and why not the rest: it depends on where the sweeper is in its loop. **[from Sun 09:00 batch]**
+Timeline of the synthetic dark contact: detected, held, handed to a watcher, cannot hold when it leaves. Detected in 10 of 30 seeds at 2.3 m/s (4 of 5 at 3.0 m/s), and why not the rest: it depends on where the sweeper is in its loop. Handed to a watcher in 8 of 30, 3 to 30 minutes after it appeared. Never at 4 km radio.
 
 Standing orders table: `deck/standing_orders.md`.
 
@@ -119,7 +123,7 @@ Real contracts next to the reports: Sweden 1,440 vehicle-days; US Coast Guard US
 
 ## 10. Achieved this weekend [feasibility]
 
-Built between Friday and Sunday. Replace with final facts from `git log` at the `final` tag: **[tests passing, PRs merged, from Sun 09:00]**
+Built between Friday and Sunday. As of `main` at `86806cb` on Saturday: 273 tests (271 pass locally on Windows, 1 POSIX-only), 70 PRs merged, features 1–25 checked in `deck/FEATURE_CHECKLIST.md`. Refresh from `git log` at the `final` tag.
 
 - Swarm brain: task table, merge, auction, leases, relay, contact handling, energy modes.
 - World: real scene, integer motion, current and tide, directed radio cuts.

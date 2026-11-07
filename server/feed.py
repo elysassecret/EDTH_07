@@ -122,8 +122,8 @@ class Feed:
         truth = self._snap("truth", speed)
         truth["eval"] = compare(shore, truth)
         # hook for D's three-mode scorecard: a source may offer scorecard() -> dict (eval/)
-        if hasattr(self.world, "scorecard"):
-            truth["scorecard"] = self.world.scorecard()
+        if hasattr(self.world, "scorecard") and (card := self.world.scorecard()) is not None:
+            truth["scorecard"] = card
         return {"shore": shore, "truth": truth}
 
     def _frame(self, channel: str, speed: int) -> str:

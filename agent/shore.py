@@ -48,6 +48,8 @@ class ShoreNode:
         self.contacts = Contacts(self)  # the boats' merge rules, fed only by delivered messages
         self.trail: dict[str, list[tuple[float, float]]] = {}
         self.witnessed: dict[int, list] = {}  # boat -> newest signed head [seq, hash, sig] (#37)
+        self.bids: dict[str, dict[int, tuple[int, int]]] = {}  # task -> boat -> (round, cost ms)
+        self.explained: set[tuple[str, int]] = set()  # (task, version) already explained
         self.events: list[dict] = []
         self.hb_due = Every(HEARTBEAT)
         self.t = 0
@@ -82,7 +84,11 @@ class ShoreNode:
                 self.credit(pos, m.tc)
         elif m.kind in ("REC", "VETO"):
             for w in m.p["recs"] if m.kind == "REC" else [m.p["rec"]]:
-                self.table.apply(from_wire(w))
+                r = from_wire(w)
+                if self.table.apply(r)[0] and r.state == CLAIMED and r.ver > 1:
+                    self.explain(m.tc, self.table.recs[r.task])
+        elif m.kind == "BID":
+            self.bids.setdefault(m.p["task"], {})[m.p["boat"]] = (m.p["e"], m.p["cost"])
         elif m.kind == "OBS":
             track, old = m.p["track"], self.contacts.tracks.get(m.p["track"])
             self.contacts.on_obs(m.p)
@@ -102,6 +108,24 @@ class ShoreNode:
                     self.log(m.tc, f"contact_{k}", FLAG_TEXT[k].format(t=track, c=f["course"]))
         elif m.kind == "ACK":
             self.on_ack(m.src, m.p["of"], m.tc)
+
+    def explain(self, t: int, r: Rec) -> None:
+        """Why a boat got a task (roadmap: explain every assignment): its bid, and the bids the
+        shore heard from others in the same round. Only what reached the shore; bids that did
+        not arrive are not guessed."""
+        if r.state != CLAIMED or (r.task, r.ver) in self.explained or not r.owner:
+            return
+        self.explained.add((r.task, r.ver))
+        heard = self.bids.get(r.task, {})
+        e = heard.get(r.owner, (None, 0))[0]
+        others = sorted((c, b) for b, (eb, c) in heard.items() if b != r.owner and eb == e)
+        if others:
+            text = (f"USV {r.owner:02d} took {r.task}: lowest bid {hm(r.bid)}, ahead of "
+                    + ", ".join(f"USV {b:02d} {hm(c)}" for c, b in others))
+        else:
+            text = f"USV {r.owner:02d} took {r.task}: bid {hm(r.bid)}, the only bid shore heard"
+        self.log(t, "assignment", text + " (bid = travel and patrol time plus battery and role "
+                 "penalties)")
 
     # decision cards ---------------------------------------------------------------------------
     def offer(self, t: int) -> None:
@@ -244,7 +268,8 @@ class ShoreNode:
                 endurance_s=remaining // 1000, must_return_by=(tc + max(remaining - need, 0)) // 1000,
                 link="direct" if direct else "peer" if fresh else "none", tour=hb["tour"],
                 roles=hb["roles"], last_heard=tc // 1000, hdg=hdg, sog=hb.get("spd", 0),
-                via=via.get(b)))
+                via=via.get(b), detect_m=hb.get("det", p.r_detect_m),
+                keep_in_view_m=hb.get("kiv", p.keep_in_view_m), verify_m=p.r_verify_m))
             links.append(Link(a=SHORE, b=b, state="up" if direct else "down"))
             for n in hb.get("nbr", []):
                 if n != SHORE and b < n and fresh:
@@ -261,6 +286,7 @@ class ShoreNode:
             task = f"contact:{track}"
             r, f = self.table.recs.get(task), self.contacts.flags.get(task, {})
             lon, lat = to_lonlat(o["x"], o["y"])
+            flags = ContactFlags(**{k: bool(f.get(k)) for k in FLAGS})
             contacts.append(Contact(
                 id=task if not o["ais"] else f"ais:{track}", track=track, x=o["x"], y=o["y"],
                 lon=lon, lat=lat, sog=o["sog"], cog=o["cog"], ais=o["ais"],
@@ -268,8 +294,10 @@ class ShoreNode:
                 seen_by=sorted(b for b, ob in self.contacts.by[track].items()
                                if o["to"] - ob["to"] <= CONTACT_STALE),
                 watcher=r.owner if r and r.state == CLAIMED else 0, state=r.state if r else 0,
-                flags=ContactFlags(**{k: bool(f.get(k)) for k in FLAGS}), course=f.get("course"),
-                source="ais" if o["ais"] else "camera", trail=self.trail.get(track, [])))
+                flags=flags, course=f.get("course"),
+                source="ais" if o["ais"] else "camera", trail=self.trail.get(track, []),
+                standoff_m=0 if flags.capped else p.standoff_m,
+                ship_type=o.get("ship_type"), length_band_m=o.get("length_band_m")))
         return Snapshot(view="shore", t=t // 1000, speed=speed, boats=boats, tasks=tasks,
                         seg_age=ages, links=links, contacts=contacts, decisions=decisions, alerts=[],
                         events=[Event(**e) for e in self.events])
@@ -287,3 +315,9 @@ def samples(pts: tuple[tuple[int, int], ...]) -> list[tuple[int, int]]:
             offset += SAMPLE_M
         walked += d
     return out
+
+
+def hm(ms_: int) -> str:
+    """Bid cost (ms) as hours and minutes."""
+    m = ms_ // 60_000
+    return f"{m // 60} h {m % 60:02d} m" if m >= 60 else f"{m} m"

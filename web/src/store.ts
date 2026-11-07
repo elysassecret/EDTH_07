@@ -3,6 +3,7 @@
 // N6: the socket reconnects by itself; no page reload needed.
 import { create } from "zustand";
 import { createHold, type Held } from "./undo";
+import { actionsFor, decisionRevision } from "./console-model";
 import { OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Scorecard, type Snapshot } from "./types";
 
 const FEED_LOST_MS = 2000;
@@ -28,8 +29,11 @@ interface State {
   snap: Snapshot | null;
   lastMsgAt: number; // wall-clock ms of the last snapshot (UI timing only, never sim data)
   lastAck: Ack | null;
+  commandError: string | null; // local transport feedback, never a fabricated server ACK
   selected: number | null; // boat highlighted on the chart and in the fleet panel
   select: (id: number | null) => void;
+  selectedSegment: string | null;
+  selectSegment: (id: string | null) => void;
   selectedContact: string | null; // contact id, e.g. "contact:C-07"
   selectContact: (id: string | null) => void;
   hoverDecision: string | null; // decision card under the mouse: its ghost route is highlighted
@@ -73,6 +77,7 @@ function feedUrl(channel: Channel): string {
 let ws: WebSocket | null = null;
 let retryMs = 500;
 let retryTimer: number | undefined;
+let queuedRevision: string | null = null;
 
 export const useStore = create<State>((set, get) => ({
   channel: "shore",
@@ -81,17 +86,28 @@ export const useStore = create<State>((set, get) => ({
   snap: null,
   lastMsgAt: 0,
   lastAck: null,
+  commandError: null,
   selected: null,
-  select: (id) => set({ selected: id }),
+  select: (id) => set({ selected: id, selectedContact: null, selectedSegment: null }),
+  selectedSegment: null,
+  selectSegment: (id) => set({ selectedSegment: id, selected: null, selectedContact: null }),
   selectedContact: null,
-  selectContact: (id) => set({ selectedContact: id }),
+  selectContact: (id) => set({ selectedContact: id, selected: null, selectedSegment: null }),
   hoverDecision: null,
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
   held: null,
   answering: null,
-  holdAnswer: (c, label) => hold.hold(c, label),
+  holdAnswer: (c, label) => {
+    const state = get();
+    if (state.conn !== "live" || state.channel !== "shore" || state.answering || state.held || !state.snap || !("id" in c)) return false;
+    const decision = state.snap.decisions.find((d) => d.id === c.id);
+    if (!decision || decision.state !== "pending" || !actionsFor(decision).some((action) => action === c.cmd)) return false;
+    queuedRevision = decisionRevision(decision, state.snap);
+    set({ commandError: null });
+    return hold.hold(c, label);
+  },
   undoAnswer: () => hold.undo(),
   panel: null,
   setPanel: (p) => set((s) => ({ panel: s.panel === p ? null : p })),
@@ -116,11 +132,23 @@ export const useStore = create<State>((set, get) => ({
   },
   setChannel: (c) => {
     if (c === get().channel) return;
-    set({ channel: c, snap: null });
+    if (c === "truth" && OPERATOR_MODE) return;
+    if (hold.undo()) set({ commandError: "Queued answer cancelled before switching views; nothing was transmitted." });
+    set({ channel: c, snap: null, conn: "connecting", selected: null, selectedContact: null, selectedSegment: null, placing: null });
     connect();
   },
   send: (c) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    // Recheck age at dispatch too: a throttled watchdog must not allow stale commands.
+    if (get().conn === "live" && performance.now() - get().lastMsgAt > FEED_LOST_MS) loseFeed();
+    if (!ws || ws.readyState !== WebSocket.OPEN || get().conn !== "live") {
+      set({ commandError: "Not sent: fresh feed unavailable." });
+      return false;
+    }
+    if (["confirm", "stop", "approve", "decline", "ack"].includes(c.cmd) && get().channel !== "shore") {
+      set({ commandError: "Not sent: evaluator view is read-only for operator decisions." });
+      return false;
+    }
+    set({ commandError: null });
     ws.send(JSON.stringify(c));
     return true;
   },
@@ -138,10 +166,23 @@ export function connect(): void {
     retryMs = 500;
   };
   sock.onmessage = (ev) => {
-    const msg = JSON.parse(String(ev.data)) as Snapshot | SceneMsg | Ack;
+    if (ws !== sock) return; // an old channel must never overwrite the new picture
+    let msg: Snapshot | SceneMsg | Ack;
+    try { msg = JSON.parse(String(ev.data)) as Snapshot | SceneMsg | Ack; }
+    catch { return; }
+    if (!msg || typeof msg !== "object") return;
     // Contract snapshots carry no "type"; anything with schema_version + boats is one.
     if (msg.type === "snapshot" || (msg.type === undefined && "boats" in msg)) {
-      useStore.setState({ snap: msg as Snapshot, conn: "live", lastMsgAt: performance.now() });
+      const incoming = msg as Snapshot;
+      const state = useStore.getState();
+      if (incoming.view !== state.channel) return;
+      const reset = state.snap && (incoming.t < state.snap.t || incoming.seed !== state.snap.seed);
+      const cancelled = reset ? hold.undo() : false;
+      const answered = state.answering && incoming.decisions.some((d) => d.id === state.answering && d.state !== "pending");
+      useStore.setState({ snap: incoming, conn: "live", lastMsgAt: performance.now(),
+        ...(reset || answered ? { answering: null } : {}),
+        ...(cancelled ? { commandError: "Queued answer cancelled on simulation reset; nothing was transmitted." } : {}),
+      });
     } else if (msg.type === "scene") {
       useStore.setState({ scene: msg });
     } else if (msg.type === "ack") {
@@ -151,7 +192,7 @@ export function connect(): void {
   };
   sock.onclose = () => {
     if (ws !== sock) return;
-    useStore.setState({ conn: "lost" });
+    loseFeed();
     retryTimer = window.setTimeout(connect, retryMs);
     retryMs = Math.min(retryMs * 2, 3000);
   };
@@ -161,9 +202,17 @@ export function connect(): void {
 window.setInterval(() => {
   const s = useStore.getState();
   if (s.conn === "live" && performance.now() - s.lastMsgAt > FEED_LOST_MS) {
-    useStore.setState({ conn: "lost" });
+    loseFeed();
   }
 }, 250);
+
+function loseFeed(): void {
+  const cancelled = hold.undo();
+  // An in-flight answer is unconfirmed, not permission to block unrelated tasks forever.
+  useStore.setState({ conn: "lost", answering: null, ...(cancelled ? {
+    commandError: "Queued answer cancelled on feed loss; nothing was transmitted.",
+  } : {}) });
+}
 
 // ---- evaluator socket (/truth), separate from the operator's channel
 let evalWs: WebSocket | null = null;
@@ -199,7 +248,13 @@ function disconnectEval(): void {
 // G2: answers wait 5 s before they leave the console (src/undo.ts)
 const hold = createHold({
   send: (c) => {
-    const ok = useStore.getState().send(c);
+    const state = useStore.getState();
+    const decision = "id" in c ? state.snap?.decisions.find((d) => d.id === c.id) : null;
+    if (state.conn !== "live" || state.channel !== "shore" || !state.snap || !decision || decision.state !== "pending" || decisionRevision(decision, state.snap) !== queuedRevision) {
+      useStore.setState({ commandError: "Queued answer cancelled: feed, view or task changed before transmission." });
+      return false;
+    }
+    const ok = state.send(c);
     if (ok && "id" in c) useStore.setState({ answering: c.id });
     return ok;
   },

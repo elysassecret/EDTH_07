@@ -3,12 +3,22 @@
 What the watch officer sees. A browser page that reads snapshots from the Python server over a
 WebSocket and draws them on an offline chart. Only C edits files here.
 
-## Run it (two terminals, from the repo root)
+## Run the integrated console (from the repo root)
 
 ```bash
-uv run python -m server.mock_feed      # fake feed on ws://localhost:8765/shore and /truth
-pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:5173
+pnpm --dir web install --frozen-lockfile
+pnpm --dir web build
+uv run python -m server --serve-web    # real simulation and console: http://localhost:8765/
 ```
+
+For development, run `uv run python -m server` and `pnpm --dir web dev` in separate
+terminals. The latter serves the console on http://localhost:5173. If pnpm is not
+installed, use `npx --yes pnpm` in its place.
+
+`web/template/` remains the standalone design prototype. Its scenarios and synthetic
+model are **not imported** by the live application. The integrated layout uses the
+same local shadcn components, neutral theme, and bundled Inter fonts, but reads only
+the existing store and server protocol. No runtime font, tile, or CDN request is added.
 
 `?feed=ws://host:port` in the URL points the console at another server.
 `pnpm --dir web build` type-checks and writes `web/dist/` (gitignored).
@@ -26,17 +36,66 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
    cables, shipping lane) from `data/scene-coordinates.json`, bundled at build time. deck.gl draws
    everything that moves (boats, contacts, trails) and **all text**, so the map style has no
    font or tile URLs: it works with Wi-Fi off (N1).
-4. **Panels** — `src/App.tsx`: top bar (UTC clock in Z, sim time, warp with Auto/Pause/1×–240×
-   and "slowing for event", SHORE/TRUTH switch, Exercise controls, satellite toggle), then the
-   banners (FEED LOST, TRUTH, EXERCISE) and the alert strip. `src/ui/`: decisions, alerts, one
-   card per USV and one per contact. Click a card or a symbol on the chart to highlight it.
-6. **Evaluator view** (judges and team, off by default) — **Evaluator ON** opens a second socket
-   to `/truth` and shows, in purple, where each boat really is next to where the shore last
-   heard it, true contacts the shore doesn't have, links where truth and belief differ, and true
-   vs shore revisit age (`src/ui/EvalPanel.tsx`, `src/map/evaluator.ts`). Add `?operator` to the
-   URL for the watch officer's screen: no evaluator or truth switches.
-5. **Over the chart** — the coverage box (oldest cable visit, gap line, all segments) top left,
-   the event log bottom left, the exercise injection panel top right.
+4. **Panels** — `src/App.tsx`: fleet / chart / attention layout. `LivePanels.tsx`
+   shows delivered boat reports, contacts, dynamic segment ages, selected-object context,
+   evaluator comparison and the event timeline. On narrower screens, fleet and attention
+   move into sheets so the chart retains its space. Top-bar controls retain pause/warp,
+   SHORE/TRUTH and exercise operations; view settings hold comms, display and satellite.
+5. **Decisions** — `LiveDecisions.tsx` reviews the actual decision and task revision before
+   authorization. Approve/Decline/Stop remain locally undoable for five seconds; Confirm
+   sends immediately after review. Feed loss, reset or view changes cancel queued answers.
+   Before transmission, the queue rechecks the task revision. A server acknowledgment is
+   not a boat delivery or completed observation. Unconfirmed sends are never auto-retried.
+6. **Evaluator view** (judges and team, off by default) — **View settings → Evaluator
+   comparison** opens a separate `/truth` socket. Purple annotations compare actual and
+   delivered positions, contacts, links and revisit ages (`src/map/evaluator.ts`). Add
+   `?operator` to the URL for the watch officer's screen: no evaluator or truth switches.
+7. **Tools** — `LiveTools.tsx` retains alerts/acknowledgment, inactivity digest, exercise
+   injection, reviewed reset, incident-report downloads and server tamper checks. **Switch
+   back on** uses #70's `boat_restore`: same boat and agent, no reset/teleport/recharge.
+   A depleted boat stays depleted; new shore reports still require radio delivery.
+
+## Recording the integrated UI (#70 / #76)
+
+Use the existing scenario and narration beats in `server/DEMO.md`, but use the controls
+below for this UI. The legacy instruction **A → sending** is no longer the interaction:
+review must precede authorization. Restart the Python server after updating code; a
+previously running process does not pick up the new restore handler just because the
+frontend was rebuilt. This section is an operator runbook, not evidence
+that a complete video or a physical two-laptop rehearsal has been recorded.
+
+```bash
+pnpm --dir web build
+uv run python -m server --serve-web --demo
+```
+
+1. Open `http://localhost:8765/?operator`. The real seed-1 demo starts paused at sim
+   6900 s / 12:10:00Z. Use **Run** to start; keep Auto for the recording.
+2. After the delivered C-07 contact and held close proposal appear, use **Review &
+   approve**, or focus that decision card itself and press **A**. On a laptop, open
+   **Attention** first. A opens review; it does not send. Esc/Back cancels review.
+   You may pause at this beat to allow review time; the network feed remains live.
+3. Read the actual boat/task/action. Choose **Authorize & send**. Approve/Decline/Stop
+   queue for five real seconds; **Undo queued answer** (or Esc outside a dialog) cancels
+   before transmission. Confirm is immediate only after review. A changed task or lost
+   feed prevents sending; unconfirmed sends are never retried automatically.
+4. Narrate the receipt accurately: server acceptance → **Approved by operator; boat
+   delivery not yet confirmed** → **Boat acknowledgment delivered; execution is not
+   implied**. If paused, resume after acceptance so the radio can deliver the command.
+   Only delivered observations change coverage; receipt is not a completed
+   look. Do not narrate a camera image that is not supplied.
+5. For a separate restore take, use **Exercise → Exercise boat → Switch off / Switch
+   back on**. Resume if paused: injections apply at the next simulation tick. Show the
+   labelled event and a newly delivered boat report, not an instant truth-derived card.
+   A reviewed simulation reset is a different action, not a restore shortcut.
+6. Show remaining gaps and the relay-loss stale-data/reconnect beat; do not cut these
+   from the full video. View settings holds comms/display/satellite/evidence. For a
+   separate evaluator shot use a non-operator window and enable **Evaluator comparison**;
+   scorecards appear only there, with source/seeds and an explicit PRELIMINARY warning
+   when supplied. Missing scorecards show a waiting state, never substitute numbers.
+
+Re-time the final full take after choosing the accepted revision. C owns the canonical
+`server/DEMO.md` shot list; D verifies feature/video evidence and the release gate.
 
 ## Map symbols (colour always paired with shape or words)
 
@@ -58,14 +117,14 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 | Box | white dotted |
 | Korsør shore station | grey square |
 | Cable segment age | wide band under the cable: teal within half the target, yellow due, orange (thicker) over target, grey dashed no visit reported; the age is written next to it |
-| Alarm / warning / caution | red triangle / orange circle / yellow square, with the word; an alarm flashes until acknowledged |
-| EXERCISE | striped yellow banner and EXERCISE tags in the event log and alerts |
+| Alarm / warning / caution | Explicit severity word and acknowledgment state; alarm uses the destructive alert variant |
+| EXERCISE | Explicit EXERCISE banner and event tags, never presented as an observed real incident |
 
 ## Files that come from someone else
 
-- `public/geo/land.geojson` — **placeholder, empty on purpose.** Franco's `tools/` should write
-  the clipped OSM land polygons here (issue #9). Until then the chart says "No coastline file
-  yet (issue #9)" in the bottom-right corner.
+- `public/geo/land.geojson` — clipped OSM land polygons supplied by Franco's `tools/`.
+  If unavailable or empty, the chart reports "No coastline file yet (issue #9)" instead
+  of fetching an online basemap.
 - Optional, same rules (EPSG:4326 `[lon, lat]`, < ~1 MB): `public/geo/infra.geojson` (lines with
   `{"kind": "bridge" | "ferry" | "pier", "name"}`) and `public/geo/depth.geojson` (lines with
   `{"depth_m"}`). Each file is drawn as soon as it exists; nothing to change in the code.
@@ -78,20 +137,38 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 ## Tests
 
 ```bash
-pnpm --dir web test     # Vitest: src/*.test.ts (e.g. the 5-second UNDO for answers)
+pnpm --dir web test                         # live selectors, queue and transport regressions
+pnpm --dir web exec playwright install chromium
+pnpm --dir web test:e2e                     # production build + browser checks
 ```
+
+Browser checks start a separate real `--demo` server on port 18870, paused at 6900 s,
+with logging disabled.
+Most cases intercept only the WebSocket with explicit protocol fixtures to exercise
+review/undo, expiry, feed loss/recovery, provenance, operator mode, responsive sheets
+and automated accessibility checks, restore command routing, missing/preliminary evaluator
+scorecards, and unconfirmed-answer isolation. Separate cases use the real simulator
+handshake and an actual reset/contact/keyboard-review/authorization/delivery/off/restore
+flow without protocol interception. The latter uses manual 60× speed for a bounded
+regression, not the Auto recording timing or proof of a full video. Tests and Tailwind scanning exclude
+`template/`; that prototype keeps its own tests and build.
+
+Coverage remains conservative: the shore protocol encodes missing sample history as
+age equal to elapsed simulation time. The UI treats that ambiguous value as unknown,
+including at t=0; it cannot distinguish a genuine t=0 visit without a richer report.
+Truth data never fills a missing shore age.
 
 ## Folder map
 
 ```text
 src/main.tsx        start the connection, render <App/>
 src/App.tsx         layout, top bar, banners
-src/ui/BoatCard.tsx     feature 18: USV cards (fleet panel)
-src/ui/ContactList.tsx  feature 19: contact list (type, seen by, age)
-src/ui/DecisionPanel.tsx feature 22: decision cards (Confirm/Stop, Approve/Decline, keys C S A D)
-src/ui/AlertPanel.tsx   feature 23: alert list + strip, Acknowledge
-src/ui/Coverage.tsx     feature 24: headline number (oldest cable visit, gap open)
-src/ui/Demo.tsx         feature 25: warp control, EXERCISE banner, event log, failure injection
+src/components/ui/     shadcn primitives copied from template (not its synthetic model)
+src/ui/LivePanels.tsx   fleet, contacts, coverage, selection, evaluator, timeline
+src/ui/LiveDecisions.tsx reviewed authorization, undo, command/receipt status
+src/ui/LiveTools.tsx    alerts, digest, exercise/reset, reports, connection context
+src/console-model.ts   live-data selectors shared by panels and transport guards
+src/ui/*.tsx           prior console panels retained for reference; App uses Live*
 src/coverage.ts     segment ages and bands against the revisit target
 src/roles.ts        plain role words from task IDs (Cable sweep, Lane picket N, Relay)
 src/store.ts        WebSocket + Zustand store + feed-lost watchdog

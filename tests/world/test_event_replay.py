@@ -1,7 +1,7 @@
 """World-owned replay checks for seeded starts, cuts and off/restore together.
 
-Server command replay for restore awaits bridge support (#63). These tests replay
-world injection payloads, not pretend that the bridge already accepts the command.
+These tests replay World.inject payloads. Bridge command-log restore replay is now
+covered separately by tests/server/test_bridge.py after #70 resolved #63.
 """
 
 from pathlib import Path

@@ -82,6 +82,10 @@ def place_boats(world: World, phases: dict[int, float]) -> None:
 
 def build_world(root, mode: str, seed: int, speed_mm_s=None, radio_m=None, warm_s=WARM_S) -> World:
     """A world ready for `warm_up`, with tape and tide shifted by the warm-up length."""
+    # World keeps its default seeded cold placement (vary_start_phase=True); `place_boats`
+    # below then overwrites every sweeper's position and follower index with D's phase, so
+    # `World.initial_phase` is not a record of the warm start. Switching the flag off changes
+    # the warm hash, so the accepted runs keep the default (#72 handoff).
     world = World(root, seed=seed, agent_factory=Agent, shore_factory=ShoreNode)
     warm_ms = warm_s * 1000
     world.script = [
@@ -117,3 +121,18 @@ def warm_up(world: World) -> str:
     for node in (*world.nodes.values(), world.shore):
         node.params = world.final_params
     return warm_hash
+
+
+def warm_state(world: World, seed: int) -> dict:
+    """What the warm-up actually did, for the run card (#72 handoff): the seeded phases, where
+    every boat stands at mission time 0, and who owned the placement. `World.initial_phase` is
+    not a record of this, because `place_boats` overwrote it."""
+    return {
+        "placement": "eval.warm.place_boats over World(vary_start_phase=True); sweepers overwritten",
+        "warm_s": world.warm_ms // 1000,
+        "phases": {str(b): round(p, 6) for b, p in seed_phases(seed, world.mission.boats).items()},
+        "positions_mm": {str(b): [s.x_mm, s.y_mm] for b, s in sorted(world.boats.items())},
+        "follower": {str(b): [n.follow.i, n.follow.j] for b, n in sorted(world.nodes.items())
+                     if n.follow.legs},
+        "charge_ms": {str(b): s.charge_ms for b, s in sorted(world.boats.items())},
+    }

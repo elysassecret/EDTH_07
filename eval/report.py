@@ -28,6 +28,12 @@ ROWS = [
     ("repair_claims_after_T", "Claims after T", "{:.0f}"),
     ("operator_actions", "Operator actions (batch has no operator)", "{:.0f}"),
 ]
+PAIRED_ROWS = [
+    ("cable_km_overdue", "Cable km overdue at end", "{:.1f}", -1),
+    ("mean_km_overdue_post_T", "Mean km overdue, T to end", "{:.1f}", -1),
+    ("worst_age_s", "Worst sample age at end (s)", "{:.0f}", -1),
+    ("crossings_in_view", "Real cargo and tanker crossings in view after T", "{:.0f}", +1),
+]
 CONTACT_ROWS = [
     ("detect_s", "Contact start to first detection, {c} (s)"),
     ("watcher_in_view_s", "Contact start to watcher in view, {c} (s)"),
@@ -70,6 +76,47 @@ def table(cards: list[dict]) -> str:
         lines.append("| Console shows a segment fresher than truth, up to (s) | "
                      + " | ".join(cells) + " |")
     lines.append("| Seeds | " + " | ".join(str(len(per[m])) for m in modes) + " |")
+    return "\n".join(lines)
+
+
+def paired(cards: list[dict], a: str = "off", b: str = "elysa") -> list[dict]:
+    """Seed by seed, b against a, on the seeds both modes ran. `sign` says which way is better:
+    -1 lower is better (km, ages), +1 higher is better (crossings in view). A seed where either
+    value is None is left out and counted. Median gain is the median of the per-seed differences,
+    signed so that a positive gain is good for b."""
+    by = {(c["mode"], c["seed"]): c for c in cards}
+    seeds = sorted(s for m, s in by if m == a and (b, s) in by)
+    rows = []
+    for key, label, fmt, sign in PAIRED_ROWS:
+        if key.startswith("crossings") and not any(c.get("ais_present") for c in cards):
+            continue
+        pairs = [(by[(a, s)].get(key), by[(b, s)].get(key)) for s in seeds]
+        got = [(x, y) for x, y in pairs if x is not None and y is not None]
+        diffs = [sign * (y - x) for x, y in got]
+        rows.append({
+            "key": key, "label": label, "fmt": fmt, "seeds": len(seeds), "compared": len(got),
+            "better": sum(d > 0 for d in diffs), "equal": sum(d == 0 for d in diffs),
+            "worse": sum(d < 0 for d in diffs),
+            "median_gain": statistics.median(diffs) if diffs else None,
+        })
+    return rows
+
+
+def paired_table(cards: list[dict], a: str = "off", b: str = "elysa") -> str:
+    rows = paired(cards, a, b)
+    if not rows or rows[0]["seeds"] == 0:
+        return ""
+    n = rows[0]["seeds"]
+    lines = [f"## Paired, seed by seed: {b} against {a} on {n} shared seed(s)", "",
+             f"| Truth | {b} better | equal | worse | median gain for {b} |", "|---|---|---|---|---|"]
+    for r in rows:
+        gain = "not reached" if r["median_gain"] is None else r["fmt"].format(r["median_gain"])
+        note = "" if r["compared"] == n else f" (compared on {r['compared']} of {n})"
+        lines.append(f"| {r['label']} | {r['better']} | {r['equal']} | {r['worse']} | {gain}{note} |")
+    lines.append("")
+    lines.append("Crossings in view are the evaluator's reading of the private AIS clip: the boats "
+                 "never receive AIS, so a crossing 'in view' means a live boat was within camera "
+                 "range at that moment, nothing more.")
     return "\n".join(lines)
 
 
@@ -141,7 +188,9 @@ def print_report(cards: list[dict], out: Path | None = None) -> None:
         "" if headline_ok(cards) else "\n**PRELIMINARY: not a headline until every check passes "
         "(a FAIL above, or the console gap check, issue #29).**\n"
     )
-    text = f"{head}{table(cards)}\n\n## Fairness\n\n{checks}\n{verdict}"
+    pair = paired_table(cards)
+    pair = f"\n\n{pair}" if pair else ""
+    text = f"{head}{table(cards)}{pair}\n\n## Fairness\n\n{checks}\n{verdict}"
     print(text)
     if out is not None:
         (Path(out) / "scorecard.md").write_text(text, encoding="utf-8")

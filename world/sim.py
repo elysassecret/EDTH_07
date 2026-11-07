@@ -13,9 +13,10 @@ from math import atan2, degrees, isqrt
 from pathlib import Path
 from typing import Protocol
 
+from ais.replay import DEFAULT_CLIP, DEFAULT_T0, AisPing, AisReplay
 from contract.constants import PATROL, UNAVAILABLE
 from contract.geo import dist, to_lonlat, to_xy
-from contract.mission import Action, Detection, Mission, Own, Params, load_params
+from contract.mission import Action, Detection, Mission, Own, Params, Point, load_params
 from world.current import Current
 from world.motion import Boat
 from world.phase import STRATEGY, placements
@@ -47,12 +48,15 @@ class World:
         shore_factory: ShoreFactory | None = None,
         current_enabled: bool = True,
         vary_start_phase: bool = True,
+        ais_enabled: bool = False,
+        ais_clip: str | Path | None = None,
     ):
         self.root = Path(root)
         self.seed = seed
         self.agent_factory = agent_factory
         self.shore_factory = shore_factory
         self.vary_start_phase = vary_start_phase
+        self.ais_enabled = ais_enabled or ais_clip is not None
         self.scene = load_scene(self.root)
         self.mission = self.scene.mission
         self.params = load_params(self.root)
@@ -84,6 +88,12 @@ class World:
         if self.tick_ms <= 0:
             raise ValueError("tick must be positive")
         self.script = config("scenarios/fixed.toml").get("event", [])
+        self.ais_t0 = next(
+            (event.get("ais_t0", DEFAULT_T0) for event in self.script if event.get("kind") == "reset"),
+            DEFAULT_T0,
+        )
+        clip_path = Path(ais_clip) if ais_clip is not None else self.root / DEFAULT_CLIP
+        self.ais: AisReplay | None = AisReplay(clip_path, self.ais_t0) if self.ais_enabled else None
         self.reset()
 
     def reset(self, seed: int | None = None) -> None:
@@ -191,6 +201,8 @@ class World:
                 event["ais"],
                 event["class"],
                 updated_ms=self.t,
+                ship_type=event.get("ship_type"),
+                length_band_m=event.get("length_band_m"),
             )
             contact.set_velocity(round(event["sog_kn"] * 514.444), event.get("course", 0))
             self.contacts[contact.id] = contact
@@ -231,6 +243,40 @@ class World:
             },
         }
 
+    def ais_pings_for_boat(
+        self, boat: int, t_from_ms: int | None = None, t_to_ms: int | None = None
+    ) -> tuple[AisPing, ...]:
+        """In-range AIS pings for one boat in mission-time window (t_from_ms, t_to_ms]."""
+        if self.ais is None or not self.ais.available or boat not in self.boats:
+            return ()
+        warm_ms = getattr(self, "warm_ms", 0)
+        end_ms = (self.t - warm_ms) if t_to_ms is None else t_to_ms
+        start_ms = (end_ms - self.tick_ms) if t_from_ms is None else t_from_ms
+        if end_ms <= 0 or end_ms <= start_ms:
+            return ()
+        return self.ais.for_boat(
+            self.boats[boat].point,
+            max(0, start_ms),
+            end_ms,
+            self.boat_config["ais_class_a_m"],
+            self.boat_config["ais_class_b_m"],
+        )
+
+    def _ais_detections_for_point(self, point: Point, dt: int) -> tuple[Detection, ...]:
+        if self.ais is None or not self.ais.available or dt <= 0:
+            return ()
+        end_ms = self.t - getattr(self, "warm_ms", 0)
+        start_ms = end_ms - dt
+        if end_ms <= 0:
+            return ()
+        return self.ais.detections_for_boat(
+            point,
+            max(0, start_ms),
+            end_ms,
+            self.boat_config["ais_class_a_m"],
+            self.boat_config["ais_class_b_m"],
+        )
+
     def step(self, t_ms: int | None = None) -> dict:
         """Process exactly one tick; an explicit time must equal next_tick_ms."""
         if t_ms is not None and t_ms != self.next_tick_ms:
@@ -264,10 +310,16 @@ class World:
                 self.actions[boat] = Action(UNAVAILABLE, None, 0)
                 continue
             if boat in self.nodes:
+                ais_seen = self._ais_detections_for_point(state.point, dt)
                 action, outbox = self.nodes[boat].step(
                     self.t,
                     state.own(self.current.at(self.t)),
-                    observe(state.point, self.contacts, self.boat_config["r_detect_m"]),
+                    observe(
+                        state.point,
+                        self.contacts,
+                        self.boat_config["r_detect_m"],
+                        ais_seen,
+                    ),
                     inbox.get(boat, []),
                 )
                 self.actions[boat] = action
@@ -369,11 +421,15 @@ class World:
                     "lon": to_lonlat(*state.point)[0],
                     "lat": to_lonlat(*state.point)[1],
                     "endurance_ms": state.charge_ms,
+                    "detect_m": self.boat_config["r_detect_m"]["ship_day"],
+                    "keep_in_view_m": self.params.keep_in_view_m,
+                    "verify_m": self.params.r_verify_m,
                 }
                 for boat, state in sorted(self.boats.items())
             ],
             "contacts": [
-                asdict(contact.detection()) for _, contact in sorted(self.contacts.items())
+                contact.snapshot(self.params.standoff_m)
+                for _, contact in sorted(self.contacts.items())
             ],
             "events": deepcopy(self.events),
             "current": {

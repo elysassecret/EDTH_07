@@ -26,6 +26,8 @@ class Contact:
     vx: int = 0
     vy: int = 0
     updated_ms: int = 0
+    ship_type: str | None = None
+    length_band_m: int | None = None
 
     def set_velocity(self, speed_mm_s: int, course: int):
         self.speed_mm_s, self.course = speed_mm_s, course
@@ -44,12 +46,32 @@ class Contact:
     def detection(self) -> Detection:
         return Detection(self.id, *self.point, self.speed_mm_s, self.course, self.ais)
 
+    def snapshot(self, standoff_m: int = 1852) -> dict:
+        return {
+            "track": self.id,
+            "x": self.point[0],
+            "y": self.point[1],
+            "sog": self.speed_mm_s,
+            "cog": self.course,
+            "ais": self.ais,
+            "standoff_m": standoff_m,
+            "ship_type": self.ship_type,
+            "length_band_m": self.length_band_m,
+        }
+
 
 def observe(
-    point: Point, contacts: dict[str, Contact], radii: dict[str, int]
+    point: Point,
+    contacts: dict[str, Contact],
+    radii: dict[str, int],
+    ais_detections: tuple[Detection, ...] = (),
 ) -> tuple[Detection, ...]:
-    return tuple(
+    camera_detections = tuple(
         contact.detection()
         for _, contact in sorted(contacts.items())
         if dist(point, contact.point) <= radii[contact.category]
     )
+    if not ais_detections:
+        return camera_detections
+    seen_tracks = {det.track for det in camera_detections}
+    return camera_detections + tuple(det for det in ais_detections if det.track not in seen_tracks)
