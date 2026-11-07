@@ -62,3 +62,42 @@ def test_adverse_current_sends_the_boat_home_before_the_reserve():
     a.step(1_000, Own(-2381, -5197, 400, cur_x=-1_200), (), [])  # 1.2 m/s against the way home
     assert a.returning and a.table.held_by(1) == []  # handed over: everything released
     assert a.remaining_ms() > PARAMS.reserve_ms  # and the 30 min reserve is still there
+
+
+
+def health_lines(s: Sim) -> list[str]:
+    return [e["text"] for e in s.shore.events if e["kind"] == "health"]
+
+
+def test_weak_propulsion_is_reported_replanned_then_the_boat_goes_home():
+    """#106: with 70 % of its propulsion gone, the sweeper sees its progress fall below the
+    prediction from its own command and current, tells the shore in plain words and plans with
+    the speed it really makes; after the bounded attempts it releases everything and goes home.
+    The healthy boats report nothing."""
+    s = Sim(scene_mission(), PARAMS, START)
+    s.run_until(600_000)
+    s.slow[1] = 300  # unknown to USV 01
+    s.run_until(1_000_000)
+    first = health_lines(s)
+    assert len(first) == 1 and first[0].startswith("USV 01: progress below plan"), first
+    assert "possible propulsion fault or strong current (model estimate)" in first[0]
+    a = s.agents[1]
+    assert 250 <= a.speed_permille <= 350 and a.v_plan() < PARAMS.speed_mm_s
+    assert any(r["kind"] == "health" for r in a.chain.records)  # also in its own signed log
+    s.run_until(1_800_000)
+    assert health_lines(s)[-1] == "USV 01: no recovery after 5 checks: releasing everything and going home"
+    assert a.returning and a.table.held_by(1) == []
+    assert all(e["text"].startswith("USV 01") for e in s.shore.events if e["kind"] == "health")
+
+
+def test_a_short_fault_clears_and_the_boat_plans_at_cruise_again():
+    s = Sim(scene_mission(), PARAMS, START)
+    s.run_until(600_000)
+    s.slow[1] = 300
+    s.run_until(1_000_000)
+    assert s.agents[1].speed_permille < 1000
+    s.slow[1] = 1000  # the fault clears before the attempts run out
+    s.run_until(1_400_000)
+    a = s.agents[1]
+    assert a.speed_permille == 1000 and not a.returning
+    assert health_lines(s)[-1] == "USV 01: progress back to plan"

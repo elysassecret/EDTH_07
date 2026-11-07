@@ -4,3 +4,9 @@ rebalance_ratio = 1.25
 seg_lease_s = 3600          # lease for seg and pick; relay and contact use LEASE (60 s)
 role_penalty_s = 12000      # picket bidding on a cable, or sweeper bidding on a contact
 loiter_sog_mm_s = 515       # about 1 kn; slower no-AIS tracks near a cable start the dwell clock
+# Health check (#106): progress toward the target vs what speed + measured current predict
+health_window_s = 120       # one check covers this much time on patrol or heading home
+health_min_progress = 0.5   # below this share of the predicted progress the check fails
+health_recover = 0.8        # back above this share: progress back to plan
+health_fails = 2            # failed checks in a row before the boat reports and replans
+health_attempts = 3         # more failed checks after that: release everything and go home

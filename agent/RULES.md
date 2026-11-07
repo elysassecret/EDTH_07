@@ -57,6 +57,18 @@ What the boat does when the return rule (11) fires, and what it does not claim:
 - **SENTINEL is not a safe mode.** It is the low-power way to hold a station with motors off
   while the current is weak; it never replaces going home.
 
+### Health check: progress below plan (#106)
+
+12b. **Every 2 min on patrol or heading home** (`health_window_s = 120`), the boat compares how far
+    it really moved towards its target with what its own command and the current it measures
+    predict. Two checks in a row under half the prediction (`health_min_progress = 0.5`,
+    `health_fails = 2`) and it tells the shore in plain words, e.g. "progress below plan: 29 % of
+    predicted over 120 s; possible propulsion fault or strong current (model estimate)", plans
+    every bid, energy check and the trip home at the speed it really makes, and releases what no
+    longer fits. Back above 80 % (`health_recover = 0.8`): "progress back to plan". Three more
+    failed checks (`health_attempts = 3`): it releases everything and goes home. A shortfall is
+    evidence of a problem, not proof of which one.
+
 ## Contacts
 
 13. **A cue for a look**: a track with no AIS, slower than about 1 kn (`loiter_sog_mm_s = 515`),

@@ -128,15 +128,15 @@ class Auction:
     # cost and eligibility ------------------------------------------------------------------
     def cycle_after(self, task: str) -> int:
         a = self.a
-        return ms(a.tours.cycle_m(a.tours.insert(a.legs(), task)), a.params.speed_mm_s)
+        return ms(a.tours.cycle_m(a.tours.insert(a.legs(), task)), a.v_plan())
 
     def reach_ms(self, task: str) -> int:
         a = self.a
         if kind(task) == "seg":
-            return ms(a.tours.reach_m(a.pos, task), a.params.speed_mm_s)
+            return ms(a.tours.reach_m(a.pos, task), a.v_plan())
         if kind(task) == "contact":
-            return ms(dist(a.pos, a.contacts.ring(task)), a.params.speed_mm_s)
-        return ms(dist(a.pos, a.station(task)), a.params.speed_mm_s)
+            return ms(dist(a.pos, a.contacts.ring(task)), a.v_plan())
+        return ms(dist(a.pos, a.station(task)), a.v_plan())
 
     def cost(self, task: str) -> int:
         a = self.a
@@ -156,7 +156,7 @@ class Auction:
         k = kind(task)
         far = (a.tours.pts[task][-1] if k == "seg" else a.contacts.position(task)
                if k == "contact" else a.station(task))
-        one_pass = ms(a.tours.len[task], a.params.speed_mm_s) if k == "seg" else 0
+        one_pass = ms(a.tours.len[task], a.v_plan()) if k == "seg" else 0
         return self.reach_ms(task) + one_pass + a.return_ms(far)
 
     def energy_ok(self, task: str) -> bool:
@@ -185,7 +185,7 @@ class Auction:
             track = task.split(":", 1)[1]
             return (not a.holds("relay") and not self.last_sweeper(t)
                     and a.contacts.watching() is None and not a.contacts.done(task)
-                    and a.contacts.tracks[track]["sog"] <= a.params.speed_mm_s
+                    and a.contacts.tracks[track]["sog"] <= a.v_plan()
                     and self.energy_ok(task))
         return False  # cue tasks come with B's AIS replay (P1)
 
@@ -215,7 +215,7 @@ class Auction:
         if not avail:
             return
         lo_cyc, _, lo_tour = min(avail)
-        mine = ms(a.tours.cycle_m(legs), a.params.speed_mm_s)
+        mine = ms(a.tours.cycle_m(legs), a.v_plan())
         if mine * 1000 <= a.params.rebalance_ratio_permille * lo_cyc:
             return
         _, give = min((a.tours.cycle_m([leg for leg in legs if leg[0] != k]), k)
@@ -223,6 +223,6 @@ class Auction:
         lo_legs = []
         for k in sorted(lo_tour + [give]):
             lo_legs = a.tours.insert(lo_legs, k)
-        if ms(a.tours.cycle_m(lo_legs), a.params.speed_mm_s) < mine:
+        if ms(a.tours.cycle_m(lo_legs), a.v_plan()) < mine:
             a.release(give)
             self.gave[give] = t + REBALANCE  # don't win it straight back
