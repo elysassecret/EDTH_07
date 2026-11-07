@@ -1,0 +1,10 @@
+{
+  "description": "Schematic water-side berths near Korsør; validated against the bundled approximate coastline, not surveyed harbour infrastructure.",
+  "station": [8237, -7605],
+  "berths": [[8194, -7629], [8194, -7617], [8194, -7605], [8194, -7593], [8194, -7581]],
+  "departure_heading_deg": 270,
+  "hull_clearance_m": 4,
+  "departure_check_m": 150,
+  "pontoon": [[8199, -7635], [8199, -7577]],
+  "gangway": [[8199, -7620], [8237, -7615]]
+}

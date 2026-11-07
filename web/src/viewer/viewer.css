@@ -1,0 +1,54 @@
+.viewer-shell canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+.viewer-minimap {
+  width: 286px;
+}
+.viewer-fleet {
+  top: calc(var(--viewer-header-bottom, 6rem) + 1rem);
+}
+.viewer-header {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+.viewer-shell {
+  overscroll-behavior: none;
+}
+@media (max-width: 760px) {
+  .viewer-header {
+    left: 0.5rem;
+    right: 0.5rem;
+    top: 0.5rem;
+    padding: 0.65rem;
+    gap: 0.5rem;
+  }
+  .viewer-fleet {
+    top: calc(var(--viewer-header-bottom, 7rem) + 0.5rem);
+    left: 0.5rem;
+    width: 215px;
+  }
+  .viewer-minimap {
+    width: 175px;
+  }
+  .viewer-map-dock {
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    right: 0.5rem;
+  }
+  .viewer-caption {
+    display: none;
+  }
+  .viewer-toolbar {
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    left: 0.5rem;
+  }
+  .viewer-toolbar > span {
+    display: none;
+  }
+}
+@media (max-height: 650px) and (min-width: 761px) {
+  .viewer-caption {
+    display: none;
+  }
+}

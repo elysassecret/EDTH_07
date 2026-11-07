@@ -6,7 +6,7 @@ import { createHold, type Held } from "./undo";
 import { actionsFor, decisionRevision } from "./console-model";
 import { EVALUATOR_MODE, OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Scorecard, type Snapshot } from "./types";
 
-const FEED_LOST_MS = 2000;
+import { FEED_POLL_MS, feedExpired } from "./freshness";
 
 export type Channel = "shore" | "truth";
 export type ConnState = "connecting" | "live" | "lost";
@@ -150,7 +150,7 @@ export const useStore = create<State>((set, get) => ({
   },
   send: (c) => {
     // Recheck age at dispatch too: a throttled watchdog must not allow stale commands.
-    if (get().conn === "live" && performance.now() - get().lastMsgAt > FEED_LOST_MS) loseFeed();
+    if (get().conn === "live" && feedExpired(get().lastMsgAt, performance.now())) loseFeed();
     if (!ws || ws.readyState !== WebSocket.OPEN || get().conn !== "live") {
       set({ commandError: "Not sent: fresh feed unavailable." });
       return false;
@@ -164,7 +164,10 @@ export const useStore = create<State>((set, get) => ({
       return false;
     }
     set({ commandError: null });
-    ws.send(JSON.stringify(c));
+    const decision = ["confirm", "stop", "approve", "decline"].includes(c.cmd) && "id" in c
+      ? get().snap?.decisions.find((d) => d.id === c.id) : undefined;
+    const version = decision ? get().snap?.tasks[decision.task]?.v : undefined;
+    ws.send(JSON.stringify(version === undefined ? c : { ...c, expected_v: version }));
     return true;
   },
 }));
@@ -221,10 +224,10 @@ export function connect(): void {
 // Watchdog: a socket can stay open while the sim stops sending. Data age decides, not the socket.
 window.setInterval(() => {
   const s = useStore.getState();
-  if (s.conn === "live" && performance.now() - s.lastMsgAt > FEED_LOST_MS) {
+  if (s.conn === "live" && feedExpired(s.lastMsgAt, performance.now())) {
     loseFeed();
   }
-}, 250);
+}, FEED_POLL_MS);
 
 function loseFeed(): void {
   const cancelled = hold.undo();

@@ -89,6 +89,7 @@ export type Speed = number;
 export type T3 = number;
 export type T0Utc = string;
 export type Deputy = number;
+export type Options = [unknown, unknown][];
 export type Owner = number;
 export type State3 = number;
 export type V = number;
@@ -223,6 +224,7 @@ export interface Tasks {
 }
 export interface TaskView {
   deputy: Deputy;
+  options?: Options;
   owner: Owner;
   state: State3;
   v: V;

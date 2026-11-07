@@ -59,6 +59,7 @@ WATER_RECHECK_MS = 10_000
 WATER_CORRIDOR_M = 150  # off the planned leg by more than this, and blocked: plan again  # how often the line to the next water waypoint is checked again
 WATER_WP_M = 30  # a water waypoint counts as reached this close (the world moves ~2.3 m a tick)
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
+UNREACHABLE_MS = 1 << 60  # sentinel, never presented as a measured travel duration
 TIME_SOURCE = "sim clock (simulation; no GNSS model)"  # same words as evidence/build.py
 
 
@@ -108,6 +109,7 @@ class Agent:
         self.signed: list = []  # [seq, hash, sig] of the newest signed head
         self.speed_permille = 1000  # share of cruise speed the boat really makes (#106)
         self.health = ""  # last health report, "" while progress is to plan
+        self.navigation = ""  # reported when no coast/contact-safe next leg is known
         self.fails = 0  # failed progress checks in a row
         self.win: list | None = None  # [t0, start pos, expected dx mm, expected dy mm, last t]
         self.why: dict[str, str] = {}
@@ -357,6 +359,8 @@ class Agent:
     def route_ms(self, pts: list[tuple[int, int]]) -> int:
         """Time along a route at planning speed, with the current this boat measures taken leg by
         leg (helping on one leg, against it on the next). Never below a quarter of the speed."""
+        if len(pts) < 2:
+            return UNREACHABLE_MS
         v, total = self.v_plan(), 0
         for a, b in pairwise(pts):
             d = dist(a, b)
@@ -369,15 +373,20 @@ class Agent:
         """Time to the shore from a point by water, with the current this boat measures."""
         return self.route_ms(self.home_route(frm))
 
-    def return_due(self) -> bool:
-        """Battery rule 11, checked every tick against the trip home by water. The route is planned
-        again every HOME_RECHECK_MS; between plans the boat's own position replaces its start."""
+    def return_need_ms(self) -> int:
+        """One model estimate for the safety rule AND the boat's reported return-by time.
+
+        Replan every HOME_RECHECK_MS; between plans replace the route's start with
+        the current own position. An unknown route is conservatively unaffordable.
+        """
         p = self.params
         if self.home is None or self.t - self.home[0] >= HOME_RECHECK_MS:
             self.home = (self.t, self.home_route(self.pos))
         trip = self.route_ms([self.pos, *self.home[1][1:]])
-        need = p.return_safety_permille * (trip + p.reserve_ms) // 1000
-        return self.remaining_ms() <= need
+        return p.return_safety_permille * (trip + p.reserve_ms) // 1000
+
+    def return_due(self) -> bool:
+        return self.remaining_ms() <= self.return_need_ms()
 
     def go_home(self) -> None:
         """Automatic safety: release everything at once so others re-auction next slot."""
@@ -499,15 +508,44 @@ class Agent:
                 elif dist_to_line(c, (self.pos, target)) < r:
                     target = round_ring(self.pos, c, r, target)
                     self.detoured = True
-        if self.water_rules():
-            target = self.water_step(target, a.mode)
+        goal = target
+        coastal = self.water_rules()
+        missing_route = False
+        if coastal:
+            waypoint = self.water_step(target, a.mode)
+            missing_route = waypoint is None
+            target = self.pos if waypoint is None else waypoint
+        circles = tuple(
+            ((o["x"], o["y"]), self.params.standoff_floor_m
+             if self.contacts.close_allowed(task_of(k)) else self.params.standoff_m)
+            for k, o in sorted(self.contacts.tracks.items())
+            if not o["ais"] and not self.contacts.stale(k, self.t)
+        )
+        # The last navigation stage may invalidate an earlier safety stage. Check
+        # the actual commanded leg against BOTH constraints, including on return.
+        unsafe = (missing_route or (coastal and water.blocked(self.pos, target))
+                  or not water.clear_of_circles(self.pos, target, circles))
+        message = ""
+        if unsafe:
+            route = water.path_around(self.pos, goal, circles, coast=coastal)
+            if route:
+                target = route[1]
+                self.water = (goal, route[1:], self.pos)
+            else:
+                target = self.pos  # explicit station-keeping target, not motors-off drift
+                message = "no admissible coast/contact route; holding position for review"
+        if message != self.navigation:
+            self.navigation = message
+            if message:
+                self.log("navigation", {"text": message})
+        return Action(a.mode, target, a.speed_mm_s)
         return Action(a.mode, target, a.speed_mm_s)
 
     def water_rules(self) -> bool:
         """The Great Belt scene: steer around its real coastline (test scenes have none)."""
         return self.mission.shore == KORSOR_SHORE and len(self.tours.pts.get("seg:M:0", ())) > 2
 
-    def water_step(self, goal: tuple[int, int], mode: str = PATROL) -> tuple[int, int]:
+    def water_step(self, goal: tuple[int, int], mode: str = PATROL) -> tuple[int, int] | None:
         """Next point on a water-only route to goal (agent/water.py). Planned again only when the
         goal changes; straight when nothing is in the way, so a sweep along a cable costs one
         check. A goal on land other than the Korsør quay (a cable's landfall) is replaced by its
@@ -519,17 +557,21 @@ class Agent:
             # a leg that just clears the coast must not flip the plan every time the current
             # nudges the boat sideways (the second loop seen north of Sprogø)
             _, wps, start = self.water
-            if water.on_land(self.pos) and not water.on_land(start) or (
+            if not wps or (water.on_land(self.pos) and not water.on_land(start)) or (
                     dist_to_line(self.pos, (start, wps[0])) > WATER_CORRIDOR_M
                     and water.blocked(self.pos, wps[0])):
                 self.water = None
         if self.water is None or self.water[0] != goal:
-            self.water = (goal, route_water_path(self.pos, aim)[1:], self.pos)
+            route = route_water_path(self.pos, aim)
+            self.water = (goal, route[1:] if route else [], self.pos)
         _, wps, start = self.water
         while len(wps) > 1 and dist(self.pos, wps[0]) <= WATER_WP_M:
             start = wps.pop(0)
             self.water = (goal, wps, start)
-        return self.crab(self.stuck_check(goal, aim, mode))
+        if not wps:
+            return None
+        stuck_target = self.stuck_check(goal, aim, mode)
+        return self.crab(stuck_target) if stuck_target is not None else None
 
     def crab(self, wp: tuple[int, int]) -> tuple[int, int]:
         """Aim up-current of the next point by the drift the measured current would give on the
@@ -546,12 +588,14 @@ class Agent:
             dx, dy = dx * (d // 3) // n, dy * (d // 3) // n
         return wp[0] - dx, wp[1] - dy
 
-    def stuck_check(self, goal, aim, mode) -> tuple[int, int]:
+    def stuck_check(self, goal, aim, mode) -> tuple[int, int] | None:
         """Over STUCK_MS on the same goal the boat must get at least a third as far from where
         it was as its speed allows. If not (turning back and forth on a coast, held by the
         current), it plans again from the nearest water waypoint, and on patrol skips the cable
         point it could not reach. Logged, so the record shows it. Keyed on the goal, not on the
         next waypoint, so a plan that flips cannot hide a stall."""
+        if not self.water or not self.water[1]:
+            return None
         w = self.stuck
         # a fresh watch on a new goal, or after a pause (a station-keeper drifting, motors off)
         if w is None or w[1] != goal or self.t - w[3] > STUCK_GAP_MS:
@@ -570,20 +614,23 @@ class Agent:
             self.follow.skip()  # the cable point it could not reach: on to the next one
         via = water.nearest_node(self.pos)
         if via is not None:
-            self.water = (goal, [via, *route_water_path(via, aim)[1:]], self.pos)
-        return self.water[1][0]
+            route = route_water_path(via, aim)
+            self.water = (goal, [via, *(route[1:] if route else [])], self.pos)
+        return self.water[1][0] if self.water[1] else None
 
     def heartbeat(self) -> dict:
         legs = self.legs()
         cyc = ms(self.tours.cycle_m(legs), self.v_plan()) if legs else 0
+        health = "; ".join(text for text in (self.health, self.navigation) if text)
         return {"x": self.pos[0], "y": self.pos[1], "mode": self.mode, "batt": self.batt,
                 "cyc": cyc, "tour": [leg[0] for leg in legs],
                 "roles": self.table.held_by(self.me),
+                "return_by_s": (self.t + max(self.remaining_ms() - self.return_need_ms(), 0)) // 1000,
                 "to": list(self.action.target) if self.action and self.action.target else None,
                 "spd": self.action.speed_mm_s if self.action and self.action.target else 0,
                 "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE),
                 "head": self.head(),
-                **({"health": self.health} if self.health else {}),
+                **({"health": health} if health else {}),
                 "det": self.params.r_detect_m, "kiv": self.params.keep_in_view_m}
 
     # evidence (#37) ------------------------------------------------------------------------

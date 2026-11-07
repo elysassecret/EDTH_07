@@ -74,8 +74,9 @@ class Auction:
 
     def close_round(self, e: int, t: int) -> None:
         for task, bs in sorted(self.bids.pop(e, {}).items()):
-            if task not in self.a.table.recs or not self.a.table.is_open(task, t):
-                continue  # a live claim arrived during the round: cancel
+            if (not self.a.may_bid(t) or task not in self.a.table.recs
+                    or not self.a.table.is_open(task, t) or not self.can_bid(task, t)):
+                continue  # eligibility can change after bidding: return, role, quorum or policy
             bs = sorted(bs, key=lambda b: (b[0], -b[1]))
             if bs[0][1] != self.a.me:
                 continue

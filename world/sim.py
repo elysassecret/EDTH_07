@@ -18,6 +18,7 @@ from contract.constants import PATROL, UNAVAILABLE
 from contract.geo import dist, to_lonlat, to_xy
 from contract.mission import Action, Detection, Mission, Own, Params, Point, load_params
 from world.current import Current
+from world.harbour import load_harbour
 from world.motion import Boat
 from world.phase import STRATEGY, placements
 from world.radio import Radio, RadioConfig
@@ -105,6 +106,10 @@ class World:
         clip_path = Path(ais_clip) if ais_clip is not None else self.root / DEFAULT_CLIP
         self._ais_clip = AisReplay(clip_path, self.ais_t0)
         self.ais: AisReplay | None = self._ais_clip if self.ais_enabled else None
+        self.harbour = (
+            load_harbour(self.root, self.mission.shore, len(self.mission.boats), self.dock_m)
+            if self.launch else None
+        )
         self.reset()
 
     def reset(self, seed: int | None = None) -> None:
@@ -119,14 +124,15 @@ class World:
         self.position_faults: dict[int, dict] = {}
         self.radio = Radio(self.radio_config, self.seed)
         self.swapping: dict[int, int] = {}  # docked boat -> when its battery swap began (ms)
+        self.moored: set[int] = set(self.mission.boats) if self.launch else set()
         launches: list[tuple[int, int, dict]] = []
         if self.launch:
             self.start_placements = {}
             order = launch_order(self.mission.boats, self.seed)
             self.boats = {}
             for rank, boat in enumerate(order):
-                # side by side along the quay, all inside the dock radius
-                point = (self.mission.shore[0] + (rank - len(order) // 2) * 8, self.mission.shore[1])
+                # Validated water-side berths, separate from the land-based shore station.
+                point = self.harbour.berths[rank]
                 self.boats[boat] = Boat.at(boat, point, self.params.endurance_ms)
                 self.boats[boat].enabled = rank == 0
                 if rank:
@@ -150,7 +156,10 @@ class World:
         self.contacts: dict[str, Contact] = {}
         self.events: list[dict] = []
         self.shore_reports: dict[int, dict] = {}
-        self.telemetry = {boat: {"hdg": 0, "sog": 0} for boat in self.mission.boats}
+        self.telemetry = {
+            boat: {"hdg": self.harbour.heading if self.harbour else 0, "sog": 0}
+            for boat in self.mission.boats
+        }
         self.sample_visit_ms: list[int | None] = [None] * len(self.scene.samples)
         self.pending = [
             (int(event["t"] * 1000), index, dict(event)) for index, event in enumerate(self.script)
@@ -158,6 +167,16 @@ class World:
         self.pending += launches
         self.pending.sort(key=lambda item: (item[0], item[1]))
         self.event_seq = len(self.pending)
+
+    def configure_current(self, current: Current) -> None:
+        """Set the baseline AND current field before starting (e.g. shifted eval time).
+
+        Runtime fault injections change only active state; reset must restore this
+        configured baseline, not silently discard an evaluator's timeline shift.
+        """
+        if self.started:
+            raise ValueError("configure the current before starting the world")
+        self._base_current = self.current = current
 
     @property
     def t_ms(self) -> int:
@@ -435,11 +454,15 @@ class World:
         for boat, state in sorted(self.boats.items()):
             before = (state.x_mm, state.y_mm)
             prop = self.propulsion_permille.get(boat, 1000)
+            action = self.actions[boat]
+            if (state.enabled and action.mode != UNAVAILABLE and action.target is not None
+                    and action.speed_mm_s > 0):
+                self.moored.discard(boat)
             for duration, current in self.current.intervals(self.t - dt, self.t):
                 state.advance(
                     self.actions[boat],
                     duration,
-                    current=self.boat_currents.get(boat, current),
+                    current=(0, 0) if boat in self.moored else self.boat_currents.get(boat, current),
                     hotel_load_permille=self.hotel_load_permille,
                     propulsion_permille=prop,
                 )
@@ -508,8 +531,11 @@ class World:
                 and state.charge_ms < state.endurance_ms
             )
             if not docked:
-                self.swapping.pop(boat, None)
+                if boat in self.swapping:
+                    self.swapping.pop(boat)
+                    self._log({"kind": "swap_cancel", "boat": boat})
                 continue
+            self.moored.add(boat)
             if boat not in self.swapping:
                 self.swapping[boat] = self.t
                 self._log({"kind": "swap_start", "boat": boat, "swap_s": self.swap_ms // 1000})
@@ -534,14 +560,21 @@ class World:
             ):
                 self.sample_visit_ms[index] = self.t
 
-    def ais_contacts_view(self, window_ms: int = 180_000) -> list[dict]:
-        """Active AIS vessels in the Great Belt box for console /truth and /shore display."""
+    def ais_contacts_view(self, window_ms: int = 180_000, *, shore_only: bool = False) -> list[dict]:
+        """Evaluator traffic, or pings actually received by an independent shore AIS receiver.
+
+        Shore reception is filtered at each ping's position/time. It must not depend
+        on truth boat positions or bypass the boats' radio delivery protocol.
+        """
         if not self._ais_clip.available:
             return []
         t_ms = max(0, self.t - getattr(self, "warm_ms", 0))
         end_ms = t_ms
         start_ms = t_ms - window_ms
-        pings = self._ais_clip.between(start_ms, end_ms)
+        pings = (self._ais_clip.for_boat(self.mission.shore, start_ms, end_ms,
+                                       self.boat_config["ais_class_a_m"],
+                                       self.boat_config["ais_class_b_m"])
+                 if shore_only else self._ais_clip.between(start_ms, end_ms))
         if not pings:
             return []
         first_seen: dict[str, int] = {}
@@ -565,14 +598,14 @@ class World:
             if track in self.contacts:
                 continue
             ping = latest[track]
-            dt = max(0, min(t_ms - ping.t_ms, 60_000))
+            dt = 0 if shore_only else max(0, min(t_ms - ping.t_ms, 60_000))
             vx, vy = velocity(ping.sog, ping.cog)
             x = ping.x + round(vx * dt / 1_000_000)
             y = ping.y + round(vy * dt / 1_000_000)
             rng = class_a_m if ping.ais_class == "Class A" else class_b_m
-            seen_by = [
+            seen_by = ([] if shore_only else [
                 boat for boat, b_pt in active_boats.items() if dist(b_pt, (x, y)) <= rng
-            ]
+            ])
             shore_ok = dist(self.mission.shore, (x, y)) <= rng
             out.append(
                 {
@@ -700,6 +733,7 @@ class World:
             "pending": self.pending,
             "contacts_mm": [asdict(contact) for _, contact in sorted(self.contacts.items())],
             "started": self.started,
+            "moored": sorted(self.moored),
             "swapping": self.swapping,
             "shore_reports": self.shore_reports,
             "sample_visit_ms": self.sample_visit_ms,

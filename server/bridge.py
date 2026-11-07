@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import tomllib
 from collections import deque
+from dataclasses import asdict
 from pathlib import Path
 
 from agent.core import HOME_M, Agent
@@ -33,11 +34,12 @@ from contract.views import Boat, Contact, ContactFlags, Event, Link, Snapshot, T
 from server.alerts import AlertBook
 from server.feed import ROOT, boat_model, sensor_ranges
 from server.runlog import HASH_MS, SNAPSHOT_MS, RunLog, replay_digest
+from world.harbour import load_harbour
 from world.sim import World
 
 INJECT_KINDS = ("battery_low", "boat_off", "boat_restore", "link_off", "link_on")
 # done by the shore crew at Korsør, so the console knows them: launch and battery swaps (#116)
-DOCK_KINDS = ("launch", "swap_start", "battery_swap")
+DOCK_KINDS = ("launch", "swap_start", "swap_cancel", "battery_swap")
 ANSWER_CMDS = ("confirm", "stop", "approve", "decline")
 ESCALATE_TEXT_MAX = 1200  # the report the officer read and sent, kept whole in the evidence log
 ESCALATE_NOTE_MAX = 300
@@ -80,6 +82,7 @@ def _event_text(e: dict) -> str:
         "launch": f"{usv} switched on at Korsør: launching",
         "swap_start": f"{usv} docked at Korsør: battery swap started (about {int(e.get('swap_s', 600)) // 60} min)",
         "battery_swap": f"{usv} battery swapped at Korsør: full",
+        "swap_cancel": f"{usv} battery swap interrupted at Korsør",
     }
     text = words.get(k, str(k))
     if e.get("exercise"):
@@ -110,6 +113,8 @@ class SimSource:
                          else scenario)
         self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode,
                            launch=self.launch, scenario=self.scenario)
+        self.harbour_layout = self.world.harbour or load_harbour(
+            ROOT, self.world.mission.shore, len(self.world.mission.boats), self.world.dock_m)
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
         run = _toml("config/run.toml")
         # end of the run: config/run.toml (eval, demos), --hours, or none at all (live console)
@@ -220,6 +225,7 @@ class SimSource:
             "segments": {t.id: [ll(p) for p in t.pts] for t in m.tasks if t.id.startswith("seg:")},
             "stations": {t.id: ll(t.pts[0]) for t in m.tasks if not t.id.startswith("seg:")},
             "shore": ll(m.shore),
+            "harbour": asdict(self.harbour_layout),  # schematic runtime layout, not a bundled copy
             "stale_after_s": self.ui["stale_after_s"],
             "horizon_s": 0 if self.horizon_ms is None else self.horizon_ms // 1000,  # 0 = no end
             "ais": self.world._ais_clip.available,  # data/ais-clip-box.csv present on this laptop
@@ -255,8 +261,12 @@ class SimSource:
             if cmd in ANSWER_CMDS:
                 if not isinstance(msg.get("id"), str) or not msg["id"]:
                     return {"ok": False, "error": "decision id missing"}
-                ok = self.world.shore.command(self.world.t_ms, {"cmd": cmd, "id": msg["id"]})
-                return {"ok": bool(ok)} if ok else {"ok": False, "error": "not a shore command"}
+                request = {"cmd": cmd, "id": msg["id"]}
+                if "expected_v" in msg:
+                    request["expected_v"] = msg["expected_v"]
+                ok = self.world.shore.command(self.world.t_ms, request)
+                return {"ok": True} if ok else {
+                    "ok": False, "error": "decision is missing, changed, stale or action is not allowed"}
             if cmd == "inject" and msg.get("kind") == "contact_start":
                 return self._place_contact(msg)
             if cmd == "inject":
@@ -379,14 +389,8 @@ class SimSource:
     def swaps(self) -> dict[str, int]:
         """Boats in a battery swap at Korsør -> sim s when it should be done. The shore crew does
         the swap, so the console knows it (like its own exercise script); not a boat report."""
-        out: dict[str, int] = {}
-        for e in self.world.events:
-            b = str(e.get("boat"))
-            if e["kind"] == "swap_start":
-                out[b] = int(e["t_ms"]) // 1000 + int(e.get("swap_s", 600))
-            elif e["kind"] == "battery_swap":
-                out.pop(b, None)
-        return out
+        return {str(boat): (started + self.world.swap_ms) // 1000
+                for boat, started in sorted(self.world.swapping.items())}
 
     @staticmethod
     def _pair(e: dict) -> tuple[int, int]:
@@ -413,6 +417,11 @@ class SimSource:
             active = not (e["kind"] == "boat_off" and any(
                 later["kind"] == "boat_restore" and later.get("a", later.get("boat")) == boat
                 for later in evs[i + 1:]))
+            if e["kind"] == "battery_low" and any(
+                later["kind"] == "battery_swap" and later.get("boat") == boat
+                and later["t_ms"] >= e["t_ms"] for later in self.world.events
+            ):
+                active = False
             out.append({"kind": e["kind"], "text": _event_text(e), "active": active,
                         "pair": self._pair(e) if e["kind"] == "link_off" else None})
         return out
@@ -421,11 +430,14 @@ class SimSource:
         """Exercise conditions still in effect, oldest first, each with the inject commands that
         undo it (console knowledge: the console sent or scripted them). Synthetic contacts are
         truth only and never listed. A cut link is undone by link_on in the same direction, a
-        switched-off boat by boat_restore. A battery_low cannot be undone: the world has no
-        recharge (#116), so it is listed with undo None until the run is reset."""
+        switched-off boat by boat_restore. Battery-low has no operator undo command;
+        the condition clears when the shore crew completes a battery swap."""
         live: dict[tuple, dict] = {}
         for e in self.world.events:
             kind = e.get("kind")
+            if kind == "battery_swap":
+                live.pop(("batt", int(e["boat"])), None)
+                continue
             if not e.get("exercise") or kind not in INJECT_KINDS:
                 continue
             a = int(e.get("a", e.get("boat")))
@@ -464,9 +476,7 @@ class SimSource:
 
     def _ais_contacts(self, shore_only: bool) -> list[Contact]:
         out = []
-        for c in self.world.ais_contacts_view():
-            if shore_only and not (c["shore_in_range"] or c["seen_by"]):
-                continue
+        for c in self.world.ais_contacts_view(shore_only=shore_only):
             lon, lat = to_lonlat(c["x"], c["y"])
             out.append(Contact(
                 id=f"ais:{c['track']}", track=c["track"], x=c["x"], y=c["y"], lon=lon, lat=lat,

@@ -13,6 +13,7 @@ boat plans the same way on every run.
 
 from heapq import heappop, heappush
 from itertools import pairwise
+from math import isqrt
 
 from contract.geo import dist
 
@@ -23,11 +24,13 @@ OBSTACLES: tuple[tuple[Point, ...], ...] = ()
 NODES: tuple[Point, ...] = ()
 EDGES: tuple[tuple[tuple[int, int], ...], ...] = ()
 BOXES: tuple[tuple[int, int, int, int], ...] = ()
+_HOME: dict[Point, tuple[list[int], list[int]]] = {}  # graph-specific distances home
 
 
 def load(obstacles, nodes, edges) -> None:
     global OBSTACLES, NODES, EDGES, BOXES
     OBSTACLES, NODES, EDGES = obstacles, nodes, edges
+    _HOME.clear()
     BOXES = tuple((min(p[0] for p in r), min(p[1] for p in r), max(p[0] for p in r),
                    max(p[1] for p in r)) for r in obstacles)
 
@@ -103,10 +106,6 @@ def blocked(a: Point, b: Point) -> bool:
     return False
 
 
-def _nearest(p: Point) -> list[int]:
-    return [min(range(len(NODES)), key=lambda i: (dist(p, NODES[i]), i))] if NODES else []
-
-
 def path(a: Point, b: Point) -> list[Point]:
     if a == b or not blocked(a, b):
         return [a, b]
@@ -114,15 +113,12 @@ def path(a: Point, b: Point) -> list[Point]:
     best: dict[int, int] = {}
     prev: dict[int, int] = {}
     heap: list[tuple[int, int]] = []
-    starts = [i for i, p in enumerate(NODES) if not blocked(a, p)] or _nearest(a)
+    starts = [i for i, p in enumerate(NODES) if not blocked(a, p)]
     for i in starts:
         best[i] = dist(a, NODES[i])
         prev[i] = -1
         heappush(heap, (best[i], i))
-    # a point deep on land (a boat the current pushed onto the quay, a far landfall) sees no
-    # waypoint: it leaves by, or arrives from, the nearest one rather than going straight
-    ends = {i: dist(NODES[i], b) for i in ([i for i, p in enumerate(NODES) if not blocked(p, b)]
-                                            or _nearest(b))}
+    ends = {i: dist(p, b) for i, p in enumerate(NODES) if not blocked(p, b)}
     done: set[int] = set()
     goal, goal_d = -1, None
     while heap:
@@ -140,7 +136,7 @@ def path(a: Point, b: Point) -> list[Point]:
                 best[j], prev[j] = nd, i
                 heappush(heap, (nd, j))
     if goal < 0:
-        return [a, b]  # no water route known: straight, as before
+        return []  # no known water route is not permission to cross a blocked segment
     chain = []
     i = goal
     while i != -1:
@@ -149,7 +145,90 @@ def path(a: Point, b: Point) -> list[Point]:
     return [a, *reversed(chain), b]
 
 
-_HOME: dict[Point, tuple[list[int], list[int]]] = {}  # home -> (distance, next node; -1 = home)
+def clear_of_circles(a: Point, b: Point, circles: tuple[tuple[Point, int], ...]) -> bool:
+    """Exact integer segment/ring test. A boat already inside may only move outward.
+
+    Contact observations can first arrive while already inside a ring; disallowing
+    every such segment would prevent escape. The outward dot product prevents a
+    segment that initially approaches/crosses the contact before leaving it.
+    """
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length2 = dx * dx + dy * dy
+    for c, radius in circles:
+        ax, ay = a[0] - c[0], a[1] - c[1]
+        bx, by = b[0] - c[0], b[1] - c[1]
+        start2, end2, r2 = ax * ax + ay * ay, bx * bx + by * by, radius * radius
+        if start2 < r2:
+            if not length2 or ax * dx + ay * dy < 0 or end2 <= start2:
+                return False
+            continue
+        if end2 < r2:
+            return False
+        projection = -(ax * dx + ay * dy)
+        if 0 < projection < length2:
+            cross = ax * dy - ay * dx
+            if cross * cross < r2 * length2:
+                return False
+    return True
+
+
+def path_around(a: Point, b: Point, circles: tuple[tuple[Point, int], ...],
+                *, coast: bool = True) -> list[Point]:
+    """A route satisfying coastline AND contact rings, or [] if none is known.
+
+    Reuse the static coast visibility graph and add circumscribed 16-point rings.
+    Only dynamic edges need coastline tests; every edge is checked against all
+    contact rings. Integer direction vectors keep routes deterministic.
+    """
+    if (not coast or not blocked(a, b)) and clear_of_circles(a, b, circles):
+        return [a, b]
+    directions = ((1000, 0), (924, 383), (707, 707), (383, 924),
+                  (0, 1000), (-383, 924), (-707, 707), (-924, 383),
+                  (-1000, 0), (-924, -383), (-707, -707), (-383, -924),
+                  (0, -1000), (383, -924), (707, -707), (924, -383))
+    extra = []
+    for c, radius in circles:
+        outer = radius * 1030 // 1000 + 2  # chords between adjacent nodes remain outside the ring
+        extra.extend((c[0] + dx * outer // 1000, c[1] + dy * outer // 1000)
+                     for dx, dy in directions)
+    extra = [p for p in sorted(set(extra))
+             if (not coast or not on_land(p)) and clear_of_circles(p, p, circles)]
+    nodes = NODES if coast else ()
+    points = [a, *nodes, *extra, b]
+    n, goal = len(nodes), len(points) - 1
+    dynamic = [0, *range(n + 1, len(points))]
+    heap, best, prev = [(0, 0)], {0: 0}, {}
+    done: set[int] = set()
+    visible: dict[tuple[int, int], bool] = {}
+    while heap:
+        distance, i = heappop(heap)
+        if i in done:
+            continue
+        if i == goal:
+            chain = [b]
+            while i:
+                i = prev[i]
+                chain.append(points[i])
+            return list(reversed(chain))
+        done.add(i)
+        neighbours = (sorted([j + 1 for j, _ in EDGES[i - 1]] + dynamic)
+                      if 1 <= i <= n else range(len(points)))
+        for j in neighbours:
+            if j == i or j in done:
+                continue
+            key = (i, j)
+            if key not in visible:
+                static_edge = 1 <= i <= n and 1 <= j <= n
+                visible[key] = (clear_of_circles(points[i], points[j], circles)
+                                and (not coast or static_edge or not blocked(points[i], points[j])))
+            if not visible[key]:
+                continue
+            dx, dy = points[j][0] - points[i][0], points[j][1] - points[i][1]
+            candidate = distance + isqrt(dx * dx + dy * dy)
+            if candidate < best.get(j, candidate + 1):
+                best[j], prev[j] = candidate, i
+                heappush(heap, (candidate, j))
+    return []
 
 
 def _home_table(home: Point) -> tuple[list[int], list[int]]:
@@ -185,10 +264,8 @@ def home_path(a: Point, home: Point) -> list[Point]:
     best, nxt = _home_table(home)
     order = sorted(range(len(NODES)), key=lambda i: (dist(a, NODES[i]) + best[i], i))
     pick = next((i for i in order if best[i] < 10**12 and not blocked(a, NODES[i])), None)
-    if pick is None:
-        pick = _nearest(a)[0] if NODES else None  # deep on land: leave by the nearest waypoint
     if pick is None or best[pick] >= 10**12:
-        return [a, home]
+        return []
     out = [a]
     i = pick
     while i >= 0:
