@@ -28,6 +28,7 @@ class Narrator:
         self._tasks: dict[str, tuple[int, int]] | None = None  # task -> (owner, state)
         self._boats: dict[int, dict] = {}
         self._stale: set[int] = set()
+        self._contacts: dict[str, dict] | None = None  # id -> flags last seen
 
     def update(self, snap: dict) -> list[dict]:
         """Compare with the previous frame; append and return the new lines."""
@@ -35,13 +36,16 @@ class Narrator:
         tasks = {k: (v["owner"], v["state"]) for k, v in sorted(snap.get("tasks", {}).items())}
         boats = {b["id"]: b for b in snap.get("boats", [])}
         new: list[str] = []
+        contacts = {c["id"]: c for c in snap.get("contacts", [])}
         if self._tasks is not None:
             new += self._task_lines(self._tasks, tasks)
             new += self._boat_lines(boats, t)
+            new += self._contact_lines(contacts)
         else:
             self._stale = {i for i, b in boats.items() if t - b["last_heard"] > self.stale_after_s}
         self._tasks = tasks
         self._boats = boats
+        self._contacts = {k: dict(c.get("flags", {})) for k, c in contacts.items()}
         out = [{"t": t, "text": s} for s in new]
         self.lines = (self.lines + out)[-MAX_LINES:]
         return out
@@ -83,6 +87,25 @@ class Narrator:
             lines.append(text)
         for _, picks in sorted(opened.items()):
             lines += [f"Lane picket {p.split(':', 1)[1]} now uncovered" for p in picks]
+        return lines
+
+    def _contact_lines(self, contacts: dict) -> list[str]:
+        lines: list[str] = []
+        old = self._contacts or {}
+        for k, c in sorted(contacts.items()):
+            name = c.get("track") or k
+            flags = c.get("flags", {})
+            seen = ", ".join(_usv(i) for i in c.get("seen_by", [])) or "no boat now"
+            if k not in old:
+                kind = "AIS track" if c.get("ais") else "camera only, no AIS match"
+                if not c.get("ais"):  # AIS traffic is routine; only no-AIS contacts are news
+                    lines.append(f"Shore has contact {name}: {kind}, seen by {seen}")
+                continue
+            was = old[k]
+            if flags.get("name") and not was.get("name"):
+                lines.append(f"{name}: look within 500 m done")
+            if flags.get("cannot_hold") and not was.get("cannot_hold"):
+                lines.append(f"{name} leaving faster than our boats: cannot hold")
         return lines
 
     def _boat_lines(self, boats: dict, t: int) -> list[str]:

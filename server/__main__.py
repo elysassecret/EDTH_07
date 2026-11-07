@@ -13,6 +13,7 @@ Demo video preset (server/demo.toml, shot list in server/DEMO.md):
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 
 
 def main() -> None:
@@ -24,6 +25,9 @@ def main() -> None:
     ap.add_argument("--mock", action="store_true", help="use server/mock_feed.py, not the sim")
     ap.add_argument("--serve-web", action="store_true", help="also serve web/dist over HTTP")
     ap.add_argument("--no-log", action="store_true", help="real sim: do not write runs/*.jsonl")
+    ap.add_argument("--scorecard", type=Path, default=None, metavar="JSON",
+                    help="real sim: eval scorecard for the evaluator view "
+                         "(default runs/main/scorecard_console.json)")
     ap.add_argument("--tracks", type=int, default=6,
                     help="mock only: synthetic AIS tracks for the load test (G4), e.g. 240")
     ap.add_argument("--demo", nargs="?", const="server/demo.toml", default=None, metavar="TOML",
@@ -43,7 +47,7 @@ def main() -> None:
         from server.bridge import serve
         from server.feed import ROOT
 
-        extra = {"runs_dir": None if args.no_log else ROOT / "runs"}
+        extra = {"runs_dir": None if args.no_log else ROOT / "runs", "scorecard": args.scorecard}
         if args.demo:
             import tomllib
 

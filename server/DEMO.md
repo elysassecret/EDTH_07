@@ -36,10 +36,10 @@ measured on seed 1, 7 Nov 2026, and checked by `tests/server/test_demo.py`.
 | 0:00 | 6900 s (12:10Z) | Paused. Five USVs: 01 and 02 sweep cables, 03 and 04 picket the lane, 05 relays. Coverage box top left | Setup |
 | 0:11 | 7200 s (12:15Z) | EXERCISE banner. USV 01 low battery → RTB chip, "Return to Korsør"; caution alert. 04 takes `seg:G:*` (card: "Cable sweep (Great Belt 1 fibre, 60 kV …)"); "Lane picket S uncovered" caution | Battery low and reassign |
 | 0:31 | 7320 s (12:17Z) | Link 04 → shore cut: red ✕ "LINK CUT". 04's card: "Via peer"; its reports keep arriving through 05 | Link loss, store-and-forward |
-| 0:44 | ~7865 s | USV 02 chip turns KEEP IN VIEW (warp slows) | Dark contact |
-| 0:48 | ~8052 s | USV 03 card: "Keeping C-07 in view"; "Lane picket N uncovered" caution | Keep in view, handover |
+| 0:44 | ~7865 s | USV 02 chip turns KEEP IN VIEW (warp slows). C-07 appears on the chart as NO AIS; warning "C-07: camera contact, no AIS match. Cue for a look." | Dark contact |
+| 0:48 | ~8054 s | USV 03 card: "Keeping C-07 in view"; "Lane picket N uncovered" caution. **Decision dock lights up: NEEDS YOUR YES "USV 03 to close to 500 m for a look at C-07"** (+1 queued: keep in view). Press **A**: "Sending in 5 s … UNDO", then delivered | Approval card |
 | 0:52 | ~8265 s | USV 02 relieved: chip back to PATROL, cable sweep again | Scout holds until relieved |
-| 1:08 | 9200 s (12:48Z) | C-07 departs (truth only). By ~9260 s (1:18) USV 03 is back on "Lane picket N" | Contact leaves |
+| 1:08 | 9200 s (12:48Z) | C-07 departs. Warning "Cannot hold C-07: leaving faster than our boats". After the approved look the contact card shows the name and anchor imaged. By ~9260 s (1:18) USV 03 is back on "Lane picket N" | Contact leaves |
 | 1:32 | 10 800 s (13:15Z) | Link 04 → shore restored; 04 "Direct to shore" | Rejoin |
 | 1:51 | 11 100 s (13:20Z) | EXERCISE: USV 05 (relay) switched off | Relay loss |
 | 2:01 | ~11 160 s | 02, 03 and 05 grey out: "LAST SEEN …", warning alerts. The shore shows them as old, never as live | Shore picture goes stale |
@@ -64,6 +64,7 @@ Read at a calm pace; every line matches something on screen. No numbers that are
 4. **0:44** "A synthetic contact with no AIS stops on the HVDC cable. USV 02 keeps it in view
    until USV 03 arrives to take over; then 02 goes back to its sweep. That's a cue for a look,
    nothing more."
+   **0:48** "Getting closer is my decision, not the boat's. I approve; I have five seconds to undo."
 5. **1:08** "The contact leaves faster than our boats. 03 lets it go and returns to its picket."
 6. **1:32** "04's link to shore comes back."
 7. **1:51** "Now the relay boat, 05, is switched off. Boats 02 and 03 can't reach shore, so the
@@ -77,14 +78,12 @@ Never say "suspicious", "hostile", "detects dark ships", "coverage restored", "c
 
 ## Known limits on the real sim (say them, or leave the beat out)
 
-- **No approval card on the real sim yet.** The shore picture (`agent/shore.py`) sends no
-  contact and no pending decisions, so the Confirm/Stop and Approve/Decline cards and the contact
-  symbol never appear. Options: skip the card beat, or record it from `--mock` where the top bar
-  says **MOCK FEED** and say "mock feed" in the narration. Needs Javier (A) for the real thing.
-- **seg:M:0 shows "none since start" (shore-reported).** The shore never credits a visit to that
-  segment (issue #22), so the headline names it. That is what the shore knows; don't explain it
+- **The approval card is real now** (since #42): if nobody answers it within 05:00 it becomes an
+  alarm (~8354 s); if you approve, it is delivered within seconds. Answering on camera is the
+  point of the beat.
+- **seg:M:0 shows "none since start" (shore-reported).** No boat reports a visit to that
+  segment in this run, so the headline names it. That is what the shore knows; don't explain it
   away on camera.
-- "Cannot hold" and "Name NOT READ, Anchor NOT SEEN" only exist in the mock.
 - Video times are approximate; re-time after any change to `agent/`, `world/` or the preset.
 
 ## Two-laptop rehearsal (Sun 09:00, N1 · N3 · N5 · N6 · N8 · N11)

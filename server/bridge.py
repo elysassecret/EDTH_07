@@ -35,7 +35,7 @@ from server.feed import ROOT
 from server.runlog import HASH_MS, SNAPSHOT_MS, RunLog, replay_digest
 from world.sim import World
 
-INJECT_KINDS = ("battery_low", "boat_off", "link_off", "link_on")
+INJECT_KINDS = ("battery_low", "boat_off", "boat_restore", "link_off", "link_on")
 ANSWER_CMDS = ("confirm", "stop", "approve", "decline")
 EVENT_WINDOW_MS = 60_000  # slow to warp_near for 60 sim-s either side of each event
 
@@ -56,6 +56,8 @@ def _event_text(e: dict) -> str:
         "reset": "Reset: new run",
         "battery_low": f"{usv} battery low: returns to Korsør (automatic safety)",
         "boat_off": f"{usv} switched off",
+        # world/API.md: same boat and agent, no reset or recharge; a depleted boat stays so
+        "boat_restore": f"{usv} switched back on (same boat, battery as it was)",
         "link_off": f"Link {usv} → {other} cut",
         "link_on": f"Link {usv} → {other} restored",
         "contact_start": f"Synthetic contact {e.get('id', '')} placed (truth only)",
@@ -71,8 +73,12 @@ def _event_text(e: dict) -> str:
 class SimSource:
     """World + ShoreNode adapted to the Feed source interface (see server/feed.py)."""
 
-    def __init__(self, seed: int = 1, runs_dir: Path | None = None, demo: dict | None = None):
+    def __init__(self, seed: int = 1, runs_dir: Path | None = None, demo: dict | None = None,
+                 scorecard_path: Path | None = None):
         self.seed = seed
+        # #59: D's scorecard_console.json from `python -m eval.run_batch --out runs/main`
+        self.scorecard_path = scorecard_path or ROOT / "runs" / "main" / "scorecard_console.json"
+        self._card: tuple[float, dict | None] = (-1.0, None)
         # demo preset (server/demo.toml, --demo): warp, extra slow windows, scheduled
         # injections and a fast-forward start. None = the normal console behaviour.
         self.demo = demo or {}
@@ -208,8 +214,6 @@ class SimSource:
                 return {"ok": bool(ok)} if ok else {"ok": False, "error": "not a shore command"}
             if cmd == "inject" and msg.get("kind") == "contact_start":
                 return self._place_contact(msg)
-            if cmd == "inject" and msg.get("kind") == "boat_restore":
-                return {"ok": False, "error": "boat_restore needs world support (issue #34)"}
             if cmd == "inject":
                 kind, a = msg.get("kind"), int(msg["a"])
                 if kind not in INJECT_KINDS:
@@ -251,6 +255,22 @@ class SimSource:
             stop = nxt.offset_m if nxt is not None and nxt.task == sm.task else ends[sm.task]
             out.append(max(0, round(stop - sm.offset_m)))
         return out
+
+    def scorecard(self) -> dict | None:
+        """The eval/ scorecard as written by D, for /truth only; None while there is none.
+        Re-read only when the file changes. No eval logic here."""
+        try:
+            mtime = self.scorecard_path.stat().st_mtime
+        except OSError:
+            return None
+        if mtime != self._card[0]:
+            try:
+                card = json.loads(self.scorecard_path.read_text(encoding="utf-8"))
+                card = card if isinstance(card, dict) and isinstance(card.get("rows"), list) else None
+            except (OSError, ValueError):
+                card = None
+            self._card = (mtime, card)
+        return self._card[1]
 
     def cable_overdue(self) -> dict:
         """Evaluator only: true cable km past the revisit target, from each sample's real
@@ -309,10 +329,18 @@ class SimSource:
         return cuts
 
     def _exercise_failures(self) -> list[dict]:
-        """Exercise events in order, with their console text (and link pair) for alerts."""
-        return [{"kind": e["kind"], "text": _event_text(e),
-                 "pair": self._pair(e) if e["kind"] == "link_off" else None}
-                for e in self.world.events if e.get("exercise") and e["kind"] in INJECT_KINDS]
+        """Exercise events in order, with their console text (and link pair) for alerts.
+        A boat_off counts as active until a later boat_restore of the same boat."""
+        evs = [e for e in self.world.events if e.get("exercise") and e["kind"] in INJECT_KINDS]
+        out = []
+        for i, e in enumerate(evs):
+            boat = e.get("a", e.get("boat"))
+            active = not (e["kind"] == "boat_off" and any(
+                later["kind"] == "boat_restore" and later.get("a", later.get("boat")) == boat
+                for later in evs[i + 1:]))
+            out.append({"kind": e["kind"], "text": _event_text(e), "active": active,
+                        "pair": self._pair(e) if e["kind"] == "link_off" else None})
+        return out
 
     def _shore_links(self, links: list[Link], cuts: set[tuple[int, int]]) -> list[Link]:
         """Two console fixes on the shore's link list (no truth used):
@@ -407,11 +435,11 @@ class SimSource:
 
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
                 serve_web: bool = False, runs_dir: Path | None = None,
-                demo: dict | None = None) -> None:
+                demo: dict | None = None, scorecard: Path | None = None) -> None:
     from server.feed import serve as feed_serve
 
     def factory(s: int) -> SimSource:
-        return SimSource(s, runs_dir=runs_dir, demo=demo)
+        return SimSource(s, runs_dir=runs_dir, demo=demo, scorecard_path=scorecard)
 
     await feed_serve(factory, host, port, seed, hz, ready, serve_web,
                      name="sim bridge (demo preset)" if demo else "sim bridge",
