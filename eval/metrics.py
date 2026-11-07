@@ -232,6 +232,9 @@ class Metrics:
         since = self.contact_start
         out = {
             "t_s": (t - self.t0) // 1000,
+            "failure_s": (self.T - self.t0) // 1000,
+            "evaluate_s": (self.eval_t - self.t0) // 1000,
+            "evaluation_reached": t >= self.eval_t,
             "seed": w.seed,
             "mode": w.params.policy,
             "speed_mm_s": w.params.speed_mm_s,
@@ -254,7 +257,7 @@ class Metrics:
             "segs_unowned_at_end": sum(1 for task in self.segs if not self.owned(task, live)),
             "repair_claims_after_T": sum(self.claims_after.values()),
             "claims_after_T": dict(sorted(self.claims_after.items())),
-            "operator_actions": len(getattr(w.shore, "decisions", {})),
+            "operator_actions": getattr(w.shore, "operator_actions", 0),
             "boat_km": {b: round(mm / 1_000_000, 1) for b, mm in sorted(self.boat_mm.items())},
             "boats_end": {
                 b: {"mode": w.actions[b].mode, "batt": s.own().batt}

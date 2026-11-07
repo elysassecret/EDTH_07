@@ -26,6 +26,9 @@ CONFIG_FILES = (
     "config/scene.toml",
     "scenarios/fixed.toml",
     "data/scene-coordinates.json",
+    "world/harbour.json",
+    "web/public/geo/land.geojson",
+    "agent/land.py",
 )
 
 

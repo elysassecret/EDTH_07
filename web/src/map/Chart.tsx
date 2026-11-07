@@ -307,7 +307,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const missing = loaded && Object.keys(geo).length ? GEO_FILES.filter((n) => !geo[n]) : [];
   return (
     <>
-      <div ref={el} className="chart" />
+      <div ref={el} className="chart" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
       <div className="map-credit">
         {[missing.includes("land") ? "No coastline file yet (issue #9)" : null, ...credits].filter(Boolean).join(" · ")}
       </div>

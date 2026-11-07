@@ -67,6 +67,8 @@ def test_switched_off_boat_stays_old_on_shore():
     {"cmd": "inject", "kind": "link_off", "a": 1, "b": 9},
     {"cmd": "approve", "id": "no-colon"},
     {"cmd": "stop"},
+    {"cmd": "stop", "id": "contact:unknown"},
+    {"cmd": "stop", "id": "seg:G:0"},
     {"cmd": "fly"},
 ])
 def test_bad_commands_are_rejected(msg):
@@ -75,7 +77,9 @@ def test_bad_commands_are_rejected(msg):
 
 def test_stop_reaches_shore_node():
     s = SimSource(1)
-    run_to(s, 60)
+    run_to(s, 8060)
+    assert any(d["id"] == "contact:C-07" and d["state"] == "pending"
+               for d in s.snapshot("shore")["decisions"])
     assert s.command({"cmd": "stop", "id": "contact:C-07"})["ok"]
     assert any(d["id"] == "contact:C-07" for d in s.snapshot("shore")["decisions"])
 

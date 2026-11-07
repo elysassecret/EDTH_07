@@ -9,3 +9,7 @@ runs/*
 # AIS data stays private (EDTH treats shared material as non-confidential)
 data/*.csv
 data/*.zip
+
+# Media & local pitch assets
+brag-output*/
+deck/video/

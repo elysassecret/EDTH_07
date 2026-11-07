@@ -41,11 +41,14 @@ class Contacts:
         self.by: dict[str, dict[int, dict]] = {}  # track -> boat -> that boat's newest observation
         self.own_obs: list[dict] = []
         self.first: dict[str, int] = {}  # track -> earliest time anyone saw it
+        self.dwell_since: dict[str, int] = {}  # consecutive qualifying own-camera observations
+        self.hold_start: int | None = None  # actual scout-watch start, not historic track age
         self.flags: dict[str, dict] = {}  # contact task -> {flag: bool, "course": int | None}
         self.cables = [s.pts for s in agent.mission.tasks if kind(s.id) == "seg"]
         self.holding: str | None = None  # track this boat holds as scout
         self.watch_start: dict[str, int] = {}  # contact task -> when I claimed it
         self.close: dict[str, str] = {}  # contact task -> "approved" | "done"
+        self.close_versions: dict[str, int] = {}  # approval applies only to this owned claim
 
     # merging ----------------------------------------------------------------------------------
     def on_obs(self, p: dict) -> None:
@@ -101,10 +104,16 @@ class Contacts:
         o = self.tracks[task.split(":", 1)[1]]
         return o["x"], o["y"]
 
+    def close_allowed(self, task: str) -> bool:
+        r = self.a.table.recs.get(task)
+        return (r is not None and r.state == CLAIMED and r.owner == self.a.me
+                and self.close.get(task) == "approved" and self.close_versions.get(task) == r.ver)
+
     def radius(self, task: str) -> int:
         p = self.a.params
-        if self.close.get(task) == "approved":
-            return max(p.standoff_floor_m, p.r_verify_m - 10)  # never inside the hard floor
+        if self.close_allowed(task):
+            # Integer waypoint rounding must not put a 500 m target inside the hard floor.
+            return max(p.standoff_floor_m + 2, p.r_verify_m - 10)
         return (p.standoff_m + p.keep_in_view_m) // 2  # outside 1 nm, inside camera range
 
     def ring(self, task: str) -> tuple[int, int]:
@@ -134,6 +143,9 @@ class Contacts:
                         for d in seen]
         for o in self.own_obs:
             self.on_obs(o)
+        qualifying = {d.track for d in seen if self.candidate(d)}
+        self.dwell_since = {track: since for track, since in sorted(self.dwell_since.items())
+                            if track in qualifying}
         mine = self.watching()
         for d in seen:
             task = task_of(d.track)
@@ -141,22 +153,25 @@ class Contacts:
                 self.set_flag(task, cannot_hold=True, course=d.cog)  # faster than us: report
             if not self.candidate(d) or self.done(task):
                 continue
-            if task not in a.table.recs and t - self.first[d.track] >= CONTACT_DWELL:
+            since = self.dwell_since.setdefault(d.track, t)
+            if task not in a.table.recs and t - since >= CONTACT_DWELL:
                 a.publish(Rec(task, 1, RELEASED, 0, 0, 0))  # every boat makes the same record
                 self.set_flag(task, dwell=True)
             if (mine != task and not self.relieved(d.track) and not a.returning
                     and p.policy != "static"):  # static never leaves its station (#19)
+                if self.holding != d.track:
+                    self.hold_start = t
                 self.holding = d.track  # scout holds until the watcher has it in view
         if self.holding and (self.relieved(self.holding) or self.done(task_of(self.holding))):
-            self.holding = None
-        if self.holding and t - self.first[self.holding] >= SHADOW_CAP:
+            self.holding, self.hold_start = None, None
+        if self.holding and self.hold_start is not None and t - self.hold_start >= SHADOW_CAP:
             self.set_flag(task_of(self.holding), capped=True)
         if mine and self.done(mine):
             a.release(mine)  # stopped, stale, capped or cannot hold
         elif mine:
             self.watch_start.setdefault(mine, t)
             near = dist(a.pos, self.position(mine)) <= p.r_verify_m + 10
-            if self.close.get(mine) == "approved" and near:
+            if self.close_allowed(mine) and near:
                 self.close[mine] = "done"  # a look within 500 m: the sim draws nothing
                 self.set_flag(mine, name=True, anchor=True)
             if t - self.watch_start[mine] >= SHADOW_CAP:
@@ -164,10 +179,12 @@ class Contacts:
 
     def on_cmd(self, p: dict) -> None:
         r = self.a.table.recs.get(p["task"])
-        if r is None or r.owner != self.a.me or r.state != CLAIMED:
-            return
+        if (r is None or r.owner != self.a.me or r.state != CLAIMED
+                or p.get("boat", self.a.me) != self.a.me or p.get("v", r.ver) != r.ver):
+            return  # an in-flight approval must not authorize a different owner/claim
         if p["dec"] == "close" and p["ans"] == "approve" and self.close.get(p["task"]) != "done":
             self.close[p["task"]] = "approved"
+            self.close_versions[p["task"]] = r.ver
 
     def observations(self) -> list[dict]:
         """OBS payloads for what this boat sees right now."""

@@ -4,6 +4,20 @@ Owner: **B** (`world/`). See `world/PRODUCT_BRIEF.md` ("Next-stage vision: a mar
 
 > **Important boundary:** The fast deterministic Python `World` (`world/sim.py`) remains the default backend for unit tests, batch evaluation, and the offline console demo. Gazebo is an **optional** integration backend and is never required to run `uv run pytest`.
 
+For the upgraded **browser 3D viewer on port 8766**, use
+[BROWSER_3D.md](BROWSER_3D.md). It shares the dashboard's simulation and shadcn UI,
+with WebGL vessels, a shaded sea and a bottom-right live minimap.
+
+For the **whole five-boat Great Belt scene in native Gazebo**, use
+[GAZEBO_SCENE.md](GAZEBO_SCENE.md):
+
+```bash
+uv run python -m world.gazebo_scene --launch-server --gui
+```
+
+It mirrors the running simulator's evaluator truth; it does not move physics out
+of Python World. On macOS the server and GUI run in separate processes.
+
 ---
 
 ## 1. Pinned Software Stack (Offline-Capable)
@@ -35,11 +49,10 @@ GZ_SIM_RESOURCE_PATH="$PWD/world/gazebo_models" \
 gz sim -s -r -v 2 world/gazebo_stage1.sdf
 ```
 
-And attach the per-boat adapter to `usv_01`:
-
-```bash
-uv run python -m world.gazebo --connect-gz --model usv_01
-```
+The current Stage-1 Python harness does **not** implement `--connect-gz` or `--model`;
+those flags must not be advertised as working native thruster/odometry transport.
+The complete-scene mirror above implements read-only pose transport, not that actuator
+backend. VRX assets/calibration and native closed-loop hull physics remain separate work.
 
 ---
 
@@ -62,7 +75,7 @@ GazeboBoatAdapter (world/gazebo.py)
 
 ### Invariants Enforced by `GazeboBoatAdapter`
 1. **Simulation Clock Only:** Time `t` passed to `Agent.step(t, own, seen, inbox)` comes exclusively from the simulation clock (`sim_time_ms`), never `time.time()`.
-2. **Own-Sensor Boundary:** The adapter constructs `Own(x, y, batt, cur_x, cur_y)` from the boat's own noisy/measured odometry and onboard battery estimator, quantized to integer metres (`m`), permille (`0..1000`), and `mm/s`.
+2. **Own-Sensor Boundary:** The adapter constructs `Own(x, y, batt, cur_x, cur_y)` from the boat's own supplied odometry and onboard battery estimator, quantized to integer metres (`m`), permille (`0..1000`), and `mm/s`.
 3. **Waypoint Following & Flotation Stability:** The surface-vessel dynamics verify bounded roll/pitch/heave (`|heave_m| <= 0.15 m`, `|pitch_deg| <= 5.0°`) and surge/yaw convergence across a 2-waypoint patrol tour.
 
 ---

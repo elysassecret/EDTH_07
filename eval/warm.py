@@ -91,7 +91,7 @@ def build_world(root, mode: str, seed: int, speed_mm_s=None, radio_m=None, warm_
     world.script = [
         dict(e) if e["kind"] == "reset" else {**e, "t": e["t"] + warm_s} for e in world.script
     ]
-    world.current = Current(world.current.vector, world.current.flip_ms + warm_ms)
+    world.configure_current(Current(world.current.vector, world.current.flip_ms + warm_ms))
     if radio_m is not None:
         world.radio_config = replace(world.radio_config, boat_m=radio_m)
     world.final_params = replace(
