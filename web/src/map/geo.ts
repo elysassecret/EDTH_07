@@ -14,8 +14,9 @@ export const GEO_FILES: GeoName[] = ["land", "infra", "depth", "depth_bands"];
 const DEFAULT_CREDIT: Record<GeoName, string | null> = {
   land: "© OpenStreetMap contributors",
   infra: "© OpenStreetMap contributors",
-  depth: null, // source not fixed yet: only the file's own attribution is shown
-  depth_bands: null,
+  // D's files (#80, #96) carry source/licence per feature: EMODnet DTM 2024, CC BY 4.0 (credit required)
+  depth: "EMODnet Bathymetry (CC BY 4.0)",
+  depth_bands: "EMODnet Bathymetry (CC BY 4.0)",
 };
 
 export interface GeoFile { data: FeatureCollection; credit: string | null }

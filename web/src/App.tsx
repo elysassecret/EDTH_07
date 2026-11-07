@@ -53,6 +53,7 @@ import {
 import { utc } from "./format";
 import { Chart } from "./map/Chart";
 import { Legend } from "./map/Legend";
+import { GUIDE, Markdown } from "./ui/Markdown";
 import { useStore, type Display } from "./store";
 import { OPERATOR_MODE, t0Of } from "./types";
 import {
@@ -556,42 +557,58 @@ export function App() {
             if (!open) setPanel(null);
           }}
         >
-          <DialogContent>
+          <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Watch guide & keyboard</DialogTitle>
+              <DialogTitle>Watch guide</DialogTitle>
               <DialogDescription>
                 Supervise the swarm. Approve decisions, not steering commands.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 text-sm">
-              <p>
-                Tab moves focus. Enter/Space activates controls. Focus a
-                decision card itself: A/D reviews held actions, C/S reviews
-                delegated actions. Shortcuts open review; they never submit
-                directly.
-              </p>
-              <p>
-                1–9 selects an available USV. Space outside a control
-                acknowledges the top alert. Esc undoes a queued answer;
-                otherwise it cancels placement or selection. ? opens this guide.
-              </p>
-              <p>
-                Review requires a fresh shore feed and an unchanged task record.
-                Approve, Decline and Stop have a five-second local undo window.
-                Server acceptance is not boat delivery, and delivery is not task
-                completion.
-              </p>
-              <p>
-                Coverage updates only from observations. Alert acknowledgment
-                does not clear the condition. Stale reports remain last-known;
-                evaluator truth is explicitly separated.
-              </p>
-              <p>
-                All boats/radio are modeled. Camera imagery is not supplied;
-                satellite may be absent. No scenario fixture, fake identity or
-                template command result is used in this live interface.
-              </p>
-            </div>
+            {GUIDE.operator && <Markdown text={GUIDE.operator} />}
+            <details className="text-sm" open={!GUIDE.operator}>
+              <summary className="cursor-pointer font-medium">Keyboard and sending details</summary>
+              <div className="space-y-2 pt-2 text-sm">
+                <p>
+                  Tab moves focus. Enter/Space activates controls. Focus a
+                  decision card itself: A/D reviews held actions, C/S reviews
+                  delegated actions. Shortcuts open review; they never submit
+                  directly.
+                </p>
+                <p>
+                  1–9 selects an available USV. Space outside a control
+                  acknowledges the top alert. Esc undoes a queued answer;
+                  otherwise it cancels placement or selection. ? opens this guide.
+                </p>
+                <p>
+                  Review requires a fresh shore feed and an unchanged task record.
+                  Approve, Decline and Stop have a five-second local undo window.
+                  Server acceptance is not boat delivery, and delivery is not task
+                  completion.
+                </p>
+                <p>
+                  Coverage updates only from observations. Alert acknowledgment
+                  does not clear the condition. Stale reports remain last-known;
+                  evaluator truth is explicitly separated.
+                </p>
+                <p>
+                  All boats/radio are modeled. Camera imagery is not supplied;
+                  satellite may be absent. No scenario fixture, fake identity or
+                  template command result is used in this live interface.
+                </p>
+              </div>
+            </details>
+            {GUIDE.rules && (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">How the boats decide (agent/RULES.md)</summary>
+                <div className="pt-2"><Markdown text={GUIDE.rules} /></div>
+              </details>
+            )}
+            {GUIDE.model && (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-medium">What the simulator models (world/MODEL.md)</summary>
+                <div className="pt-2"><Markdown text={GUIDE.model} /></div>
+              </details>
+            )}
           </DialogContent>
         </Dialog>
         <Toaster theme={display === "day" ? "light" : "dark"} closeButton />
