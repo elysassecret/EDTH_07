@@ -16,7 +16,7 @@ from math import atan2, degrees, hypot
 from agent.contact import FLAGS, Contacts
 from agent.net import Every, Net
 from agent.table import Table
-from agent.tour import dist_to_line
+from agent.tour import KORSOR_SHORE, dist_to_line, route_water_path
 from contract.constants import CLAIMED, CONTACT_STALE, HEARTBEAT, PEER_STALE, SHORE, VETOED
 from contract.geo import dist, to_lonlat
 from contract.messages import Msg
@@ -162,7 +162,11 @@ class ShoreNode:
         if boat not in self.boats or o is None:
             return None
         hb = self.boats[boat][2]
-        return [to_lonlat(hb["x"], hb["y"]), to_lonlat(o["x"], o["y"])]
+        start, end = (hb["x"], hb["y"]), (o["x"], o["y"])
+        if self.mission.shore == KORSOR_SHORE and len(self.segs.get("seg:M:0", ())) > 2:
+            pts = route_water_path(start, end)
+            return [to_lonlat(x, y) for x, y in pts]
+        return [to_lonlat(*start), to_lonlat(*end)]
 
     def credit(self, pos: tuple[int, int], tc: int) -> None:
         """A reported position visits every sample within r_verify_m, as the evaluator counts

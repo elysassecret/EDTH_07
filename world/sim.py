@@ -22,7 +22,7 @@ from world.motion import Boat
 from world.phase import STRATEGY, placements
 from world.radio import Radio, RadioConfig
 from world.routes import load_scene
-from world.sensors import Contact, observe
+from world.sensors import Contact, observe, velocity
 
 
 class BoatNode(Protocol):
@@ -93,7 +93,8 @@ class World:
             DEFAULT_T0,
         )
         clip_path = Path(ais_clip) if ais_clip is not None else self.root / DEFAULT_CLIP
-        self.ais: AisReplay | None = AisReplay(clip_path, self.ais_t0) if self.ais_enabled else None
+        self._ais_clip = AisReplay(clip_path, self.ais_t0)
+        self.ais: AisReplay | None = self._ais_clip if self.ais_enabled else None
         self.reset()
 
     def reset(self, seed: int | None = None) -> None:
@@ -356,6 +357,66 @@ class World:
                 for x, y in active
             ):
                 self.sample_visit_ms[index] = self.t
+
+    def ais_contacts_view(self, window_ms: int = 180_000) -> list[dict]:
+        """Active AIS vessels in the Great Belt box for console /truth and /shore display."""
+        if not self._ais_clip.available:
+            return []
+        t_ms = max(0, self.t - getattr(self, "warm_ms", 0))
+        end_ms = max(t_ms, 30_000)
+        start_ms = max(-30_000, t_ms - window_ms)
+        pings = self._ais_clip.between(start_ms, end_ms)
+        if not pings:
+            return []
+        first_seen: dict[str, int] = {}
+        latest: dict[str, AisPing] = {}
+        trails: dict[str, list[tuple[float, float]]] = {}
+        for ping in pings:
+            first_seen.setdefault(ping.track, max(0, ping.t_ms))
+            prev = latest.get(ping.track)
+            if prev is None or ping.t_ms >= prev.t_ms:
+                latest[ping.track] = ping
+            trails.setdefault(ping.track, []).append(to_lonlat(ping.x, ping.y))
+        class_a_m = self.boat_config["ais_class_a_m"]
+        class_b_m = self.boat_config["ais_class_b_m"]
+        active_boats = {
+            boat: state.point
+            for boat, state in sorted(self.boats.items())
+            if state.enabled and state.charge_ms > 0
+        }
+        out = []
+        for track in sorted(latest):
+            if track in self.contacts:
+                continue
+            ping = latest[track]
+            dt = max(0, min(t_ms - ping.t_ms, 60_000))
+            vx, vy = velocity(ping.sog, ping.cog)
+            x = ping.x + vx * dt // 1000
+            y = ping.y + vy * dt // 1000
+            rng = class_a_m if ping.ais_class == "Class A" else class_b_m
+            seen_by = [
+                boat for boat, b_pt in active_boats.items() if dist(b_pt, (x, y)) <= rng
+            ]
+            shore_ok = dist(self.mission.shore, (x, y)) <= rng
+            out.append(
+                {
+                    "track": track,
+                    "x": x,
+                    "y": y,
+                    "sog": ping.sog,
+                    "cog": ping.cog,
+                    "ais": True,
+                    "standoff_m": self.params.standoff_m,
+                    "ship_type": ping.ship_type or None,
+                    "length_band_m": ping.length_band_m,
+                    "first_seen_s": first_seen[track] // 1000,
+                    "last_seen_s": max(0, min(t_ms, max(0, ping.t_ms))) // 1000,
+                    "seen_by": seen_by,
+                    "shore_in_range": shore_ok,
+                    "trail": trails.get(track, [])[-15:],
+                }
+            )
+        return out
 
     def truth_view(self) -> dict:
         """Detached domain data, not a contract Snapshot or a shore data source."""

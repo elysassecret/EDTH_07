@@ -57,11 +57,12 @@ class Boat:
         if dt_ms < requested_ms:
             # Exhausted within the tick: discard less than one ms of operating energy.
             self.charge_ms, self.drain_remainder = 0, 0
-        if action.target is not None:
+        if action.target is not None and action.speed_mm_s > 0:
             travel = action.speed_mm_s * dt_ms // 1000
             if distance <= travel:
                 self.x_mm, self.y_mm = action.target[0] * 1000, action.target[1] * 1000
-            elif distance:
+                return
+            if distance:
                 self.x_mm += dx * travel // distance
                 self.y_mm += dy * travel // distance
         self.x_mm += current[0] * dt_ms // 1000

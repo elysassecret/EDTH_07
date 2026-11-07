@@ -84,10 +84,10 @@ function offset(lon: number, lat: number, e: number, n: number): [number, number
 }
 
 // Track symbols as inline SVG masks (no network), tinted by colour, fixed pixel size.
-// AIS = square (neutral); camera only = quatrefoil (unknown), so shape alone tells them apart.
+// AIS = directional vessel triangle (neutral); camera only = quatrefoil (unknown), so shape alone tells them apart.
 const svg = (body: string) =>
   `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">${body}</svg>`)}`;
-const ICON_SQUARE = { id: "sq", url: svg('<rect x="10" y="10" width="44" height="44" fill="none" stroke="#fff" stroke-width="7"/><rect x="18" y="18" width="28" height="28" fill="#fff" fill-opacity="0.35"/>'), width: 64, height: 64, mask: true };
+const ICON_TRIANGLE = { id: "tri", url: svg('<polygon points="32,6 54,54 32,43 10,54" fill="#fff" fill-opacity="0.45" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>'), width: 64, height: 64, mask: true };
 const ICON_QUATREFOIL = { id: "qf", url: svg('<g fill="#fff" fill-opacity="0.35" stroke="#fff" stroke-width="5"><circle cx="32" cy="17" r="13"/><circle cx="32" cy="47" r="13"/><circle cx="17" cy="32" r="13"/><circle cx="47" cy="32" r="13"/></g>'), width: 64, height: 64, mask: true };
 
 const VECTOR_S = 360; // course vector shows where the contact will be in 6 minutes
@@ -340,8 +340,9 @@ function buildLayers(
       }),
       new IconLayer<Contact>({
         id: "contacts", data: [...squares, ...dark], pickable: true,
-        getPosition: (k) => [k.lon, k.lat], getIcon: (k) => (k.ais ? ICON_SQUARE : ICON_QUATREFOIL),
-        getSize: (k) => (k.ais ? 18 : 26), sizeUnits: "pixels", getColor: (k) => T.c(contactColor(k)),
+        getPosition: (k) => [k.lon, k.lat], getIcon: (k) => (k.ais ? ICON_TRIANGLE : ICON_QUATREFOIL),
+        getAngle: (k) => (k.ais ? (360 - (k.cog ?? 0)) % 360 : 0),
+        getSize: (k) => (k.ais ? 22 : 26), sizeUnits: "pixels", getColor: (k) => T.c(contactColor(k)),
       }),
       new ScatterplotLayer<Contact>({
         id: "contacts-fused", data: fused, getPosition: (k) => [k.lon, k.lat], radiusUnits: "pixels",
