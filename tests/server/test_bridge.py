@@ -210,8 +210,12 @@ def test_place_contact_snaps_to_a_cable_sample_and_stays_truth_only(tmp_path):
     x, y = truth["X-01"]["x"], truth["X-01"]["y"]
     gap = min(((p.point[0] - x) ** 2 + (p.point[1] - y) ** 2) ** 0.5 for p in s.world.scene.samples)
     assert gap <= 5  # on a cable sample (lon/lat round trip and the first second of drift)
+    # truth only: the shore may show it only once a boat has reported seeing it
+    assert not any(c["track"] == "X-01" for c in s.snapshot("shore")["contacts"])
     run_to(s, 180)
-    assert "X-01" not in json.dumps(s.snapshot("shore"))
+    for c in s.snapshot("shore")["contacts"]:
+        if c["track"] in ("X-01", "X-02"):
+            assert c["seen_by"] or c["last_seen"] > 0
     s.close()
     assert replay(s.log.path).ok
 
