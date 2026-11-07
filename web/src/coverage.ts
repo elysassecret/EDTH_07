@@ -31,8 +31,9 @@ export function segAges(snap: Snapshot, scene: SceneMsg | null): SegAge[] {
   const ids = scene ? Object.keys(scene.segments) : Object.keys(snap.seg_age);
   return ids.sort().map((id) => {
     const v = snap.seg_age[id];
-    // A shore age equal to the whole run means the shore has no visit report since start.
-    const age = v === undefined || v === null || (snap.view === "shore" && v >= snap.t && snap.t > 0) ? null : v;
+    // Shore encodes missing sample history as age t. Treat that ambiguous value
+    // conservatively as unconfirmed, including the initial t=0 frame.
+    const age = v === undefined || v === null || (snap.view === "shore" && v >= snap.t) ? null : v;
     let band: Band = "none";
     if (age !== null) band = !target ? "recent" : age > target ? "over" : age > target / 2 ? "due" : "recent";
     return { id, age, band };
