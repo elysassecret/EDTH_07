@@ -86,3 +86,29 @@ Never say "suspicious", "hostile", "detects dark ships", "coverage restored", "c
   away on camera.
 - "Cannot hold" and "Name NOT READ, Anchor NOT SEEN" only exist in the mock.
 - Video times are approximate; re-time after any change to `agent/`, `world/` or the preset.
+
+## Two-laptop rehearsal (Sun 09:00, N1 · N3 · N5 · N6 · N8 · N11)
+
+Do this on **both** demo laptops, from scratch. Write down the result of each step (pass / fail,
+and the times) for the deck notes.
+
+1. **Online:** a clean clone in a new folder:
+   `gh repo clone elysassecret/EDTH_07 EDTH_07-rehearsal && cd EDTH_07-rehearsal`
+2. **Online:** `uv sync`, then `pnpm --dir web install --frozen-lockfile`, then `pnpm --dir web build`.
+3. **Online:** `uv run ruff check .` and `uv run pytest -q`. All must pass. The offline test
+   `tests/server/test_web_static.py` checks the build for web addresses.
+4. **Turn Wi-Fi off** (and unplug any cable). Keep it off until step 10.
+5. Start a stopwatch, run `uv run python -m server --serve-web --demo`, open
+   `http://localhost:8765/?operator`. Stop the watch when the console shows **12:10:00Z** and five
+   USVs. N8 asks for under 30 s; write down the real time.
+6. Press **Run**. By about 0:31 the link 04→shore is crossed; the dock, alerts and "What changed"
+   all fill in. Nothing on screen may wait for the network.
+7. **FEED LOST (N5):** press Ctrl+C in the terminal. Within 2 s the red banner "FEED LOST —
+   display frozen at …" appears and the cards say FROZEN.
+8. **Reconnect (N6):** start the command again. The console comes back on its own, without a page
+   reload, paused at 12:10:00Z.
+9. **Evidence:** View ▾ → Evidence → "Tamper demo" names the changed record; "Incident report"
+   downloads a `.md` file.
+10. Wi-Fi back on. Note any step that failed and who owns the fix.
+
+Projector laptop: run it once at 1280×720 (U8) and choose Display: DUSK or DAY for the room.
