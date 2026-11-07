@@ -11,7 +11,8 @@ Payloads:
            shore: {} (its arrival is the shore-age signal)
   BID      task, e (slot number), cost (ms), boat
   REC      recs: list of wire records (tasks.to_wire), optional why {task: the owner's
-           plain-words reason for claiming it, under 120 chars} (#86)
+           plain-words reason for claiming it, under 120 chars} (#86), optional opts {task:
+           [[option, score s], ...] the best options it compared, best first} (#123)
   OBS      track, x, y, sog (mm/s), cog (deg), ais, to (t observed), by, dist (m)
   CONTACT  id (contact task), first (t first seen), flags {dwell, name, anchor, cannot_hold,
            capped}, course (deg or null)

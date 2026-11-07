@@ -52,6 +52,10 @@ class Params:
     health_fails: int = 2
     health_attempts: int = 3
     rejoin_permille: int = 900  # docked boat back to work at this battery (#117)
+    score_risk_permille: int = 0  # decision score terms (#123), see config/agent.toml
+    score_ships_permille: int = 0
+    score_data_permille: int = 1000
+    data_cables: tuple[str, ...] = ("G",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,4 +119,8 @@ def load_params(root: str | Path = ".", scenario: str = "scenarios/fixed.toml") 
         health_fails=agent["health_fails"],
         health_attempts=agent["health_attempts"],
         rejoin_permille=round(agent["rejoin_battery"] * 1000),
+        score_risk_permille=round(agent["score_cable_risk"] * 1000),
+        score_ships_permille=round(agent["score_ships_near"] * 1000),
+        score_data_permille=round(agent["score_data_cable"] * 1000),
+        data_cables=tuple(agent["data_cables"]),
     )

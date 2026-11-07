@@ -725,6 +725,24 @@
           "title": "Deputy",
           "type": "integer"
         },
+        "options": {
+          "default": [],
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Options",
+          "type": "array"
+        },
         "owner": {
           "title": "Owner",
           "type": "integer"

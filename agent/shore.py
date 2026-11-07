@@ -62,7 +62,8 @@ class ShoreNode:
         self.witnessed: dict[int, list] = {}  # boat -> newest signed head [seq, hash, sig] (#37)
         self.bids: dict[str, dict[int, tuple[int, int]]] = {}  # task -> boat -> (round, cost ms)
         self.explained: set[tuple[str, int]] = set()  # (task, version) already explained
-        self.why: dict[str, tuple[int, str]] = {}  # task -> (boat that said it, its reason)
+        self.why: dict[str, tuple[int, str]] = {}
+        self.opts: dict[str, tuple[int, list]] = {}  # task -> (boat, options it compared)  # task -> (boat that said it, its reason)
         self.events: list[dict] = []
         self.hb_due = Every(HEARTBEAT)
         self.t = 0
@@ -104,6 +105,8 @@ class ShoreNode:
         elif m.kind in ("REC", "VETO"):
             for task, text in sorted(m.p.get("why", {}).items()):
                 self.why[task] = (m.src, str(text)[:WHY_MAX])  # as the boat said it
+            for task, opts in sorted(m.p.get("opts", {}).items()):
+                self.opts[task] = (m.src, [(str(k), int(s)) for k, s in opts[:3]])
             for w in m.p["recs"] if m.kind == "REC" else [m.p["rec"]]:
                 r = from_wire(w)
                 if self.table.apply(r)[0] and r.state == CLAIMED and r.ver > 1:
@@ -190,6 +193,10 @@ class ShoreNode:
         """The claiming boat's own reason, while that boat still holds the task."""
         r, said = self.table.recs.get(task), self.why.get(task)
         return said[1] if r and r.state == CLAIMED and said and said[0] == r.owner else ""
+
+    def task_opts(self, task: str) -> list:
+        r, said = self.table.recs.get(task), self.opts.get(task)
+        return said[1] if r and r.state == CLAIMED and said and said[0] == r.owner else []
 
     def contact_why(self, task: str, o: dict) -> str:
         r, f = self.table.recs.get(task), self.contacts.flags.get(task, {})
@@ -325,7 +332,7 @@ class ShoreNode:
                 if n != SHORE and b < n and fresh:
                     links.append(Link(a=b, b=n, state="up"))
         tasks = {k: TaskView(v=r.ver, owner=r.owner, deputy=r.deputy, state=r.state,
-                             why=self.task_why(k))
+                             why=self.task_why(k), options=self.task_opts(k))
                  for k, r in sorted(self.table.recs.items())}
         # worst sample per segment; a never-reported sample counts from t = 0, as the evaluator
         # does, and the console shows an age equal to the run time as "no visit reported"
