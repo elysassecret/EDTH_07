@@ -11,6 +11,7 @@ import { OPERATOR_MODE, t0Of } from "./types";
 import { EvalBanner } from "./ui/EvalPanel";
 import { EvidencePanel } from "./ui/Evidence";
 import { DecisionDock } from "./ui/DecisionPanel";
+import { Digest } from "./ui/Digest";
 
 function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }: {
   sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void; inject: boolean; onInject: () => void;
@@ -89,6 +90,7 @@ export function App() {
       <EvalBanner />
       <ExerciseBanner />
       <AlertStrip />
+      <Digest />
       <main>
         <div className="chart-wrap">
           <Chart satellite={sat} onSatelliteState={onSatState} />
