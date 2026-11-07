@@ -132,10 +132,12 @@ class Follower:
     def target(self, pos: Point) -> Point | None:
         if not self.legs:
             return None
-        way = self.tours.way(self.legs[self.i])
-        if dist(pos, way[self.j]) <= ARRIVE_M:
-            self.j += 1
-            if self.j == len(way):
-                self.i, self.j = (self.i + 1) % len(self.legs), 0
-            way = self.tours.way(self.legs[self.i])
-        return way[self.j]
+        if dist(pos, self.tours.way(self.legs[self.i])[self.j]) <= ARRIVE_M:
+            self.skip()
+        return self.tours.way(self.legs[self.i])[self.j]
+
+    def skip(self) -> None:
+        """On to the next waypoint (arrived, or it cannot be reached right now)."""
+        self.j += 1
+        if self.j == len(self.tours.way(self.legs[self.i])):
+            self.i, self.j = (self.i + 1) % len(self.legs), 0
