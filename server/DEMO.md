@@ -29,6 +29,12 @@ link 04→shore cut 7320 s, synthetic contact C-07 placed 7320 s and departing 9
 11 100 s**; 240× between events, 6× within 60 sim-s of an event and in four short extra
 windows around the keep-in-view and relay beats. The whole run takes about 2:26 after Run.
 
+**Launch demo** (`--demo server/launch.toml`): seed 1, all five boats start docked at Korsør
+and are switched on 60 s apart; they share out the cables, pickets and relay on their own. One
+injected battery-low (USV 02 at 2400 s) sends a boat home: watch it dock, the 10-minute battery
+swap, and its return to work. The Blue Shadow video preset above keeps its placed start, because
+its story is told boat by boat.
+
 ## Shot list
 
 Times: **video** = seconds after pressing Run, computed at the feed's 10 frames per second on

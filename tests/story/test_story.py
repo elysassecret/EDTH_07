@@ -38,6 +38,9 @@ class Story:
     released_s: int | None = None
     pick_s_states: list = field(default_factory=list)
     boat1_mode: str | None = None
+    held_by_1_after: list | None = None  # boat 1's tasks in boat 2's table, 2 min after the failure
+    swapped_s: int | None = None  # boat 1's battery swap done at Korsør (#116)
+    rejoined_s: int | None = None  # boat 1 holds a task again after the swap (#117)
 
 
 def seg_tasks(world):
@@ -46,6 +49,13 @@ def seg_tasks(world):
 
 def record(s: Story) -> None:
     w, mt = s.world, (s.world.t - s.t0) // 1000
+    if mt == FAIL_S + 120:
+        s.held_by_1_after = list(w.nodes[2].table.held_by(1))
+    if s.swapped_s is None and any(e["kind"] == "battery_swap" and e.get("boat") == 1
+                                   for e in w.events[-5:]):
+        s.swapped_s = mt
+    if s.swapped_s is not None and s.rejoined_s is None and w.nodes[1].table.held_by(1):
+        s.rejoined_s = mt
     if mt == FAIL_S - 1:  # the boat reacts on the failure tick itself
         s.fail_held = list(w.nodes[1].table.held_by(1))
     if mt == FAIL_S + 60:
@@ -101,9 +111,14 @@ def boat_card(picture, boat):
 def test_s1_battery_return_releases_tasks_and_they_are_re_owned(story):
     assert story.fail_held, "boat 1 held nothing before the failure"
     assert story.boat1_mode == RETURNING
-    assert story.world.nodes[2].table.held_by(1) == []
+    assert story.held_by_1_after == []
     assert story.first_claim_s - FAIL_S <= 2 * SLOT // 1000
     assert story.all_owned_s - FAIL_S <= 60  # one bid per slot, measured in eval/results.md
+
+
+def test_s1b_boat_1_gets_a_fresh_battery_at_korsor_and_goes_back_to_work(story):
+    assert story.swapped_s is not None and story.swapped_s > FAIL_S
+    assert story.rejoined_s is not None and story.rejoined_s >= story.swapped_s
 
 
 def test_s2_link_cut_marks_boat_4_and_it_still_reaches_shore_through_a_peer(story):
@@ -138,10 +153,12 @@ def test_s4_shore_keeps_the_contact_after_it_leaves(story):
     assert story.pictures[(DEPART_S // 60 + 1) * 60].contacts  # pictures are every minute
 
 
-def test_s5_uncovered_picket_stays_visible_to_the_end(story):
+def test_s5_uncovered_picket_stays_visible_until_a_boat_is_back_from_korsor(story):
     opened = next(t for t, state in story.pick_s_states if state == RELEASED)
     assert FAIL_S <= opened
-    assert all(state == RELEASED for t, state in story.pick_s_states if t >= opened)
+    back = story.swapped_s  # no boat is free for the picket before boat 1's battery swap
+    assert all(state == RELEASED for t, state in story.pick_s_states if opened <= t < back)
+    assert story.pick_s_states[-1][1] != RELEASED  # covered again once boat 1 rejoined
 
 
 def test_s6_rejoin_converges_every_table():

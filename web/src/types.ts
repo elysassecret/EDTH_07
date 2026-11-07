@@ -57,6 +57,9 @@ export interface Snapshot extends Omit<C.Snapshot, "boats" | "contacts" | "decis
   narration?: { t: number; text: string }[]; // server/narrator.py, /shore only
   // watch-officer escalations recorded by the server (server/bridge.py); the officer's call
   escalations?: { id: string; track: string; t: number; note: string }[];
+  // shore launch and battery swaps at Korsør, done by the shore crew (server/bridge.py, #116)
+  launch?: boolean; // boats started docked and launched from the shore
+  swaps?: Record<string, number>; // boat id -> sim s when its battery swap should be done
   // exercise conditions still in effect (server/bridge.py), each with the injects that undo it
   exercises?: ExerciseItem[];
 }

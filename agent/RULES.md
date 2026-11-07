@@ -52,8 +52,9 @@ What the boat does when the return rule (11) fires, and what it does not claim:
   so an adverse current moves the decision earlier. All of it is a model estimate at cruise speed.
   In 60 seeded runs (30 seeds, off and elysa) the lowest battery any boat ended with was 112 ‰,
   above the 71 ‰ reserve.
-- **What counts as recovered:** reaching Korsør (mode `UNAVAILABLE`). Recharging and coming back
-  to work are **not modelled**; a restored boat (`boat_restore`) keeps its battery.
+- **What counts as recovered:** reaching Korsør (mode `UNAVAILABLE`). There the shore crew swaps
+  the battery: about 10 min (`swap_s = 600`, config/energy.toml, a team assumption), then the boat
+  goes back to work (12c). A restored boat (`boat_restore`) keeps its battery.
 - **SENTINEL is not a safe mode.** It is the low-power way to hold a station with motors off
   while the current is weak; it never replaces going home.
 
@@ -68,6 +69,18 @@ What the boat does when the return rule (11) fires, and what it does not claim:
     longer fits. Back above 80 % (`health_recover = 0.8`): "progress back to plan". Three more
     failed checks (`health_attempts = 3`): it releases everything and goes home. A shortfall is
     evidence of a problem, not proof of which one.
+
+### Launch from the shore
+
+12d. **With a shore launch, nobody is told where to go.** All five boats start docked at Korsør
+    with no task and are switched on one by one (`launch_gap_s = 60`, in a seeded order). A boat
+    just switched on first listens for 30 s (`REBROADCAST`) so it has the others' task tables,
+    then bids like any free boat; the formation comes from the same auction as every takeover.
+    A segment too far for one pass and the trip home with the margin of rule 12 (the far end of
+    the HVDC cable from Korsør) waits until a boat working nearby can fit it.
+12e. **An idle boat is offered a cable only if it can do it**: the giver checks, from the peer's
+    own heartbeat (position, battery), that one pass and the trip home fit with the same margin.
+    Otherwise it keeps the cable rather than leave it open.
 
 ### Back from Korsør (#117)
 

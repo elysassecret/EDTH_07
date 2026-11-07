@@ -107,8 +107,17 @@ export function FleetOverview() {
                 </Badge>
               </div>
               <CardDescription className="break-words">
-                {known ? roleText(boat, scene) : "No report received"}
+                {known
+                  ? roleText(boat, scene)
+                  : snap.launch
+                    ? "Docked at Korsør · not switched on yet"
+                    : "No report received"}
               </CardDescription>
+              {snap.swaps?.[String(boat.id)] !== undefined && (
+                <p className="text-sm font-medium">
+                  Battery swap at Korsør · ready about {hhmm(t0Of(snap), snap.swaps[String(boat.id)])}
+                </p>
+              )}
               {known && boatWhy(boat, snap) && <Why text={boatWhy(boat, snap)} />}
             </CardHeader>
             <CardContent className="space-y-1 px-3 text-sm">

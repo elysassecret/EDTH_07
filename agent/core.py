@@ -104,6 +104,7 @@ class Agent:
         self.action: Action | None = None
         self.driving = False  # SENTINEL correction under way
         self.started = False
+        self.boot_t: int | None = None  # first step after being switched on
         self.detoured = False  # the stand-off ring made me skip or round part of my sweep
         self.majority_since: int | None = None
         self.majority = False
@@ -121,6 +122,8 @@ class Agent:
     def step(self, t: int, own: Own, seen: tuple[Detection, ...],
              inbox: list[bytes]) -> tuple[Action, list[bytes]]:
         self.t = t
+        if self.boot_t is None:
+            self.boot_t = t
         prev = self.pos
         self.pos, self.batt, self.cur = (own.x, own.y), own.batt, (own.cur_x, own.cur_y)
         self.watch_progress(t, prev)
@@ -387,6 +390,8 @@ class Agent:
         p = self.params
         if self.returning or p.policy == "static":
             return False
+        if not self.mission.initial and t - (self.boot_t or 0) < REBROADCAST:
+            return False  # shore launch: just switched on, listen to the others' tables first
         return p.policy != "off" or t < p.repair_off_after_ms
 
     # behaviour -----------------------------------------------------------------------------
@@ -412,7 +417,7 @@ class Agent:
             pos, r = self.contacts.position(task_of(hold)), self.contacts.radius(task_of(hold))
             return Action(SHADOWING, ring_point(pos, self.pos, r), v)
         held = self.table.held_by(self.me)
-        if self.params.policy == "static" and self.legs():
+        if self.params.policy == "static" and self.legs() and self.static_point:
             return self.keep_station(self.static_point)
         for task in held:
             if kind(task) in ("relay", "pick"):
