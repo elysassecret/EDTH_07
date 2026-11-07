@@ -57,7 +57,8 @@ export function EvalPanel() {
       {ev.links.length === 0 ? <p className="muted">None.</p> : (
         <ul>{ev.links.map((l) => <li key={`${l.a}-${l.b}`}>{end(l.a)} – {end(l.b)}: true {l.true}, shore {l.shore}</li>)}</ul>
       )}
-      <h3>Three-mode scorecard</h3>
+      <h3>Three-mode scorecard{card ? ` · ${card.source} · seeds ${card.seeds.join(", ")}` : ""}</h3>
+      {card?.preliminary && <p className="warn">PRELIMINARY: eval says these numbers are not final yet.</p>}
       {card ? (
         <table>
           <thead><tr><th>mode</th><th>metric</th><th>median</th><th>range</th></tr></thead>
