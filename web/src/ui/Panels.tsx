@@ -18,6 +18,7 @@ import {
   LIMITS,
   STEP_PX,
   dragTo,
+  settle,
   maxSize,
   parseLayout,
   type Layout,
@@ -99,7 +100,23 @@ export function Splitter({
   const hi = maxSize(id, room);
   const sign = edge === "right" ? 1 : -1; // dragging toward the chart grows the panel
 
-  const apply = (requested: number) => setPanel(id, dragTo(id, requested, room, start.current?.size ?? size));
+  const apply = (requested: number) => setPanel(id, dragTo(id, requested, room));
+  // end of a drag, however it ends (button up, cancel, capture lost, or this edge unmounting):
+  // settle back inside the limits and give the page its normal cursor and text selection back
+  const end = () => {
+    if (!start.current) return;
+    start.current = null;
+    setDragging(false);
+    delete document.documentElement.dataset.resizing;
+    const now = useLayout.getState().layout[id];
+    if (now.size !== settle(id, now.size, room)) setPanel(id, { ...now, size: settle(id, now.size, room) });
+  };
+  useEffect(
+    () => () => {
+      if (start.current) delete document.documentElement.dataset.resizing;
+    },
+    [],
+  );
 
   return (
     <div
@@ -110,7 +127,7 @@ export function Splitter({
       aria-valuemin={LIMITS[id].min}
       aria-valuemax={hi}
       aria-valuenow={size}
-      title="Drag to resize. Push past the smallest size to hide it. Double-click: default size."
+      title="Drag to resize. Double-click: default size. Collapse with the icon in the panel header."
       data-dragging={dragging || undefined}
       className={[
         "panel-splitter absolute z-20 touch-none bg-transparent outline-none transition-colors",
@@ -132,16 +149,11 @@ export function Splitter({
         apply(start.current.size + (edge === "top" ? -d : sign * d));
       }}
       onPointerUp={(e) => {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-        start.current = null;
-        setDragging(false);
-        delete document.documentElement.dataset.resizing;
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+        end();
       }}
-      onPointerCancel={() => {
-        start.current = null;
-        setDragging(false);
-        delete document.documentElement.dataset.resizing;
-      }}
+      onPointerCancel={end}
+      onLostPointerCapture={end}
       onDoubleClick={() => setPanel(id, { size: Math.min(LIMITS[id].def, hi), open: true })}
       onKeyDown={(e) => {
         const step = e.shiftKey ? STEP_PX * 4 : STEP_PX;

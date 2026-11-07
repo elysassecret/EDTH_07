@@ -1,8 +1,9 @@
 // Owner: C. Resizable console panels: the fleet list (left), the attention workspace (right)
 // and the event timeline (bottom). Pure rules, no DOM, so they are unit-tested.
 // - A drag never makes a panel bigger than its maximum, or than the room left for the chart.
-// - A drag below the minimum holds the panel at the minimum; pushed CLOSE_PX past it, the
-//   panel closes and its space goes to the chart. Reopening brings back the last size.
+// - A drag never closes a panel: below the minimum it gives a little (DRAG_SLACK_PX, so the
+//   edge still follows the hand) and settles back at the minimum on release. Collapsing to the
+//   icon sidebar is a deliberate act: the collapse icon in the panel header, or Enter on the edge.
 // Sizes are screen pixels (layout only, not sim data).
 
 export type PanelId = "fleet" | "attention" | "timeline";
@@ -19,7 +20,7 @@ export const LIMITS: Record<PanelId, Limits> = {
   timeline: { min: 72, max: 480, def: 96 }, // height of the event list
 };
 
-export const CLOSE_PX = 48; // how far past the minimum a drag must go to close the panel
+export const DRAG_SLACK_PX = 24; // a drag may go this far under the minimum; released, it settles back
 export const STEP_PX = 16; // arrow key step on a splitter (Shift: 4 steps)
 export const CHART_MIN_W = 360; // the chart always keeps at least this much width
 export const TIMELINE_MAX_SHARE = 0.5; // the event list never takes more than half the window height
@@ -44,11 +45,16 @@ export function maxSize(id: PanelId, room: number): number {
   return Math.max(min, Math.min(max, Math.floor(room)));
 }
 
-/** Where a drag to `requested` px leaves the panel. `last` is the size it had when the drag began. */
-export function dragTo(id: PanelId, requested: number, room: number, last: number): PanelState {
+/** Where a drag to `requested` px leaves the panel while the button is held: between the
+ * minimum less DRAG_SLACK_PX and the largest allowed. It never closes the panel. */
+export function dragTo(id: PanelId, requested: number, room: number): PanelState {
   const { min } = LIMITS[id];
-  if (requested < min - CLOSE_PX) return { size: clamp(last, min, maxSize(id, room)), open: false };
-  return { size: clamp(Math.round(requested), min, maxSize(id, room)), open: true };
+  return { size: clamp(Math.round(requested), min - DRAG_SLACK_PX, maxSize(id, room)), open: true };
+}
+
+/** Where the panel settles when the drag ends: back inside its limits. */
+export function settle(id: PanelId, size: number, room: number): number {
+  return clamp(size, LIMITS[id].min, maxSize(id, room));
 }
 
 /** Which panels are shown inline at this window width (narrower windows use drawers). */
