@@ -103,6 +103,21 @@ def test_p4_isolated_boat_claims_nothing_majority_takes_over():
         assert owners(s, task) == {(4, CLAIMED)}
 
 
+def test_a_cut_off_pair_is_not_a_majority():
+    """4 km radio: two boats that only hear each other must not take over the other three's
+    work, however long the split lasts. The majority is counted on the whole fleet."""
+    s = Sim(scene_mission(), replace(PARAMS, seg_lease_ms=600_000), START)
+    s.run_until(300_000)
+    pair, rest = (3, 4), (0, 1, 2, 5)  # the pickets alone; 0 = shore: it forwards too
+    for a in pair:
+        for b in rest:
+            s.link(a, b, False)
+    s.run_until(1_500_000)  # every lease across the split has expired
+    for a in pair:  # the pickets started with no cable and must still have none
+        assert not any(r.owner in pair for k, r in s.agents[a].table.recs.items()
+                       if r.state == CLAIMED and kind(k) == "seg"), a
+
+
 def test_p9_boat_out_of_range_under_the_seg_lease_keeps_its_work():
     """PLAN F4: 04 can be out of range for ~57 min after taking 01's tour."""
     s = Sim(scene_mission(), PARAMS, START)

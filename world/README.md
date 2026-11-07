@@ -2,6 +2,49 @@
 
 Owner: Simeone (B). See `world/PLAN.md` for delivery status, assumptions and deferred work.
 
+## Python setup and Windows fallback (#51)
+
+Keep the repository's Python **3.12** pin (`.python-version` and `requires-python`).
+A reported pip run on 3.14 is not cross-platform lockfile/determinism validation; do not
+relax the supported range just to bypass an installation-directory problem.
+
+Install Python/dependencies while internet is available, before the offline demo check.
+These setup commands are not a promise that uncached packages can be downloaded offline.
+From the repository root, the normal setup is:
+
+```bash
+uv python install 3.12
+uv sync --locked
+uv run python --version
+uv run pytest -q tests/smoke
+```
+
+If Windows reports `Missing expected target directory for Python minor version link`
+while installing managed Python under `%APPDATA%`, Franco reports this workaround worked
+on his laptop. In **PowerShell**, choose the per-user local installation directory first:
+
+```powershell
+$env:UV_PYTHON_INSTALL_DIR = Join-Path $env:LOCALAPPDATA "uv\python"
+uv python install 3.12
+uv sync --locked --python 3.12
+uv run python --version
+uv run pytest -q tests/smoke
+```
+
+Keep that environment variable in each terminal used for the demo. To make it persistent
+for your user account (optional), run the following after the commands above:
+
+```powershell
+[Environment]::SetEnvironmentVariable("UV_PYTHON_INSTALL_DIR", $env:UV_PYTHON_INSTALL_DIR, "User")
+```
+
+New terminals inherit the persistent setting. Confirm `uv run python --version` reports
+3.12 before proceeding. This workaround is a reported Windows installation fix, not a
+claim that every Windows setup has the same problem. No deletion of existing Python
+installations, administrator access, global pip installs or lockfile changes are required.
+If it still fails, keep the error for the team and use the tested backup laptop rather than
+silently switching Python versions on stage. Both laptops still need the actual offline check.
+
 ## Run the physical-world exercise
 
 ```bash
@@ -14,9 +57,9 @@ uv run python -m world.check --jobs 4 > /tmp/edth-world-audit.json
 The default uses explicitly labelled fixed-route stand-ins, **not Javier's swarm**.
 `--controller core` uses the merged `agent.core.Agent` and `agent.shore.ShoreNode`.
 The merged agent now moves boats, returns on low battery and runs the slotted auction.
-Boat contact detection/response and shore decision transport are merged; the shore contact
-list, automatic decision cards and contact alerts remain a later agent phase. The world does not
-substitute exercise behaviour for missing agent features.
+Boat contact detection/response, delivered shore contacts/cards, oldest-first repair and
+deputy takeover are merged. The world does not substitute exercise behaviour or truth
+positions for missing radio reports. The bridge/UI restore rollout remains tracked in #63.
 Both modes print a final truth snapshot and physical-state hash; neither is an evaluation
 result. Core mode also prints public agent views and the heartbeats actually received by
 shore (original creation times and hop counts), not a fabricated live fleet picture.
