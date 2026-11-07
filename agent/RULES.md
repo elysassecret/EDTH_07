@@ -82,6 +82,16 @@ What the boat does when the return rule (11) fires, and what it does not claim:
     own heartbeat (position, battery), that one pass and the trip home fit with the same margin.
     Otherwise it keeps the cable rather than leave it open.
 
+### Staying off land
+
+12f. **Every transit follows water.** The coastline is the map's own (OpenStreetMap, baked into
+    `agent/land.py` by `world/make_land.py`), grown by a 50 m margin (`CLEAR_M`). When the
+    straight line to the next target touches it, the boat takes the shortest chain of water
+    waypoints 150 m off the coast. It checks the line again every 10 s (the current can push it
+    sideways). A boat holding a station with its motors off drives back as soon as the current
+    pushes it within the margin. Leaving the Korsør quay or reaching a cable's landfall may cross
+    its own coast within 120 m (`EXIT_M`).
+
 ### Back from Korsør (#117)
 
 12c. **A docked boat whose battery is back to 90 %** (`rejoin_battery = 0.9`, after a battery swap)
