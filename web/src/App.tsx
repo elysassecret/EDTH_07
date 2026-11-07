@@ -4,6 +4,8 @@ import {
   Activity,
   Keyboard,
   Menu,
+  PanelLeftClose,
+  PanelRightClose,
   Pause,
   Play,
   Settings2,
@@ -77,6 +79,8 @@ import {
   PriorityAlert,
 } from "./ui/LiveTools";
 import { ChartNotices, CoverageLine, StatusDetails } from "./ui/LiveStatus";
+import { Splitter, useLayout, useViewport } from "./ui/Panels";
+import { fit, inline, roomFor } from "./panels";
 
 export function App() {
   const snap = useStore((s) => s.snap);
@@ -110,6 +114,17 @@ export function App() {
   const [details, setDetails] = useState(false);
   const [wall, setWall] = useState(() => new Date());
   const flow = useDecisionFlow();
+  const layout = useLayout((s) => s.layout);
+  const showPanel = useLayout((s) => s.show);
+  const vp = useViewport();
+  const drawn = fit(layout, vp.w, vp.h);
+  const inlineNow = inline(vp.w);
+  const openFleet = () => (inlineNow.fleet ? showPanel("fleet", true) : setDrawer("fleet"));
+  const openAttention = () => {
+    setTab("attention");
+    if (inlineNow.attention) showPanel("attention", true);
+    else setDrawer("attention");
+  };
   const flowRef = useRef(flow);
   flowRef.current = flow;
   const onSatelliteState = useCallback(
@@ -133,6 +148,7 @@ export function App() {
     setTab("context");
     if (window.matchMedia("(max-width: 1279px)").matches)
       setDrawer("attention");
+    else useLayout.getState().show("attention", true);
   }, [selected, selectedContact, selectedSegment]);
   useEffect(() => {
     if (conn !== "live") setPlacing(null);
@@ -368,8 +384,15 @@ export function App() {
             <Button variant="ghost" size="sm" aria-expanded={details} onClick={() => setDetails(!details)}>
               {details ? "Hide details" : "Details"}
             </Button>
-            <Button variant="outline" size="sm" className="min-[1440px]:hidden" onClick={() => setDrawer("fleet")}><ShipIcon />Fleet · {snap?.boats.length ?? 0}</Button>
-            <Button variant="outline" size="sm" className="xl:hidden" onClick={() => { setTab("attention"); setDrawer("attention"); }}>Attention · {open.length}</Button>
+            {!(inlineNow.fleet && layout.fleet.open) && (
+              <Button variant="outline" size="sm" onClick={openFleet}><ShipIcon />Fleet · {snap?.boats.length ?? 0}</Button>
+            )}
+            {!(inlineNow.attention && layout.attention.open) && (
+              <Button variant="outline" size="sm" onClick={openAttention}>Attention · {open.length}</Button>
+            )}
+            {!layout.timeline.open && (
+              <Button variant="outline" size="sm" onClick={() => showPanel("timeline", true)}>Timeline</Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => setPanel("help")}>
               <Keyboard />
               Help
@@ -381,38 +404,56 @@ export function App() {
             <StatusDetails />
           </div>
         )}
-        <main
-          id="main"
-          className="grid min-h-0 flex-1 grid-cols-1 min-[1280px]:grid-cols-[minmax(0,1fr)_352px] min-[1440px]:grid-cols-[260px_minmax(0,1fr)_352px]"
-          tabIndex={-1}
-        >
-          <aside
-            className="hidden min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain border-r p-2 min-[1440px]:flex"
-            aria-label="Fleet overview"
-          >
-            <div className="flex items-center justify-between p-1">
-              <h2 className="font-semibold">Fleet overview</h2>
-              <Badge variant="outline">{snap?.boats.length ?? 0}</Badge>
+        <main id="main" className="flex min-h-0 flex-1" tabIndex={-1}>
+          {drawn.fleet > 0 && (
+            <div className="relative hidden min-h-0 shrink-0 border-r min-[1440px]:flex" style={{ width: drawn.fleet }}>
+              <aside
+                className="flex min-h-0 w-full flex-col gap-3 overflow-y-auto overscroll-contain p-2"
+                aria-label="Fleet overview"
+              >
+                <div className="flex items-center justify-between gap-2 p-1">
+                  <h2 className="font-semibold">Fleet overview</h2>
+                  <span className="flex items-center gap-1">
+                    <Badge variant="outline">{snap?.boats.length ?? 0}</Badge>
+                    <Button variant="ghost" size="icon" className="size-7" aria-label="Hide fleet panel" title="Hide (the Fleet button brings it back)" onClick={() => showPanel("fleet", false)}>
+                      <PanelLeftClose />
+                    </Button>
+                  </span>
+                </div>
+                <FleetOverview />
+              </aside>
+              <Splitter id="fleet" edge="right" size={drawn.fleet} room={roomFor("fleet", vp.w, vp.h, drawn)} />
             </div>
-            <FleetOverview />
-          </aside>
+          )}
           <section
-            className="relative isolate min-h-0 min-w-0 overflow-hidden bg-[#16222d]"
+            className="relative isolate min-h-0 min-w-0 flex-1 overflow-hidden bg-[#16222d]"
             aria-label="Operational chart"
           >
             <Chart satellite={satellite} onSatelliteState={onSatelliteState} />
             <ChartNotices />
             <Legend />
           </section>
-          <aside
-            className="hidden min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain border-l p-3 xl:flex"
-            aria-label="Operator attention workspace"
-          >
-            <h2 className="py-1 font-semibold">Operator attention</h2>
-            {attention}
-          </aside>
+          {drawn.attention > 0 && (
+            <div className="relative hidden min-h-0 shrink-0 border-l xl:flex" style={{ width: drawn.attention }}>
+              <Splitter id="attention" edge="left" size={drawn.attention} room={roomFor("attention", vp.w, vp.h, drawn)} />
+              <aside
+                className="flex min-h-0 w-full flex-col gap-3 overflow-y-auto overscroll-contain p-3"
+                aria-label="Operator attention workspace"
+              >
+                <div className="flex items-center justify-between gap-2 py-1">
+                  <h2 className="font-semibold">Operator attention</h2>
+                  <Button variant="ghost" size="icon" className="size-7" aria-label="Hide attention panel" title="Hide (the Attention button brings it back)" onClick={() => showPanel("attention", false)}>
+                    <PanelRightClose />
+                  </Button>
+                </div>
+                {attention}
+              </aside>
+            </div>
+          )}
         </main>
-        <EventTimeline />
+        {drawn.timeline > 0 && (
+          <EventTimeline height={drawn.timeline} room={roomFor("timeline", vp.w, vp.h, drawn)} />
+        )}
         <Sheet
           open={drawer !== null}
           onOpenChange={(open) => {
@@ -547,6 +588,9 @@ export function App() {
                 onClick={() => useStore.getState().setDigest(true)}
               >
                 Since you last looked
+              </Button>
+              <Button variant="outline" onClick={() => useLayout.getState().reset()}>
+                Reset panel sizes
               </Button>
             </FieldGroup>
           </DialogContent>

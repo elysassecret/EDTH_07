@@ -371,6 +371,53 @@ test("laptop sheets preserve chart space and operator mode never exposes truth",
   }
 });
 
+test("panels resize between limits, close when pushed past the minimum and come back", async ({
+  page,
+}) => {
+  const wire = await feed(page);
+  try {
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto(operatorUrl);
+    const chart = page.getByRole("region", { name: "Operational chart", exact: true });
+    const fleetEdge = page.getByRole("separator", { name: "Resize fleet panel" });
+    await expect(fleetEdge).toHaveAttribute("aria-valuenow", "280");
+    const drag = async (dx: number, dy = 0) => {
+      const box = (await fleetEdge.boundingBox())!;
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + dx / 2, y + dy, { steps: 4 });
+      await page.mouse.move(x + dx, y + dy, { steps: 4 });
+      await page.mouse.up();
+    };
+    const before = (await chart.boundingBox())!.width;
+    await drag(1000); // far past the maximum
+    await expect(fleetEdge).toHaveAttribute("aria-valuenow", "520");
+    expect((await chart.boundingBox())!.width).toBeLessThan(before);
+    await drag(-600); // pushed past the minimum: closes, the chart takes the space
+    await expect(fleetEdge).toHaveCount(0);
+    await expect(page.getByRole("complementary", { name: "Fleet overview" })).toHaveCount(0);
+    expect((await chart.boundingBox())!.width).toBeGreaterThan(before);
+    await page.getByRole("button", { name: /^Fleet ·/ }).click(); // back at its last size
+    await expect(page.getByRole("separator", { name: "Resize fleet panel" })).toHaveAttribute("aria-valuenow", "520");
+    // keyboard: arrows resize, Enter hides; the layout is remembered across a reload
+    const attEdge = page.getByRole("separator", { name: "Resize attention panel" });
+    await attEdge.focus();
+    await page.keyboard.press("Home");
+    await expect(attEdge).toHaveAttribute("aria-valuenow", "320");
+    await page.getByRole("button", { name: "Hide event timeline" }).click();
+    await expect(page.getByRole("region", { name: "Event timeline" })).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("separator", { name: "Resize attention panel" })).toHaveAttribute("aria-valuenow", "320");
+    await expect(page.getByRole("region", { name: "Event timeline" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Event timeline" })).toBeVisible();
+  } finally {
+    wire.stop();
+  }
+});
+
 test("primary screen and focused review pass automated accessibility checks", async ({
   page,
 }) => {
