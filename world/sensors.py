@@ -61,10 +61,17 @@ class Contact:
 
 
 def observe(
-    point: Point, contacts: dict[str, Contact], radii: dict[str, int]
+    point: Point,
+    contacts: dict[str, Contact],
+    radii: dict[str, int],
+    ais_detections: tuple[Detection, ...] = (),
 ) -> tuple[Detection, ...]:
-    return tuple(
+    camera_detections = tuple(
         contact.detection()
         for _, contact in sorted(contacts.items())
         if dist(point, contact.point) <= radii[contact.category]
     )
+    if not ais_detections:
+        return camera_detections
+    seen_tracks = {det.track for det in camera_detections}
+    return camera_detections + tuple(det for det in ais_detections if det.track not in seen_tracks)
