@@ -40,3 +40,25 @@ def test_return_rule_fires_with_safety_margin():
     assert not a.returning
     a.step(1_000, Own(-2381, -5197, 300), (), [])  # 7,560 s left
     assert a.returning and a.table.held_by(1) == []
+
+
+def test_no_bid_on_a_task_that_does_not_fit_the_battery():
+    """#104 admission: the same boat at the same place bids on a near cable but not on a far one
+    once the trip there, one pass and the trip home (x 1.2, plus the reserve) no longer fit."""
+    a = Agent(4, scene_mission(), PARAMS)
+    a.step(0, Own(1021, -5087, 1000), (), [])  # at the G:1/G:2 joint, full battery
+    assert a.auction.energy_ok("seg:G:2") and a.auction.energy_ok("seg:M:0")
+    a.step(1_000, Own(1021, -5087, 300), (), [])  # 2 h 06 m left: G:2 needs 238, M:0 495
+    assert a.auction.energy_ok("seg:G:2")  # next to it, close to Korsør
+    assert not a.auction.energy_ok("seg:M:0")  # far south-west: it would eat the reserve
+
+
+def test_adverse_current_sends_the_boat_home_before_the_reserve():
+    """#104 handover: the return cost uses the current the boat measures every tick, so a current
+    against it moves the decision earlier; it releases its tasks with the reserve untouched."""
+    a = Agent(1, scene_mission(), PARAMS)
+    a.step(0, Own(-2381, -5197, 400), (), [])  # 10.9 km from Korsør, still water: fine
+    assert not a.returning and a.table.held_by(1)
+    a.step(1_000, Own(-2381, -5197, 400, cur_x=-1_200), (), [])  # 1.2 m/s against the way home
+    assert a.returning and a.table.held_by(1) == []  # handed over: everything released
+    assert a.remaining_ms() > PARAMS.reserve_ms  # and the 30 min reserve is still there

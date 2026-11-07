@@ -38,6 +38,25 @@ there is no leader.
     its tasks at once, so others bid on them in the next round. Nobody can stop this.
 12. **A boat never bids on a task it cannot finish and still get home** with the same margin.
 
+### Critical energy: the degraded mode (#104)
+
+What the boat does when the return rule (11) fires, and what it does not claim:
+
+- **What stays on:** propulsion towards Korsør, the heartbeat (now with mode `RETURNING`, so peers
+  and the shore know at once), radio forwarding for others, the camera and contact reports. The
+  boat keeps no task and bids on nothing.
+- **Who is told:** every peer and the shore, by the released task records (others re-auction them
+  in the next 12 s round) and by the heartbeat mode. The console raises "USV NN returning to
+  Korsør".
+- **The estimates:** the trip home uses the boat's own measured current, re-evaluated every tick,
+  so an adverse current moves the decision earlier. All of it is a model estimate at cruise speed.
+  In 60 seeded runs (30 seeds, off and elysa) the lowest battery any boat ended with was 112 ‰,
+  above the 71 ‰ reserve.
+- **What counts as recovered:** reaching Korsør (mode `UNAVAILABLE`). Recharging and coming back
+  to work are **not modelled**; a restored boat (`boat_restore`) keeps its battery.
+- **SENTINEL is not a safe mode.** It is the low-power way to hold a station with motors off
+  while the current is weak; it never replaces going home.
+
 ## Contacts
 
 13. **A cue for a look**: a track with no AIS, slower than about 1 kn (`loiter_sog_mm_s = 515`),
