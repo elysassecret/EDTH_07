@@ -2,7 +2,15 @@
 
 Sees only its own sensors and its radio inbox; returns an action and bytes to broadcast.
 No clock, no files, no randomness: time is the argument t (sim ms).
+
+Each boat also keeps its own evidence chain (#37): what it claimed, released, flagged and was
+told, hash-linked by evidence/chain.py. Its signed head rides in every heartbeat, so the shore
+and peers hold a copy and a lost or altered boat cannot silently rewrite its record.
 """
+from hashlib import sha256
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from agent.auction import Auction, ms
 from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
@@ -27,10 +35,19 @@ from contract.geo import dist
 from contract.messages import Msg
 from contract.mission import Action, Detection, Mission, Own, Params
 from contract.tasks import Rec, from_wire, kind, to_wire
+from evidence.chain import Chain, head_message
 
 HOME_M = 50  # at the shore station
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
 ACTIVE_WINDOW = 600_000  # a boat silent this long no longer counts towards the majority
+TIME_SOURCE = "sim clock (simulation; no GNSS model)"  # same words as evidence/build.py
+
+
+def demo_key(me: int) -> Ed25519PrivateKey:
+    """Demo key, derived from the boat id so runs repeat. Not a secret: anyone can rebuild it.
+    A fielded boat would hold its own key; signing is deterministic either way (Ed25519)."""
+    return Ed25519PrivateKey.from_private_bytes(sha256(f"edth07-demo-key:usv-{me:02d}".encode())
+                                                .digest())
 
 
 class Agent:
@@ -46,6 +63,9 @@ class Agent:
         self.visits = Visits(self.tours.pts, params.r_verify_m)
         self.auction = Auction(self)
         self.contacts = Contacts(self)
+        self.chain = Chain(f"usv-{me:02d}-onboard")
+        self.key = demo_key(me)
+        self.signed: list = []  # [seq, hash, sig] of the newest signed head
         self.peers: dict[int, tuple[int, dict]] = {}  # boat -> (tc, payload) of newest HB
         self.shore_t = -1  # tc of the newest shore heartbeat; -1 = never heard
         self.mode = PATROL
@@ -129,12 +149,15 @@ class Agent:
         elif m.kind == "CONTACT":
             self.contacts.on_contact(m.p)
         elif m.kind == "CMD":
+            self.log("command", m.p)
             self.contacts.on_cmd(m.p)
         elif m.kind == "ACK":
             self.net.ack(m.p["of"])
 
     def publish(self, r: Rec) -> None:
         """Adopt a record locally and broadcast it."""
+        if r.owner == self.me:
+            self.log("task", {"rec": to_wire(r)})
         self.table.apply(r)
         self.net.send(self.t, "REC", {"recs": [to_wire(r)]})
 
@@ -204,6 +227,7 @@ class Agent:
     def go_home(self) -> None:
         """Automatic safety: release everything at once so others re-auction next slot."""
         self.returning = True
+        self.log("return", {"batt": self.batt, "x": self.pos[0], "y": self.pos[1]})
         self.contacts.holding = None
         for task in self.table.held_by(self.me):
             self.release(task)
@@ -273,7 +297,21 @@ class Agent:
                 "roles": self.table.held_by(self.me),
                 "to": list(self.action.target) if self.action and self.action.target else None,
                 "spd": self.action.speed_mm_s if self.action and self.action.target else 0,
-                "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE)}
+                "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE),
+                "head": self.head()}
+
+    # evidence (#37) ------------------------------------------------------------------------
+    def log(self, kind_: str, data: dict) -> None:
+        t = self.t // 1000
+        self.chain.append(kind_, t, t, TIME_SOURCE, f"USV {self.me:02d} on board", [], data)
+
+    def head(self) -> list:
+        """[seq, hash, sig] of this boat's chain; signed again only when it grew."""
+        seq, h = self.chain.head
+        if not self.signed or self.signed[0] != seq:
+            sig = self.key.sign(head_message(self.chain.name, seq, h)).hex()
+            self.signed = [seq, h, sig]
+        return self.signed
 
     def view(self) -> dict:
         """JSON-safe state for /truth, state hashes and tests."""
