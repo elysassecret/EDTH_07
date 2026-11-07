@@ -159,8 +159,10 @@ describe("operational transport retained by the template integration", () => {
     }
     expect(socket.sent).toHaveLength(0);
     vi.advanceTimersByTime(600);
+    // #141: an answer carries the task version it was reviewed against (expected_v), so the
+    // boat applies it only to that claim
     expect(socket.sent.map((raw) => JSON.parse(raw))).toEqual([
-      { cmd: "approve", id: "close:contact:C-07" },
+      { cmd: "approve", id: "close:contact:C-07", expected_v: 2 },
     ]);
     expect(useStore.getState().answering).toBe("close:contact:C-07");
   });
