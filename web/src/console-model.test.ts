@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  alertAction,
+  groupAlerts,
   actionsFor,
   canOperate,
   coverageRows,
@@ -149,5 +151,28 @@ describe("live template selectors", () => {
         scene,
       )[0].age,
     ).toBe(100);
+  });
+});
+
+describe("alerts grouped with their action (#88 item 5)", () => {
+  const al = (id: string, level: "alarm" | "warning" | "caution", t: number, ack = false) => ({ id, level, t, text: id, ack });
+  it("puts a boat's alerts and its held decision in one group, and offers an answer only there", () => {
+    const snap = snapshot({ decisions: [held] });
+    const groups = groupAlerts(
+      [al("rtb:1", "caution", 80), al("decision:close:contact:C-07", "alarm", 90), al("stale:3", "warning", 95),
+        al("overdue:seg:G:0", "caution", 70), al("overdue:seg:G:1", "caution", 85)],
+      snap,
+    );
+    expect(groups.map((g) => g.subject.key)).toEqual(["boat:3", "cable:G", "boat:1"]);
+    expect(groups[0].alerts.map((a) => a.id)).toEqual(["stale:3", "decision:close:contact:C-07"]);
+    expect(groups[1].alerts.map((a) => a.id)).toEqual(["overdue:seg:G:1", "overdue:seg:G:0"]);
+    expect(alertAction(groups[0].alerts[1], snap)).toBe("answer");
+    expect(alertAction(groups[0].alerts[0], snap)).toBe("info");
+  });
+  it("sinks fully acknowledged groups and drops the answer once the decision is gone", () => {
+    const snap = snapshot({ decisions: [{ ...held, state: "approved" }] });
+    const groups = groupAlerts([al("rtb:1", "caution", 80, true), al("contact:C-07", "warning", 60)], snap);
+    expect(groups.map((g) => g.subject.key)).toEqual(["contact:C-07", "boat:1"]);
+    expect(alertAction(al("decision:close:contact:C-07", "alarm", 90), snap)).toBe("info");
   });
 });

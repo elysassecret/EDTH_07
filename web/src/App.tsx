@@ -223,7 +223,7 @@ export function App() {
       </TabsList>
       <TabsContent value="attention" className="space-y-4">
         <DecisionWorkspace flow={flow} />
-        <LiveAlerts />
+        <LiveAlerts flow={flow} />
         <ContactOverview />
         <EvaluatorWorkspace />
       </TabsContent>

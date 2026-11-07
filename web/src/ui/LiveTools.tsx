@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { endpoint, sortedAlerts, usv } from "../console-model";
+import { actionsFor, alertAction, endpoint, groupAlerts, sortedAlerts, usv, type AlertGroup } from "../console-model";
+import type { DecisionFlow } from "./LiveDecisions";
 import { dur, utc } from "../format";
 import { apiUrl, useStore } from "../store";
 import { t0Of, type Alert as AlertRecord, type Command } from "../types";
@@ -59,7 +60,7 @@ export function PriorityAlert() {
   const channel = useStore((s) => s.channel);
   const send = useStore((s) => s.send);
   const setDigest = useStore((s) => s.setDigest);
-  const top = sortedAlerts(snap?.alerts ?? []).find((a) => !a.ack && a.level !== "caution");
+  const top = sortedAlerts(snap?.alerts ?? []).find((a) => !a.ack && a.level === "alarm"); // #88: the banner is for alarms only
   if (!top) return null;
   return <section aria-label="Priority alert" role="alert" className="flex shrink-0 items-center gap-3 border-b px-4 py-2 text-sm">
     <LevelIcon level={top.level} /><strong>{top.level.toUpperCase()}</strong><span className="min-w-0 flex-1 truncate" title={top.text}>{top.text}</span>
@@ -67,65 +68,81 @@ export function PriorityAlert() {
   </section>;
 }
 
-export function LiveAlerts() {
+/** #88 item 5: one card per boat, cable, contact or picket; the newest alert open with what the
+ * operator can do (answer a held decision) or "No action: information only"; the rest folded. */
+export function LiveAlerts({ flow }: { flow: DecisionFlow }) {
   const snap = useStore((s) => s.snap);
-  const conn = useStore((s) => s.conn);
-  const channel = useStore((s) => s.channel);
-  const send = useStore((s) => s.send);
-  const setDigest = useStore((s) => s.setDigest);
-  const [all, setAll] = useState(false);
   if (!snap) return null;
-  const alerts = sortedAlerts(snap.alerts);
+  const groups = groupAlerts(snap.alerts, snap);
+  const open = snap.alerts.filter((a) => !a.ack).length;
   return (
     <section className="space-y-2" aria-label="Alerts">
       <div className="flex items-center justify-between">
         <h3 className="font-medium">Alerts</h3>
-        <Badge variant="outline">
-          {alerts.filter((a) => !a.ack).length} unacknowledged
-        </Badge>
+        <Badge variant="outline">{open} unacknowledged</Badge>
       </div>
-      {alerts.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No alerts in this picture.
-        </p>
-      )}
-      {alerts.slice(0, all ? undefined : 8).map((a) => (
-        <Alert
-          key={a.id}
-          variant={a.level === "alarm" ? "destructive" : "default"}
-        >
-          <LevelIcon level={a.level} />
-          <AlertTitle className="flex flex-wrap justify-between gap-2">
-            <span>{a.level.toUpperCase()}</span>
-            <time className="font-normal text-muted-foreground">
-              {utc(t0Of(snap), a.t)}
-            </time>
-          </AlertTitle>
-          <AlertDescription>
-            <p>{a.text}</p>
-            {a.ack ? (
-              <span>Acknowledged · condition may still be active</span>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={conn !== "live" || channel !== "shore"}
-                onClick={() => {
-                  if (send({ cmd: "ack", id: a.id })) setDigest(true);
-                }}
-              >
-                Acknowledge
-              </Button>
-            )}
-          </AlertDescription>
-        </Alert>
-      ))}
-      {alerts.length > 8 && (
-        <Button variant="ghost" size="sm" onClick={() => setAll(!all)}>
-          {all ? "Show first 8" : `Show all ${alerts.length} alerts`}
-        </Button>
-      )}
+      {groups.length === 0 && <p className="text-sm text-muted-foreground">No alerts in this picture.</p>}
+      {groups.map((g) => <AlertGroupCard key={g.subject.key} group={g} flow={flow} />)}
     </section>
+  );
+}
+
+function AlertGroupCard({ group, flow }: { group: AlertGroup; flow: DecisionFlow }) {
+  const snap = useStore((s) => s.snap)!;
+  const conn = useStore((s) => s.conn);
+  const channel = useStore((s) => s.channel);
+  const send = useStore((s) => s.send);
+  const setDigest = useStore((s) => s.setDigest);
+  const select = useStore((s) => s.select);
+  const selectContact = useStore((s) => s.selectContact);
+  const selectSegment = useStore((s) => s.selectSegment);
+  const [more, setMore] = useState(false);
+  const [top, ...rest] = group.alerts;
+  const live = conn === "live" && channel === "shore";
+  const { subject } = group;
+  const d = alertAction(top, snap) === "answer" ? subject.decision : undefined;
+  const show = subject.boat !== undefined ? () => select(subject.boat!)
+    : subject.contact ? () => selectContact(subject.contact!)
+    : subject.segment ? () => selectSegment(subject.segment!) : null;
+  const ack = (id: string) => { if (send({ cmd: "ack", id })) setDigest(true); };
+  return (
+    <Alert variant={top.level === "alarm" && !top.ack ? "destructive" : "default"} aria-label={`Alerts: ${subject.title}`}>
+      <LevelIcon level={top.level} />
+      <AlertTitle className="flex flex-wrap items-center justify-between gap-2">
+        <span>{subject.title} · {top.level.toUpperCase()}</span>
+        <time className="font-normal text-muted-foreground">{utc(t0Of(snap), top.t)}</time>
+      </AlertTitle>
+      <AlertDescription className="space-y-2">
+        <p>{top.text}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          {d ? actionsFor(d).map((action) => (
+            <Button key={action} size="sm" variant={action === "approve" || action === "confirm" ? "default" : "outline"}
+              disabled={!live || !!flow.held} onClick={() => flow.begin(d, action)}>
+              {action === "approve" ? "Review & approve" : action[0].toUpperCase() + action.slice(1)}
+            </Button>
+          )) : <span className="text-muted-foreground">No action: information only</span>}
+          {top.ack ? <span className="text-muted-foreground">Acknowledged · condition may still be active</span>
+            : <Button variant="outline" size="sm" disabled={!live} onClick={() => ack(top.id)}>Acknowledge</Button>}
+          {show && <Button variant="ghost" size="sm" onClick={show}>Show</Button>}
+        </div>
+        {rest.length > 0 && (
+          <Button variant="ghost" size="sm" className="-ml-2" aria-expanded={more} onClick={() => setMore(!more)}>
+            {more ? "Hide older" : `+${rest.length} older`}
+          </Button>
+        )}
+        {more && (
+          <ul className="space-y-1">
+            {rest.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center gap-2">
+                <LevelIcon level={a.level} />
+                <span className="min-w-0 flex-1">{utc(t0Of(snap), a.t)} · {a.text}</span>
+                {!a.ack && <Button variant="outline" size="sm" disabled={!live} onClick={() => ack(a.id)}>Acknowledge</Button>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AlertDescription>
+    </Alert>
   );
 }
 
