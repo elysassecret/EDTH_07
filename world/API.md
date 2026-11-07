@@ -98,9 +98,12 @@ contract values as measured observations. Decision answers stay with A/C, not wo
 
 ## Commands and reset
 
-Accepted physical kinds: battery_low, boat_off, link_off, link_on, contact_start,
-contact_depart, evaluate. `battery_low`/`boat_off` accept either scenario `boat` or console
-`a`. Link commands use `a` and `b`, where `b` is a boat ID or "shore" (also ID 0).
+Accepted physical kinds: battery_low, boat_off, boat_restore, link_off, link_on,
+contact_start, contact_depart, evaluate. `battery_low`/`boat_off`/`boat_restore` accept either
+scenario `boat` or console `a`. `boat_restore` re-enables the same boat and agent: no reset,
+teleport, battery recharge or task-table replacement. The restore tick resumes node stepping;
+motion resumes using its new action on the next tick. A depleted boat stays depleted. Link
+commands use `a` and `b`, where `b` is a boat ID or "shore" (also ID 0).
 Links are **directed** and keyed by node IDs: disabling 4 -> shore does not disable
 shore -> 4. Shore is node 0; docked USV 01 is still node 1 even at the same coordinates.
 Restoring 4 -> shore does not restore 4 -> 1 or 1 -> 4. A boat may legitimately have a
