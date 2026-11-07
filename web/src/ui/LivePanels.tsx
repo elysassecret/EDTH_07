@@ -32,6 +32,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   boatWhy,
+  boatOptions,
   coverageRows,
   endpoint,
   eventCategory,
@@ -75,6 +76,7 @@ export function FleetOverview() {
         const stale = staleBoat(boat, snap, scene, conn);
         const age = reportAge(boat, snap.t);
         const known = age !== null;
+        const options = known ? boatOptions(boat, snap) : [];
         return (
           <Card
             key={boat.id}
@@ -119,6 +121,20 @@ export function FleetOverview() {
                 </p>
               )}
               {known && boatWhy(boat, snap) && <Why text={boatWhy(boat, snap)} />}
+              {options.length > 0 && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer">Compared options · reported scores</summary>
+                  <p className="text-xs text-muted-foreground">Lower score is better; task priority still applies. Scores are not arrival times.</p>
+                  <ul className="flex flex-col gap-1 pt-2">
+                    {options.map(([task, score], index) => (
+                      <li key={`${task}:${index}`} className="flex justify-between gap-2">
+                        <span>{task.startsWith("seg:") ? segName(task) : task}</span>
+                        <span className="shrink-0 tabular-nums">{score.toLocaleString()} s</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </CardHeader>
             <CardContent className="space-y-1 px-3 text-sm">
               <div className="flex justify-between gap-2">

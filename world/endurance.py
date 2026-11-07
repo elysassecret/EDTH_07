@@ -11,7 +11,7 @@ out. Seeds first_seed .. first_seed+runs-1, one after the other. Measured per ru
   two visits of any sample after its first visit, against the revisit target (config/run.toml).
 - cable hazards: the tape's contact without AIS near a cable (C-07): when a boat first saw it,
   and whether a boat kept it in view.
-- land: boat positions on the map's real land (web/public/geo/land.geojson), outside the quay.
+- land: boat positions on the map's real land (web/public/geo/land.geojson), including the quay.
 - time on water per boat (away from the dock), the number of battery swaps, and the length of
   each sortie (leaving the dock to docking again).
 
@@ -35,7 +35,6 @@ from world.sim import World
 
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_EVERY_MS = 10_000  # land and on-water samples
-QUAY_M = 150  # around the Korsør quay point, which the map draws on land
 
 
 def _land():
@@ -101,7 +100,7 @@ def run(seed: int, hours: float, land=None) -> dict:
                 if away:
                     water_ms[b] += SAMPLE_EVERY_MS
                 p = Point(*st.point)
-                if land.contains(p) and dist(st.point, shore) > QUAY_M:
+                if land.contains(p):
                     on_land.append((b, t // 1000))
     swaps = {b: sum(1 for e in w.events if e["kind"] == "battery_swap" and e.get("boat") == b)
              for b in boats}
@@ -177,7 +176,7 @@ def report(results: list[dict]) -> str:
         f"Runs with a sample left longer than the revisit target: {sum(bool(r['over_target']) for r in results)}."),
         (f"- Dark contact near the cable seen: {sum(r['hazard']['seen_s'] is not None for r in results)} of "
         f"{len(results)}; kept in view: {sum(r['hazard']['kept_in_view'] for r in results)} of {len(results)}."),
-        f"- Boat positions on land (outside the quay): {sum(r['on_land'] for r in results)} samples in all runs.",
+        f"- Boat positions on land (including the quay): {sum(r['on_land'] for r in results)} samples in all runs.",
         f"- Runs failing battery, full coverage or land: {fails or 'none'}.",
         "",
     ]

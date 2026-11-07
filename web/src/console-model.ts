@@ -25,6 +25,19 @@ export function boatWhy(boat: Boat, snap: Snapshot): string {
   return "";
 }
 
+/** Only the claiming boat's transmitted comparison, never recomputed from evaluator truth. */
+export function boatOptions(boat: Pick<Boat, "roles">, snap: Pick<Snapshot, "tasks">): [string, number][] {
+  for (const id of [...boat.roles].reverse()) {
+    const raw = snap.tasks[id]?.options;
+    if (!Array.isArray(raw)) continue;
+    const options = raw.filter((pair): pair is [string, number] =>
+      Array.isArray(pair) && pair.length === 2 && typeof pair[0] === "string" &&
+      typeof pair[1] === "number" && Number.isFinite(pair[1]));
+    if (options.length) return options.slice(0, 3);
+  }
+  return [];
+}
+
 export function canOperate(conn: string, channel: string): boolean {
   return conn === "live" && channel === "shore";
 }

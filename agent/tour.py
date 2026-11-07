@@ -26,7 +26,8 @@ def route_water_path(pos: Point, target: Point) -> list[Point]:
 
 def route_water(pos: Point, target: Point) -> Point:
     """Next water-only waypoint from pos toward target."""
-    return route_water_path(pos, target)[1]
+    route = route_water_path(pos, target)
+    return route[1] if route else pos
 
 
 def length(pts: tuple[Point, ...]) -> int:

@@ -57,6 +57,8 @@ class ShoreNode:
         self.samples = {k: samples(pts) for k, pts in self.segs.items()}
         self.seen: dict[str, list[int | None]] = {k: [None] * len(v) for k, v in self.samples.items()}
         self.decisions: dict[str, dict] = {}  # decision id -> Decision fields + msg id
+        self.operator_actions = 0  # accepted decision answers, not automatically opened cards
+        self.decision_versions: dict[str, int] = {}  # proposal's claim revision, private state
         self.contacts = Contacts(self)  # the boats' merge rules, fed only by delivered messages
         self.trail: dict[str, list[tuple[float, float]]] = {}
         self.witnessed: dict[int, list] = {}  # boat -> newest signed head [seq, hash, sig] (#37)
@@ -159,20 +161,31 @@ class ShoreNode:
             if kind(task) != "contact":
                 continue
             f = self.contacts.flags.get(task, {})
-            over = r.state == VETOED or f.get("cannot_hold") or f.get("capped")
+            over = (r.state != CLAIMED or self.contacts.stale(task.split(":", 1)[1], t)
+                    or f.get("cannot_hold") or f.get("capped"))
             for did, dec in ((task, "keep"), (f"close:{task}", "close")):
                 d = self.decisions.get(did)
-                if d is None and r.state == CLAIMED and not over:
+                changed = d is not None and self.decision_versions.get(did) != r.ver
+                if (d is None or changed) and r.state == CLAIMED and not over:
+                    if d and d["msg"]:
+                        self.net.ack(d["msg"])
                     d = self.decisions[did] = self.card(t, did, task, dec, r.owner)
+                    self.decision_versions[did] = r.ver
                     d["state"] = "pending"
                     self.log(t, "decision_open", f"{'Running' if dec == 'keep' else 'Waiting'}"
                              f": {d['text']}")
+                if d and d["state"] in ("approved", "declined") and (over or d["boat"] != r.owner):
+                    self.net.ack(d["msg"])  # cancel retries; never transfer a prior approval
+                    d["state"] = "expired"
+                    self.log(t, "decision_withdrawn", f"Proposal no longer current: {d['text']}")
                 if d is None or d["state"] != "pending":
                     continue
                 if over:
                     d["state"] = "expired"
                     self.log(t, "decision_withdrawn", f"No longer needed: {d['text']}")
                 elif r.state == CLAIMED:
+                    if d["boat"] != r.owner:
+                        d.update(self.card(t, did, task, dec, r.owner))
                     d["boat"], d["route"] = r.owner, self.route(r.owner, task)
 
     def card(self, t: int, did: str, task: str, dec: str, boat: int) -> dict:
@@ -222,7 +235,7 @@ class ShoreNode:
         start, end = (hb["x"], hb["y"]), (o["x"], o["y"])
         if self.mission.shore == KORSOR_SHORE and len(self.segs.get("seg:M:0", ())) > 2:
             pts = route_water_path(start, end)
-            return [to_lonlat(x, y) for x, y in pts]
+            return [to_lonlat(x, y) for x, y in pts] if pts else None
         return [to_lonlat(*start), to_lonlat(*end)]
 
     def credit(self, pos: tuple[int, int], tc: int) -> None:
@@ -245,13 +258,24 @@ class ShoreNode:
         c = cmd.get("cmd")
         if c not in ANSWERS:
             return False
-        did = cmd["id"]
-        if c in ("stop", "confirm"):
-            task, dec = did, "keep"
-        else:
-            dec, task = did.split(":", 1)
-        owner = self.table.recs[task].owner if task in self.table.recs else 0
-        d = self.decisions.get(did) or self.card(t, did, task, dec, owner)
+        did = cmd.get("id")
+        if not isinstance(did, str):
+            return False
+        self.offer(t)  # withdraw stale/released proposals before dispatch, even between ticks
+        d = self.decisions.get(did)
+        if d is None or c not in d["actions"]:
+            return False
+        if d["state"] != "pending" and not (c == "stop" and d["state"] == "confirmed"):
+            return False
+        task, dec = d["task"], d["dec"]
+        r = self.table.recs.get(task)
+        if (kind(task) != "contact" or r is None or r.state != CLAIMED
+                or r.owner != d["boat"] or self.contacts.stale(task.split(":", 1)[1], t)):
+            return False
+        if cmd.get("expected_v", r.ver) != r.ver:
+            return False
+        owner = r.owner
+        self.operator_actions += 1
         d.update(state=ANSWERS[c], te=t)
         text = d["text"]
         if c == "stop":
@@ -260,7 +284,8 @@ class ShoreNode:
             m = self.net.send(t, "VETO", {"rec": to_wire(rec)}, retry=True)
             d.update(msg=m.id, te=m.te)
         elif c in ("approve", "decline"):
-            m = self.net.send(t, "CMD", {"task": task, "dec": dec, "ans": c}, retry=True)
+            m = self.net.send(t, "CMD", {"task": task, "dec": dec, "ans": c,
+                                        "boat": owner, "v": r.ver}, retry=True)
             d.update(msg=m.id, te=m.te)
         self.decisions[did] = d
         if c == "stop":  # the watch is over, so is any pending close
@@ -270,7 +295,7 @@ class ShoreNode:
 
     def on_ack(self, boat: int, msg_id: str, tc: int) -> None:
         for d in self.decisions.values():
-            if d["msg"] != msg_id or d["state"] == "delivered":
+            if d["msg"] != msg_id or d["state"] not in ("approved", "declined", "stopped"):
                 continue
             if boat == d["boat"] or not d["boat"]:  # delivered to the boat that acts
                 d["state"] = "delivered"
@@ -314,15 +339,13 @@ class ShoreNode:
             pos = (hb["x"], hb["y"])
             lon, lat = to_lonlat(*pos)
             remaining = hb["batt"] * p.endurance_ms // 1000
-            need = p.return_safety_permille * (
-                dist(pos, self.mission.shore) * 1_000_000 // p.speed_mm_s + p.reserve_ms) // 1000
             to = hb.get("to")  # heading for display only: trig never touches agent state
             hdg = round(degrees(atan2(to[0] - pos[0], to[1] - pos[1]))) % 360 if to else 0
             fresh = t - tc <= PEER_STALE
             direct = t - self.direct.get(b, -PEER_STALE - 1) <= PEER_STALE
             boats.append(Boat(
                 id=b, x=pos[0], y=pos[1], lon=lon, lat=lat, mode=hb["mode"], batt=hb["batt"],
-                endurance_s=remaining // 1000, must_return_by=(tc + max(remaining - need, 0)) // 1000,
+                endurance_s=remaining // 1000, must_return_by=hb.get("return_by_s"),
                 link="direct" if direct else "peer" if fresh else "none", tour=hb["tour"],
                 roles=hb["roles"], last_heard=tc // 1000, hdg=hdg, sog=hb.get("spd", 0),
                 via=via.get(b), detect_m=hb.get("det", p.r_detect_m),

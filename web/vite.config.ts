@@ -8,5 +8,14 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: { port: 5173, fs: { allow: [".."] } },
-  build: { outDir: "dist", chunkSizeWarningLimit: 3000 },
+  build: {
+    outDir: "dist",
+    chunkSizeWarningLimit: 3000,
+    rolldownOptions: {
+      input: {
+        dashboard: fileURLToPath(new URL("./index.html", import.meta.url)),
+        viewer: fileURLToPath(new URL("./viewer.html", import.meta.url)),
+      },
+    },
+  },
 });

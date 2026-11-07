@@ -82,6 +82,13 @@ export interface SceneMsg {
   segments: Record<string, LonLat[]>;
   stations: Record<string, LonLat>;
   shore: LonLat;
+  // Schematic local-metre geometry from the running simulator, not a build-time layout copy.
+  harbour?: {
+    station: [number, number]; berths: [number, number][];
+    pontoon: [[number, number], [number, number]];
+    gangway: [[number, number], [number, number]];
+    heading: number; clearance: number; departure_m: number; source_sha256: string;
+  };
   stale_after_s: number;
   horizon_s: number;
   revisit_target_s?: number; // config/run.toml (D), via the server

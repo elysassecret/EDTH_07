@@ -129,13 +129,29 @@ def fairness(cards: list[dict]) -> list[dict]:
         checks.append({"check": name, "ok": bool(ok), "detail": detail})
 
     seeds = sorted({c["seed"] for c in cards})
+    modes = sorted({c["mode"] for c in cards})
+    check("G0", {"off", "elysa"} <= set(modes),
+          "comparative headline requires both off and elysa (static optional for paired batches)")
+    check("G0", len({(c["mode"], c["seed"]) for c in cards}) == len(cards),
+          "one independent run per mode/seed, no duplicate cards")
+    for mode in modes:
+        mode_seeds = {c["seed"] for c in cards if c["mode"] == mode}
+        check("G0", mode_seeds == set(seeds) and len(mode_seeds) >= MIN_SEEDS,
+              f"{mode}: matching seed set and at least {MIN_SEEDS} independent seeds")
+    for c in cards:
+        complete = (c.get("evaluation_reached") is True
+                    and c.get("failure_s") is not None and c.get("evaluate_s") is not None
+                    and c["t_s"] >= c["evaluate_s"] >= c["failure_s"] >= 0
+                    and c.get("ages_hash_T1") is not None and c.get("state_hash_T1") is not None)
+        check("G0", complete, f"{c['mode']} seed {c['seed']}: scoring point and T-1 checkpoints reached")
     for seed in seeds:
         rows = {c["mode"]: c for c in cards if c["seed"] == seed}
         check("F1", len({c["warm_hash"] for c in rows.values()}) == 1,
               f"seed {seed}: warm hash equal across {sorted(rows)}")
         if "off" in rows and "elysa" in rows:
             a, b = rows["off"], rows["elysa"]
-            check("F2", a["ages_hash_T1"] == b["ages_hash_T1"]
+            check("F2", a["ages_hash_T1"] is not None and a["state_hash_T1"] is not None
+                  and a["ages_hash_T1"] == b["ages_hash_T1"]
                   and a["state_hash_T1"] == b["state_hash_T1"],
                   f"seed {seed}: ages and physical hash at T-1 equal, off vs elysa")
         if "off" in rows:
@@ -154,8 +170,8 @@ def fairness(cards: list[dict]) -> list[dict]:
 
 def headline_ok(cards: list[dict]) -> bool:
     """Numbers stay off slides until every fairness check and the console gap check pass."""
-    gap = all(c.get("gap", {"ok": True})["ok"] for c in cards)
-    return gap and all(c["ok"] for c in fairness(cards))
+    gap = all(c.get("gap", {}).get("ok") is True for c in cards)
+    return bool(cards) and gap and all(c["ok"] for c in fairness(cards))
 
 
 def console_scorecard(cards: list[dict], source: str = "eval/run_batch.py") -> dict:

@@ -1,0 +1,82 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="edth07_gazebo_stage1">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-buoyancy-system" name="gz::sim::systems::Buoyancy">
+      <graded_buoyancy>
+        <default_density>1025</default_density>
+        <density_change>
+          <above_depth>0</above_depth>
+          <density>1.2</density>
+        </density_change>
+      </graded_buoyancy>
+    </plugin>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 100 0 0 0</pose>
+      <diffuse>0.85 0.88 0.92 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+
+    <!-- Twin-pontoon USV 01 (VRX reference geometry) -->
+    <model name="usv_01">
+      <pose>0 0 0.05 0 0 0</pose>
+      <link name="base_link">
+        <inertial>
+          <mass>180.0</mass>
+          <inertia>
+            <ixx>120.0</ixx>
+            <iyy>390.0</iyy>
+            <izz>440.0</izz>
+          </inertia>
+        </inertial>
+        <collision name="left_hull_col">
+          <pose>0 1.0 -0.15 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.22</radius><length>4.8</length></cylinder></geometry>
+        </collision>
+        <collision name="right_hull_col">
+          <pose>0 -1.0 -0.15 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.22</radius><length>4.8</length></cylinder></geometry>
+        </collision>
+        <visual name="left_hull_vis">
+          <pose>0 1.0 -0.15 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.22</radius><length>4.8</length></cylinder></geometry>
+        </visual>
+        <visual name="right_hull_vis">
+          <pose>0 -1.0 -0.15 0 1.5708 0</pose>
+          <geometry><cylinder><radius>0.22</radius><length>4.8</length></cylinder></geometry>
+        </visual>
+        <visual name="deck_vis">
+          <pose>0 0 0.25 0 0 0</pose>
+          <geometry><box><size>2.6 2.2 0.18</size></box></geometry>
+        </visual>
+      </link>
+
+      <plugin filename="gz-sim-hydrodynamics-system" name="gz::sim::systems::Hydrodynamics">
+        <link_name>base_link</link_name>
+        <xDotU>-20.0</xDotU>
+        <yDotV>-120.0</yDotV>
+        <nDotR>-180.0</nDotR>
+        <xU>-50.0</xU>
+        <xUabsU>-65.0</xUabsU>
+        <yV>-200.0</yV>
+        <nR>-320.0</nR>
+      </plugin>
+
+      <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>usv_01/base_link</robot_base_frame>
+        <odom_publish_frequency>20</odom_publish_frequency>
+      </plugin>
+    </model>
+  </world>
+</sdf>

@@ -67,7 +67,9 @@ def test_report_counts_runs_that_never_reached_a_value():
 def card(mode, **kw):
     base = {"mode": mode, "seed": 1, "contacts": [], "ais_present": False,
             "warm_hash": "w", "ages_hash_T1": "a", "state_hash_T1": "s",
-            "repair_claims_after_T": 0, "params": {"policy": mode, "speed_mm_s": 2300}}
+            "repair_claims_after_T": 0, "params": {"policy": mode, "speed_mm_s": 2300},
+            "t_s": 14000, "failure_s": 7200, "evaluate_s": 14000,
+            "evaluation_reached": True, "gap": {"ok": True, "max_hidden_s": 0}}
     return {**base, **kw}
 
 
@@ -89,9 +91,12 @@ def test_console_scorecard_matches_the_typed_hook_and_says_when_it_is_preliminar
     assert out["seeds"] == [1, 2, 3, 4, 5]
     row = out["rows"][0]
     assert (row["mode"], row["unit"], row["median"], row["min"], row["max"]) == ("off", "km", 3, 1, 5)
-    assert out["preliminary"] is False
+    assert out["preliminary"] is True  # five off-only runs do not establish a comparison
+    paired_cards = cards + [card("elysa", seed=s, cable_km_overdue=float(s), seg_age_s={"a": s})
+                            for s in range(1, 6)]
+    assert console_scorecard(paired_cards)["preliminary"] is False
     gap = {"ok": False, "max_hidden_s": 99}
-    assert console_scorecard([{**c, "gap": gap} for c in cards])["preliminary"] is True
+    assert console_scorecard([{**c, "gap": gap} for c in paired_cards])["preliminary"] is True
 
 
 def test_phases_depend_on_the_seed_and_repeat():

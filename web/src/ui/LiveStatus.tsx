@@ -45,7 +45,7 @@ export function StatusDetails() {
   const open = snap.decisions.filter((d) => d.state === "pending").length;
   const w = worst(segAges(snap, scene));
   return <div className="flex flex-wrap items-center gap-2 text-sm" aria-label="Status details">
-    <Badge variant="outline">Cables watched {watched}/{segments.length}{watched < segments.length ? " · GAP" : ""}</Badge>
+    <Badge variant="outline">Cables assigned {watched}/{segments.length}{watched < segments.length ? " · GAP" : ""}</Badge>
     <Badge variant="outline">Oldest visit {w ? (w.age === null ? `none · ${w.id}` : `${hm(w.age)} · ${w.id}`) : "n/a"}</Badge>
     <Badge variant="outline">At sea {atSea}/{snap.boats.length}</Badge>
     <Badge variant="outline">Links {count("direct")} direct · {count("peer")} via peer · {count("none")} none{count("none") ? " · NO PATH" : ""}</Badge>

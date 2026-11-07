@@ -26,7 +26,8 @@ from server.feed import ROOT
 SNAPSHOT_MS = 10_000
 HASH_MS = 60_000
 # every input file that shapes a run; a different hash means a replay is not comparable
-CONFIG_GLOBS = ("config/*.toml", "config/ui.json", "scenarios/*.toml", "data/scene-coordinates.json")
+CONFIG_GLOBS = ("config/*.toml", "config/ui.json", "scenarios/*.toml", "data/scene-coordinates.json",
+                "world/harbour.json", "web/public/geo/land.geojson", "agent/land.py")
 
 
 def config_hash(root: Path = ROOT) -> str:
