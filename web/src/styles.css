@@ -234,3 +234,7 @@ a.btn { flex: 1; text-align: center; font-size: 14px; color: var(--text); backgr
 .help table { width: 100%; margin: 8px 0; border-collapse: collapse; }
 .help td { padding: 3px 6px; }
 .help kbd { font-size: 14px; border: 1px solid currentColor; border-radius: 3px; padding: 0 6px; }
+/* G2 undo bar in the dock */
+.dock .undo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; }
+.dock .undo span { flex: 1; }
+.act-undo { background: #3a3220; border-color: var(--warning); flex: none; }
