@@ -30,7 +30,6 @@ from contract.tasks import Rec, from_wire, kind, to_wire
 
 HOME_M = 50  # at the shore station
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
-ACTIVE_WINDOW = 600_000  # a boat silent this long no longer counts towards the majority
 
 
 class Agent:
@@ -213,9 +212,10 @@ class Agent:
                    and t - tc <= PEER_STALE)
 
     def n_active(self, t: int) -> int:
-        """Me plus boats heard recently that have not announced going home."""
-        return 1 + sum(1 for b, (tc, p) in self.peers.items() if b != self.me
-                       and t - tc <= ACTIVE_WINDOW and p["mode"] not in (RETURNING, UNAVAILABLE))
+        """The whole fleet minus boats whose last heartbeat announced going home. Silence does
+        not shrink it: a group cut off by range must not count itself a majority (4 km radio)."""
+        return sum(1 for b in self.mission.boats if b == self.me or b not in self.peers
+                   or self.peers[b][1]["mode"] not in (RETURNING, UNAVAILABLE))
 
     def update_majority(self, t: int) -> None:
         """Expiry takeovers need a live majority, so an isolated boat claims nothing (P4).
