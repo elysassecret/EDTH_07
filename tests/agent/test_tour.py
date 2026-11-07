@@ -1,11 +1,11 @@
 """G1: tour geometry, cheapest insertion, follower."""
 from itertools import permutations, product
 
-from agent.tour import Tours
+from agent.tour import Tours, Visits
 from contract.geo import dist
 from contract.mission import load_params
 from tests.agent.harness import Sim
-from tests.agent.scene import SEGS, line_mission
+from tests.agent.scene import SEGS, START, line_mission, scene_mission
 
 TOURS = Tours(SEGS)
 
@@ -47,3 +47,24 @@ def test_follower_sweeps_both_ends():
         for i, e in enumerate(ends):
             best[i] = min(best[i], dist(s.xy(1), e))
     assert max(best) <= 10
+
+
+def test_visits_keep_the_oldest_sample_not_any_touch():
+    v = Visits({"s": ((0, 0), (1_000, 0))}, 100)
+    assert len(v.samples["s"]) == 10 and v.oldest("s") == -1
+    v.credit((0, 0), 5)  # one end only
+    assert v.oldest("s") == -1
+    for x in range(0, 1_000, 100):
+        v.credit((x, 0), 7)
+    v.credit((0, 0), 9)
+    assert v.oldest("s") == 7
+
+
+def test_after_a_takeover_the_boat_heads_for_the_oldest_segment():
+    s = Sim(scene_mission(), load_params(), START)
+    s.tick()
+    a = s.agents[1]
+    for k, seen in a.visits.seen.items():
+        seen[:] = [-1 if k == "seg:M:0" else 1_000] * len(seen)  # M:0 never seen
+    a.head_for_oldest()
+    assert a.follow.legs[a.follow.i][0] == "seg:M:0" and a.follow.j == 0

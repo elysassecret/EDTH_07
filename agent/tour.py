@@ -64,6 +64,43 @@ class Tours:
         return min(dist(pos, p[0]), dist(pos, p[-1]))
 
 
+class Visits:
+    """When each sample point of each segment (every STEP_M from its start) was last within
+    r of a position this boat knows of: its own, or a peer's heartbeat. -1 = never."""
+
+    STEP_M = 100
+
+    def __init__(self, segs: dict[str, tuple[Point, ...]], r: int):
+        self.r, self.pts = r, segs
+        self.samples = {k: every(v, self.STEP_M) for k, v in segs.items()}
+        self.seen = {k: [-1] * len(v) for k, v in self.samples.items()}
+
+    def credit(self, pos: Point, t: int) -> None:
+        for k, pts in self.pts.items():
+            if dist_to_line(pos, pts) > self.r:
+                continue
+            seen = self.seen[k]
+            for i, p in enumerate(self.samples[k]):
+                if seen[i] < t and dist(pos, p) <= self.r:
+                    seen[i] = t
+
+    def oldest(self, task: str) -> int:
+        return min(self.seen[task])
+
+
+def every(pts: tuple[Point, ...], step: int) -> list[Point]:
+    """Points every `step` metres along a polyline from its start, endpoint excluded."""
+    out, offset, walked = [], 0, 0
+    for a, b in pairwise(pts):
+        d = dist(a, b)
+        while offset < walked + d:
+            f = offset - walked
+            out.append((a[0] + (b[0] - a[0]) * f // d, a[1] + (b[1] - a[1]) * f // d))
+            offset += step
+        walked += d
+    return out
+
+
 class Follower:
     """Walks a tour waypoint by waypoint. Keeps its place when legs are added or removed."""
 
