@@ -1,0 +1,32 @@
+== Segments ==
+  seg:G:0   3.43 km   35 samples
+  seg:G:1   3.43 km   35 samples
+  seg:G:2   3.43 km   35 samples
+  seg:H:0   3.34 km   34 samples
+  seg:H:1   3.34 km   34 samples
+  seg:H:2   3.34 km   34 samples
+  seg:M:0   3.30 km   34 samples
+  total 23.60 km, 241 samples
+== Stations ==
+  pick:N  lane offset   1451 m (band 750 m), Korsor  19.9 km
+  pick:S  lane offset   1498 m (band 750 m), Korsor   7.8 km
+  relay   lane offset   1117 m (band 750 m), Korsor  12.8 km
+  C-07    lane offset   3882 m (band 750 m), Korsor  21.1 km
+  pick:N  water
+  pick:S  water
+  relay   water
+  C-07    water
+== Radio graph at the stations, hops from shore ==
+  boat radio 8000 m, shore 14000 m: {3: 2, 4: 1, 5: 1}
+  boat radio 4000 m, shore 14000 m: {3: None, 4: 1, 5: 1}
+== Return rule, farthest point of each boat's initial work ==
+  boat 1:  14.1 km from Korsor,   6123 s home in still water, rule fires by  15693 s of cruise
+  boat 2:  21.4 km from Korsor,   9284 s home in still water, rule fires by  11899 s of cruise
+  boat 3:  19.9 km from Korsor,   8632 s home in still water, rule fires by  12681 s of cruise
+  boat 4:   7.8 km from Korsor,   3393 s home in still water, rule fires by  18969 s of cruise
+  boat 5:  12.8 km from Korsor,   5550 s home in still water, rule fires by  16379 s of cruise
+== Pre-event ages, seed 1, after warm-up, at T-1 ==
+  2300 mm/s: worst 7902 s, km overdue 0
+    {'seg:G:0': 4722, 'seg:G:1': 3105, 'seg:G:2': 1335, 'seg:H:0': 5350, 'seg:H:1': 3727, 'seg:H:2': 2350, 'seg:M:0': 7902}
+  3000 mm/s: worst 7943 s, km overdue 0
+    {'seg:G:0': 7943, 'seg:G:1': 6736, 'seg:G:2': 5416, 'seg:H:0': 1641, 'seg:H:1': 6537, 'seg:H:2': 5092, 'seg:M:0': 1704}

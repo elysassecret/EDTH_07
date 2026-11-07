@@ -4,7 +4,7 @@
     uv run python -m eval.repeat --seeds 1 --horizon-s 600
 
 D1: the same case in fresh processes with different PYTHONHASHSEED gives the same digest.
-The digest covers the metrics, the world state hash and every agent's view.
+The digest covers the scorecard, warm hash, world state hash and every agent's view.
 D2: a world reset in the middle of a run, then run again, equals a fresh run.
 """
 
