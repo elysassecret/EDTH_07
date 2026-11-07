@@ -191,6 +191,8 @@ class World:
                 event["ais"],
                 event["class"],
                 updated_ms=self.t,
+                ship_type=event.get("ship_type"),
+                length_band_m=event.get("length_band_m"),
             )
             contact.set_velocity(round(event["sog_kn"] * 514.444), event.get("course", 0))
             self.contacts[contact.id] = contact
@@ -369,11 +371,15 @@ class World:
                     "lon": to_lonlat(*state.point)[0],
                     "lat": to_lonlat(*state.point)[1],
                     "endurance_ms": state.charge_ms,
+                    "detect_m": self.boat_config["r_detect_m"]["ship_day"],
+                    "keep_in_view_m": self.params.keep_in_view_m,
+                    "verify_m": self.params.r_verify_m,
                 }
                 for boat, state in sorted(self.boats.items())
             ],
             "contacts": [
-                asdict(contact.detection()) for _, contact in sorted(self.contacts.items())
+                contact.snapshot(self.params.standoff_m)
+                for _, contact in sorted(self.contacts.items())
             ],
             "events": deepcopy(self.events),
             "current": {

@@ -120,3 +120,40 @@ def test_real_auction_reassigns_actual_scene_after_scripted_battery_event():
         records = [node.table.recs[task] for boat, node in sim.nodes.items() if boat != 1]
         assert all(rec.state == CLAIMED and rec.owner != 1 for rec in records)
         assert len({rec.owner for rec in records}) == 1
+
+
+def test_seed1_truth_and_shore_snapshots_carry_sensor_ranges_and_contact_standoff():
+    sim = World(ROOT, seed=1, agent_factory=Agent, shore_factory=ShoreNode)
+    sim.radio_config = replace(sim.radio_config, loss_permille=0)
+    sim.reset()
+    sim.inject(
+        {
+            "kind": "contact_start",
+            "id": "S-01",
+            "lat": 55.3543,
+            "lon": 11.0135,
+            "ais": True,
+            "class": "ship_day",
+            "sog_kn": 5.0,
+            "course": 180,
+            "ship_type": "Cargo",
+            "length_band_m": 150,
+        }
+    )
+    sim.step()
+    truth = sim.truth_view()
+    assert all(
+        b["detect_m"] == 5000 and b["keep_in_view_m"] == 2000 and b["verify_m"] == 500
+        for b in truth["boats"]
+    )
+    assert truth["contacts"][0]["standoff_m"] == 1852
+    assert truth["contacts"][0]["ship_type"] == "Cargo"
+    assert truth["contacts"][0]["length_band_m"] == 150
+    run_until(sim, 15_000)
+    shore = sim.shore.picture(sim.t_ms)
+    assert len(shore.boats) == 5
+    assert all(
+        b.detect_m == 5000 and b.keep_in_view_m == 2000 and b.verify_m == 500
+        for b in shore.boats
+    )
+    assert any(c.track == "S-01" and c.standoff_m == 1852 for c in shore.contacts)

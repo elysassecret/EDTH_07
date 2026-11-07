@@ -46,6 +46,9 @@ class Boat(BaseModel):
     hdg: int = 0  # degrees true, for the heading line on the chart
     sog: int = 0  # mm/s, same unit as Contact.sog
     via: int | None = None  # next hop toward shore (0 = shore), for the comms overlay
+    detect_m: int = 5000  # current camera detect radius for a ship-class target (m)
+    keep_in_view_m: int = 2000  # camera keep-in-view radius (m)
+    verify_m: int = 500  # close-look / cable verification radius (m)
 
 
 class TaskView(BaseModel):
@@ -53,7 +56,7 @@ class TaskView(BaseModel):
     owner: int
     deputy: int
     state: int  # 0 released, 1 claimed, 2 vetoed
-    why: str = ""  # the claiming boat's own reason, as delivered (#86); "" if none received
+    why: str = ""  # short plain-language reason for this claim (#86)
 
 
 class Link(BaseModel):
@@ -90,7 +93,10 @@ class Contact(BaseModel):
     source: Literal["ais", "camera", "fused"] = "ais"  # "camera" = NO AIS
     name: str | None = None  # AIS name if any
     trail: list[tuple[float, float]] = []  # recent [lon, lat] positions, oldest first
-    why: str = ""  # why it is watched, released or stopped, from delivered reports (#86)
+    standoff_m: int = 1852  # stand-off ring the boats keep (m): 1852 with no AIS, 0 with AIS
+    ship_type: str | None = None  # AIS ship type where present
+    length_band_m: int | None = None  # AIS length band (m) where present
+    why: str = ""  # short plain-language reason for the watcher / status (#86)
 
 
 class Decision(BaseModel):
@@ -105,7 +111,7 @@ class Decision(BaseModel):
     actions: list[Literal["confirm", "stop", "approve", "decline"]] = []
     boat: int = 0  # the boat that would act
     route: list[tuple[float, float]] | None = None  # [lon, lat] ghost-route preview
-    why: str = ""  # which standing order applies (#86)
+    why: str = ""  # short plain-language reason / standing order (#86)
 
 
 class Alert(BaseModel):

@@ -26,6 +26,8 @@ class Contact:
     vx: int = 0
     vy: int = 0
     updated_ms: int = 0
+    ship_type: str | None = None
+    length_band_m: int | None = None
 
     def set_velocity(self, speed_mm_s: int, course: int):
         self.speed_mm_s, self.course = speed_mm_s, course
@@ -43,6 +45,19 @@ class Contact:
 
     def detection(self) -> Detection:
         return Detection(self.id, *self.point, self.speed_mm_s, self.course, self.ais)
+
+    def snapshot(self, standoff_m: int = 1852) -> dict:
+        return {
+            "track": self.id,
+            "x": self.point[0],
+            "y": self.point[1],
+            "sog": self.speed_mm_s,
+            "cog": self.course,
+            "ais": self.ais,
+            "standoff_m": standoff_m,
+            "ship_type": self.ship_type,
+            "length_band_m": self.length_band_m,
+        }
 
 
 def observe(
