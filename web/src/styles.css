@@ -212,3 +212,13 @@ a.btn { flex: 1; text-align: center; font-size: 14px; color: var(--text); backgr
 .digest ul { list-style: none; margin: 0; padding: 0; flex: 1; }
 .digest li .at { color: var(--muted); font-variant-numeric: tabular-nums; }
 .digest button { margin-left: auto; }
+/* U3 status line and View menu */
+.statusline { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.stat { font-size: 14px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 3px; background: #1d2a37; font-variant-numeric: tabular-nums; }
+.stat-label { color: var(--muted); }
+.stat.bad { border-color: var(--caution); }
+.stat-flag { color: var(--caution); font-weight: 700; font-size: 12px; letter-spacing: 0.4px; }
+.topbar .controls { position: relative; }
+.viewmenu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; display: flex; flex-direction: column; gap: 4px;
+  min-width: 230px; padding: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5); }
+.viewmenu button { text-align: left; }

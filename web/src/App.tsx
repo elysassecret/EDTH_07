@@ -12,6 +12,7 @@ import { EvalBanner } from "./ui/EvalPanel";
 import { EvidencePanel } from "./ui/Evidence";
 import { DecisionDock } from "./ui/DecisionPanel";
 import { Digest } from "./ui/Digest";
+import { StatusLine } from "./ui/StatusLine";
 
 function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }: {
   sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void; inject: boolean; onInject: () => void;
@@ -20,6 +21,7 @@ function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }
   const snap = useStore((s) => s.snap);
   const channel = useStore((s) => s.channel);
   const setChannel = useStore((s) => s.setChannel);
+  const [menu, setMenu] = useState(false);
   return (
     <header className="topbar">
       <div className="title">Shore console · Great Belt cable watch</div>
@@ -29,18 +31,24 @@ function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }
       </div>
       <WarpControl />
       <div className="controls">
-        {!OPERATOR_MODE && <EvalToggle />}
-        {!OPERATOR_MODE && <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
-          {channel === "shore" ? "View: SHORE (delivered)" : "View: TRUTH (evaluator)"}
-        </button>}
-        <CommsToggle />
-        <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
-        <button onClick={onEvidence} className={evidence ? "on" : ""}>Evidence</button>
-        <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
-          title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
-          {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
-        </button>
+        <button className={menu ? "on" : ""} aria-expanded={menu} onClick={() => setMenu((v) => !v)}>View ▾</button>
+        {menu && (
+          <div className="viewmenu" role="menu" onClick={() => setMenu(false)}>
+            {!OPERATOR_MODE && <EvalToggle />}
+            {!OPERATOR_MODE && <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
+              {channel === "shore" ? "Channel: SHORE (delivered)" : "Channel: TRUTH (evaluator)"}
+            </button>}
+            <CommsToggle />
+            <button onClick={onSat} disabled={satState !== "ready"} className={sat ? "on" : ""}
+              title={satState === "none" ? "web/public/geo/s2_box.png not supplied yet" : ""}>
+              {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
+            </button>
+            <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
+            <button onClick={onEvidence} className={evidence ? "on" : ""}>Evidence</button>
+          </div>
+        )}
       </div>
+      <StatusLine />
     </header>
   );
 }
