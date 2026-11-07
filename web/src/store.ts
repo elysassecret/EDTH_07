@@ -8,6 +8,16 @@ const FEED_LOST_MS = 2000;
 
 export type Channel = "shore" | "truth";
 export type ConnState = "connecting" | "live" | "lost";
+export type Display = "day" | "dusk" | "night";
+
+function loadDisplay(): Display {
+  try {
+    const v = localStorage.getItem("display");
+    return v === "day" || v === "night" ? v : "dusk";
+  } catch {
+    return "dusk";
+  }
+}
 
 interface State {
   channel: Channel;
@@ -26,6 +36,8 @@ interface State {
   toggleComms: () => void;
   // Evaluator view: a second socket to /truth, open only while this is on. Off by default,
   // never available in operator mode (?operator).
+  display: Display; // U4 day / dusk / night (feature 33)
+  setDisplay: (d: Display) => void;
   digestOpen: boolean; // U2 "since you last looked"
   lastLookT: number | null; // sim time of the officer's last look (null = not yet)
   setDigest: (open: boolean, lookedAt?: number) => void;
@@ -69,6 +81,11 @@ export const useStore = create<State>((set, get) => ({
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
+  display: loadDisplay(),
+  setDisplay: (d) => {
+    try { localStorage.setItem("display", d); } catch { /* private window: not remembered */ }
+    set({ display: d });
+  },
   digestOpen: false,
   lastLookT: null,
   setDigest: (open, lookedAt) => set((s) => ({ digestOpen: open, lastLookT: lookedAt ?? s.lastLookT })),
