@@ -9,6 +9,7 @@ const FEED_LOST_MS = 2000;
 export type Channel = "shore" | "truth";
 export type ConnState = "connecting" | "live" | "lost";
 export type Display = "day" | "dusk" | "night";
+export type Panel = "inject" | "evidence" | "help" | "menu" | null;
 
 function loadDisplay(): Display {
   try {
@@ -36,6 +37,8 @@ interface State {
   toggleComms: () => void;
   // Evaluator view: a second socket to /truth, open only while this is on. Off by default,
   // never available in operator mode (?operator).
+  panel: Panel; // the one open side panel; Esc closes it (U5)
+  setPanel: (p: Panel) => void;
   display: Display; // U4 day / dusk / night (feature 33)
   setDisplay: (d: Display) => void;
   digestOpen: boolean; // U2 "since you last looked"
@@ -81,6 +84,8 @@ export const useStore = create<State>((set, get) => ({
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
+  panel: null,
+  setPanel: (p) => set((s) => ({ panel: s.panel === p ? null : p })),
   display: loadDisplay(),
   setDisplay: (d) => {
     try { localStorage.setItem("display", d); } catch { /* private window: not remembered */ }
