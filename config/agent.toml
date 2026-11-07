@@ -18,3 +18,8 @@ score_cable_risk = 0.0      # bid ms removed per ms of a segment's oldest known 
 score_ships_near = 0.0      # extra risk per slow no-AIS ship this boat knows within 1 km of it
 score_data_cable = 1.0      # a data cable's risk relative to a power cable
 data_cables = ["G"]         # cable letters that carry data (G: Great Belt fibre)
+
+# Phase 1 energy management (agent/RULES.md 12h): the way home at this share of cruise speed.
+# The agent cannot read files, so agent/core.py ECO_SPEED_PERMILLE mirrors it (checked by
+# tests/agent/test_phase1.py); world/sim.py reads it for the battery-low exercise.
+eco_return_speed = 0.8

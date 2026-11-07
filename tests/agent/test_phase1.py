@@ -21,6 +21,7 @@ def cfg(name):
 
 def test_the_agent_mirrors_of_config_values_match_their_files():
     assert core.REVISIT_TARGET_MS == cfg("config/run.toml")["revisit_target_s"] * 1000
+    assert core.ECO_SPEED_PERMILLE == round(cfg("config/agent.toml")["eco_return_speed"] * 1000)
     energy = cfg("config/energy.toml")
     assert core.HOTEL_PERMILLE == energy["hotel_load_permille"]
     assert energy["power_exponent"] == 3

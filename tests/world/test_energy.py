@@ -90,8 +90,12 @@ def test_seed_one_picket_and_relay_stay_out_through_evaluate():
         assert sim.boats[boat].own().batt > 850  # 03 rounds C-07's 1 nm stand-off ring (PLAN 7.9)
     assert sim.actions[5].mode == SENTINEL
     assert "relay" in sim.nodes[5].table.held_by(5)
-    # Hotel load does not hide the sweeper's genuine energy limit at seven hours.
-    # The energy-rich north picket takes its segments, opening pick:N instead.
+    # Phase 1 (#140 follow-up): with the economical way home the north sweeper is still out at
+    # 14 000 s; its genuine energy limit comes about 45 min later. Then the energy-rich north
+    # picket takes its segments, opening pick:N instead.
+    assert not sim.nodes[2].returning
+    while sim.next_tick_ms <= 17_000_000:
+        sim.step()
     assert sim.nodes[2].returning
     assert sim.actions[3].mode == PATROL
     north_tasks = {task.id for task in sim.mission.tasks if task.id.startswith("seg:H:")}
@@ -103,6 +107,6 @@ def test_seed_one_picket_and_relay_stay_out_through_evaluate():
     assert "pick:N" not in sim.nodes[3].table.held_by(3)
     expected = sim.state_hash()
     sim.reset()
-    while sim.next_tick_ms <= 14_000_000:
+    while sim.next_tick_ms <= 17_000_000:
         sim.step()
     assert sim.state_hash() == expected

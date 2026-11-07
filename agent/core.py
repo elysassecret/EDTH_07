@@ -64,6 +64,7 @@ REVISIT_TARGET_MS = 12_000_000  # config/run.toml revisit_target_s (D's number)
 DWELL_START_MS = 2_400_000  # dwell on the cable while there is at least 40 min of slack...
 DWELL_STOP_MS = 600_000  # ...and sweep again once it falls under 10 min
 ECO_SPEED_PERMILLE = 800  # the way home at 80 % of cruise speed
+BATT_FAULT_DROP_PERMILLE = 50  # a 5 % drop in one step is a fault: no load drains that fast
 HOTEL_PERMILLE = 100  # config/energy.toml hotel_load_permille (motors-off drain)
 # drain at the economical speed, permille of cruise drain: hotel + rest * 0.8^3 (cube law,
 # config/energy.toml power_exponent = 3)
@@ -164,7 +165,13 @@ class Agent:
         if self.boot_t is None:
             self.boot_t = t
         prev = self.pos
+        drop = self.batt - own.batt
         self.pos, self.batt, self.cur = (own.x, own.y), own.batt, (own.cur_x, own.cur_y)
+        if drop > BATT_FAULT_DROP_PERMILLE and not self.returning:
+            # more battery gone in one step than any load can use: a battery fault (or the
+            # battery-low exercise). Go home now, whatever the estimate says.
+            self.log("battery_fault", {"drop_permille": drop, "batt": self.batt})
+            self.go_home()
         self.watch_progress(t, prev)
         self.visits.credit(self.pos, t)
         for raw in inbox:

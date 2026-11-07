@@ -18,7 +18,7 @@ from contract.constants import PATROL, UNAVAILABLE
 from contract.geo import dist, to_lonlat, to_xy
 from contract.mission import Action, Detection, Mission, Own, Params, Point, load_params
 from world.current import Current
-from world.motion import Boat
+from world.motion import Boat, power_rate
 from world.phase import STRATEGY, placements
 from world.radio import Radio, RadioConfig
 from world.routes import load_scene
@@ -79,6 +79,8 @@ class World:
         self.current = self._base_current
         self.hotel_load_permille = energy["hotel_load_permille"]
         self.power_exponent = int(energy.get("power_exponent", 0))  # 3: cube law below cruise
+        # Phase 1: the agents drive home at this share of cruise (config/agent.toml)
+        self.eco_return_permille = round(config("config/agent.toml").get("eco_return_speed", 1.0) * 1000)
         self.launch_gap_ms = round(energy.get("launch_gap_s", 60) * 1000)
         self.dock_m = int(energy.get("dock_m", 50))
         self.swap_ms = round(energy.get("swap_s", 600) * 1000)
@@ -258,8 +260,13 @@ class World:
                 if distance
                 else 0
             )
-            ground = max(self.params.speed_mm_s + along, self.params.speed_mm_s // 4)
+            # the way home at the agent's economical speed and its drain (Phase 1)
+            eco = self.params.speed_mm_s * self.eco_return_permille // 1000
+            ground = max(eco + along, eco // 4)
             home_ms = distance * 1_000_000 // ground
+            if self.power_exponent == 3:
+                home_ms = home_ms * power_rate(eco, self.params.speed_mm_s,
+                                               self.hotel_load_permille) // 1000
             threshold = (
                 (home_ms + self.params.reserve_ms) * self.params.return_safety_permille // 1000
             )
