@@ -11,7 +11,7 @@ from eval.metrics import (
     task_lengths_m,
     worst_age_ms,
 )
-from eval.report import fairness, fmt_stat, table
+from eval.report import console_scorecard, fairness, fmt_stat, table
 from eval.warm import build_world, seed_phases, tour_point
 from world.routes import RouteSample, load_scene
 
@@ -81,6 +81,17 @@ def test_fairness_passes_identical_inputs_and_catches_each_difference():
     bad = [card("off", repair_claims_after_T=2, warm_hash="x"),
            card("elysa", ages_hash_T1="b", params={"policy": "elysa", "speed_mm_s": 3000})]
     assert {c["check"] for c in fairness(bad) if not c["ok"]} >= {"F1", "F2", "F3", "F4"}
+
+
+def test_console_scorecard_matches_the_typed_hook_and_says_when_it_is_preliminary():
+    cards = [card("off", seed=s, cable_km_overdue=float(s), seg_age_s={"a": s}) for s in range(1, 6)]
+    out = console_scorecard(cards)
+    assert out["seeds"] == [1, 2, 3, 4, 5]
+    row = out["rows"][0]
+    assert (row["mode"], row["unit"], row["median"], row["min"], row["max"]) == ("off", "km", 3, 1, 5)
+    assert out["preliminary"] is False
+    gap = {"ok": False, "max_hidden_s": 99}
+    assert console_scorecard([{**c, "gap": gap} for c in cards])["preliminary"] is True
 
 
 def test_phases_depend_on_the_seed_and_repeat():

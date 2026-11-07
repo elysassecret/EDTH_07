@@ -4,10 +4,16 @@ Every number is evaluator truth, in mission seconds. A value a run did not reach
 it is counted in the row ("reached in k of n seeds"), never replaced by a number.
 """
 
+import json
 import statistics
 from pathlib import Path
 
 MIN_SEEDS = 5
+CONSOLE_ROWS = [
+    ("cable_km_overdue", "Cable km overdue at end (truth)", "km"),
+    ("never_visited_km", "Cable km never visited (truth)", "km"),
+    ("worst_age_s", "Worst sample age at end (truth)", "s"),
+]
 ROWS = [
     ("cable_km_overdue", "Cable km overdue at end (headline)", "{:.1f}"),
     ("never_visited_km", "Cable km never visited (separate from overdue)", "{:.1f}"),
@@ -105,6 +111,23 @@ def headline_ok(cards: list[dict]) -> bool:
     return gap and all(c["ok"] for c in fairness(cards))
 
 
+def console_scorecard(cards: list[dict], source: str = "eval/run_batch.py") -> dict:
+    """The `Scorecard` shape in web/src/types.ts, for the /truth hook. Truth, never on /shore."""
+    rows = []
+    for mode in dict.fromkeys(c["mode"] for c in cards):
+        for key, metric, unit in CONSOLE_ROWS:
+            got = [c[key] for c in cards if c["mode"] == mode and c.get(key) is not None]
+            if got:
+                rows.append({"mode": mode, "metric": metric, "unit": unit,
+                             "median": statistics.median(got), "min": min(got), "max": max(got)})
+    return {
+        "source": source,
+        "seeds": sorted({c["seed"] for c in cards}),
+        "rows": rows,
+        "preliminary": not headline_ok(cards),
+    }
+
+
 def print_report(cards: list[dict], out: Path | None = None) -> None:
     head = (
         "# Scorecard (truth)\n\nMedian (min to max) over seeds. Mission seconds: T is the first "
@@ -122,3 +145,6 @@ def print_report(cards: list[dict], out: Path | None = None) -> None:
     print(text)
     if out is not None:
         (Path(out) / "scorecard.md").write_text(text, encoding="utf-8")
+        (Path(out) / "scorecard_console.json").write_text(
+            json.dumps(console_scorecard(cards), indent=1), encoding="utf-8"
+        )
