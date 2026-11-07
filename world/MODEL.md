@@ -22,5 +22,5 @@ Owner: Simeone (B). Every number below comes directly from `config/boat.toml`, `
 
 - **Waves, wind and sea state:** Motion integrates velocity through water plus the uniform current vector in integer millimetres; hull slamming, wave-induced camera stabilization loss and windage are not simulated.
 - **Dynamic COLREGs / ship-to-boat collision avoidance:** Boats steer around the 1 nm stand-off ring of dark contacts and keep stations outside the 750 m shipping-lane band, but do not perform dynamic manoeuvring around passing merchant traffic.
-- **Spatial bathymetry or land avoidance in routing:** Sweepers follow the fixed cable polylines and return in a straight line to Korsør without dynamic path-planning around shoals or coastlines.
+- **Land in the physics:** the world does not stop a boat at the coast and has no bathymetry in routing. Land avoidance is the agent's job: boats route around the real coastline with a 50 m margin (agent/RULES.md 12f, `agent/water.py`); `tests/agent/test_water.py` checks no boat is on land in 4-hour runs.
 - **Calibrated hull power curves:** Battery drain uses a two-state linear model (100 % cruise load when moving, 10 % hotel load when drifting with motors off) rather than a speed-cubed propeller curve.

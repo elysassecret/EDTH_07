@@ -233,5 +233,12 @@ def test_water_routing_keeps_transits_off_sprogo_and_halsskov():
         ((797, 8644), (8237, -7605)),
         ((-5528, 6491), (-2278, -7893)),
     ):
-        pts = [(-2293, -7950) if p == (-2278, -7893) else p for p in route_water_path(start, goal)]
-        assert LineString(pts).intersection(land_xy).length == 0.0
+        from shapely.geometry import Point
+
+        from agent.water import EXIT_M
+
+        pts = route_water_path(start, goal)
+        # an end on land itself (the Sprogø landfall, the Korsør quay) may cross its own coast
+        # within EXIT_M; nothing else may touch land
+        allowed = Point(start).buffer(EXIT_M).union(Point(goal).buffer(EXIT_M))
+        assert LineString(pts).intersection(land_xy).difference(allowed).length == 0.0

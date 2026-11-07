@@ -12,11 +12,12 @@ from math import isqrt
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from agent import water
 from agent.auction import DROPS, Auction, ms
 from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
 from agent.table import Table
-from agent.tour import KORSOR_SHORE, Follower, Leg, Tours, Visits, dist_to_line, route_water
+from agent.tour import KORSOR_SHORE, Follower, Leg, Tours, Visits, dist_to_line, route_water_path
 from contract.constants import (
     CLAIMED,
     HEARTBEAT,
@@ -41,6 +42,8 @@ from evidence.chain import Chain, head_message
 HOME_M = 50  # at the shore station
 STANDOFF_MARGIN_M = 50  # steer round the stand-off ring this far outside it
 AIM_M = 500  # while rounding a ring, aim this far ahead along the tangent
+WATER_RECHECK_MS = 10_000  # how often the line to the next water waypoint is checked again
+WATER_WP_M = 30  # a water waypoint counts as reached this close (the world moves ~2.3 m a tick)
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
 TIME_SOURCE = "sim clock (simulation; no GNSS model)"  # same words as evidence/build.py
 
@@ -105,6 +108,7 @@ class Agent:
         self.driving = False  # SENTINEL correction under way
         self.started = False
         self.boot_t: int | None = None  # first step after being switched on
+        self.water: tuple[tuple[int, int], list[tuple[int, int]]] | None = None  # goal, waypoints
         self.detoured = False  # the stand-off ring made me skip or round part of my sweep
         self.majority_since: int | None = None
         self.majority = False
@@ -397,8 +401,8 @@ class Agent:
     # behaviour -----------------------------------------------------------------------------
     def keep_station(self, point: tuple[int, int]) -> Action:
         d = dist(self.pos, point)
-        if d > self.params.sentinel_radius_m:
-            self.driving = True
+        if d > self.params.sentinel_radius_m or (self.water_rules() and water.on_land(self.pos)):
+            self.driving = True  # too far, or the current is pushing it within the coast margin
         elif d <= STATION_BACK_M:
             self.driving = False
         return Action(SENTINEL, point if self.driving else None, self.params.speed_mm_s)
@@ -457,9 +461,26 @@ class Agent:
                 elif dist_to_line(c, (self.pos, target)) < r:
                     target = round_ring(self.pos, c, r, target)
                     self.detoured = True
-        if self.mission.shore == KORSOR_SHORE and len(self.tours.pts.get("seg:M:0", ())) > 2:
-            target = route_water(self.pos, target)
+        if self.water_rules():
+            target = self.water_step(target)
         return Action(a.mode, target, a.speed_mm_s)
+
+    def water_rules(self) -> bool:
+        """The Great Belt scene: steer around its real coastline (test scenes have none)."""
+        return self.mission.shore == KORSOR_SHORE and len(self.tours.pts.get("seg:M:0", ())) > 2
+
+    def water_step(self, goal: tuple[int, int]) -> tuple[int, int]:
+        """Next point on a water-only route to goal (agent/water.py). Planned again only when the
+        goal changes; straight when nothing is in the way, so a sweep along a cable costs one
+        check."""
+        recheck = self.t % WATER_RECHECK_MS == 0 and self.water is not None and \
+            water.blocked(self.pos, self.water[1][0])  # drifted off the planned line onto land
+        if self.water is None or self.water[0] != goal or recheck:
+            self.water = (goal, route_water_path(self.pos, goal)[1:])
+        wps = self.water[1]
+        while len(wps) > 1 and dist(self.pos, wps[0]) <= WATER_WP_M:
+            wps.pop(0)
+        return wps[0]
 
     def heartbeat(self) -> dict:
         legs = self.legs()
