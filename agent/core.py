@@ -8,7 +8,7 @@ told, hash-linked by evidence/chain.py. Its signed head rides in every heartbeat
 and peers hold a copy and a lost or altered boat cannot silently rewrite its record.
 """
 from hashlib import sha256
-from math import isqrt
+from math import cos, isqrt, radians, sin
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -40,8 +40,11 @@ from evidence.chain import Chain, head_message
 
 HOME_M = 50  # at the shore station
 STANDOFF_MARGIN_M = 50  # steer round the stand-off ring this far outside it
+CPA_MARGIN_M = 400  # plan round a ship this much wider than the clearance: it moves while we turn
 AIM_M = 500  # while rounding a ring, aim this far ahead along the tangent
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
+SIN = [round(1000 * sin(radians(d))) for d in range(360)]  # integer trig for courses (#118)
+COS = [round(1000 * cos(radians(d))) for d in range(360)]
 TIME_SOURCE = "sim clock (simulation; no GNSS model)"  # same words as evidence/build.py
 
 
@@ -418,9 +421,39 @@ class Agent:
                 elif dist_to_line(c, (self.pos, target)) < r:
                     target = round_ring(self.pos, c, r, target)
                     self.detoured = True
+        if a.mode in (PATROL, RETURNING):  # on the move: plan round AIS ships (#118)
+            r = self.params.ship_clearance_m + CPA_MARGIN_M
+            for c in self.ship_cpa(target, a.speed_mm_s):
+                if dist(self.pos, c) <= r:
+                    target = ring_point(c, self.pos, r + STANDOFF_MARGIN_M)  # open the distance
+                elif dist_to_line(c, (self.pos, target)) < r:
+                    target = round_ring(self.pos, c, r, target)
         if self.mission.shore == KORSOR_SHORE and len(self.tours.pts.get("seg:M:0", ())) > 2:
             target = route_water(self.pos, target)
         return Action(a.mode, target, a.speed_mm_s)
+
+    def ship_cpa(self, target: tuple[int, int], speed: int) -> list[tuple[int, int]]:
+        """Where each AIS ship will be at the closest point of approach to this boat's straight
+        line, for the ships that would pass inside the clearance within the horizon. Positions are
+        dead-reckoned from the last report with its course and speed: planning, not a safety
+        case; the autopilot keeps final collision avoidance."""
+        p, (px, py) = self.params, self.pos
+        d = dist(self.pos, target)
+        vox, voy = ((target[0] - px) * speed // d, (target[1] - py) * speed // d) if d else (0, 0)
+        out = []
+        for k, o in sorted(self.contacts.tracks.items()):
+            if not o["ais"] or self.contacts.stale(k, self.t):
+                continue
+            vsx, vsy = o["sog"] * SIN[o["cog"] % 360] // 1000, o["sog"] * COS[o["cog"] % 360] // 1000
+            age = self.t - o["to"]
+            sx, sy = o["x"] * 1000 + vsx * age // 1000, o["y"] * 1000 + vsy * age // 1000  # mm now
+            rx, ry, wx, wy = sx - px * 1000, sy - py * 1000, vsx - vox, vsy - voy
+            w2 = wx * wx + wy * wy
+            tc = min(max(-(rx * wx + ry * wy) // w2, 0), p.cpa_horizon_ms // 1000) if w2 else 0
+            cx, cy = rx + wx * tc, ry + wy * tc
+            if cx * cx + cy * cy < (p.ship_clearance_m * 1000) ** 2:
+                out.append(((sx + vsx * tc) // 1000, (sy + vsy * tc) // 1000))
+        return out
 
     def heartbeat(self) -> dict:
         legs = self.legs()

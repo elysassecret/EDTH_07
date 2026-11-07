@@ -51,6 +51,8 @@ class Params:
     health_recover_permille: int = 800
     health_fails: int = 2
     health_attempts: int = 3
+    ship_clearance_m: int = 1852  # CPA a moving boat keeps from AIS ships (#118)
+    cpa_horizon_ms: int = 600_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,4 +115,6 @@ def load_params(root: str | Path = ".", scenario: str = "scenarios/fixed.toml") 
         health_recover_permille=round(agent["health_recover"] * 1000),
         health_fails=agent["health_fails"],
         health_attempts=agent["health_attempts"],
+        ship_clearance_m=agent["ship_clearance_m"],
+        cpa_horizon_ms=agent["cpa_horizon_s"] * 1000,
     )

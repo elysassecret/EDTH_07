@@ -10,3 +10,8 @@ health_min_progress = 0.5   # below this share of the predicted progress the che
 health_recover = 0.8        # back above this share: progress back to plan
 health_fails = 2            # failed checks in a row before the boat reports and replans
 health_attempts = 3         # more failed checks after that: release everything and go home
+# Ship clearance (#118): a boat on the move plans round AIS ships by closest point of approach.
+# 1.0 nm is the coastal CPA in sample masters' standing orders (docs/research/
+# operations_incidents_law.md); ship-specific practice, not regulation. Team may change it.
+ship_clearance_m = 1852
+cpa_horizon_s = 600         # look this far ahead along both tracks

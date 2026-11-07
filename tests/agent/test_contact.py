@@ -125,3 +125,21 @@ def test_patrol_keeps_out_of_the_standoff_ring_once_the_contact_is_known():
             closest = d if closest is None else min(closest, d)
     assert closest is not None and closest >= PARAMS.standoff_m
     assert s.agents[2].mode == PATROL  # still sweeping, not stuck on the ring
+
+
+def test_a_crossing_ais_ship_makes_the_sweeper_go_round():
+    """#118: a ship with AIS crossing USV 01's straight line at 5 m/s; from its course and speed
+    the boat sees the closest point of approach would be inside the clearance and plans round it.
+    Without this rule the two pass about 700 m apart."""
+    s = Sim(scene_mission(), PARAMS, START, detect_m=10_000)  # AIS reaches further than a camera
+    s.run_until(60_000)
+    x0, y0 = s.xy(1)
+    s.add_track("S-01", (x0 + 2000, y0 - 2600), sog=5000, cog=0, ais=True)
+    closest = None
+    while s.t <= 1_200_000:
+        s.tick()
+        tr = s.tracks["S-01"]
+        d = dist(s.xy(1), (tr["x"] // 1000, tr["y"] // 1000))
+        closest = d if closest is None else min(closest, d)
+    assert closest >= PARAMS.ship_clearance_m, closest
+    assert s.agents[1].mode == PATROL  # it went round and carried on sweeping
