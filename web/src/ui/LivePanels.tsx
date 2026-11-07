@@ -45,6 +45,7 @@ import { spreadText as spreadOf } from "../uncertainty";
 import { useStore } from "../store";
 import { t0Of } from "../types";
 import { Fps } from "./Fps";
+import { EscalateControl } from "./Escalate";
 
 /** #88 item 6: one grey line with the reason the boats gave; the full text on hover. */
 export function Why({ text }: { text: string }) {
@@ -325,6 +326,7 @@ export function SelectedContext() {
             AIS does not establish intent. Look flags indicate a simulated
             observation, not verified identity.
           </p>
+          {snap.view === "shore" && <EscalateControl contact={contact} snap={snap} />}
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">

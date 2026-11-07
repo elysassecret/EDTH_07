@@ -42,6 +42,11 @@ def _line(r: dict) -> str:
     if k == "event":
         what = f"{d.get('kind')} " + " ".join(f"{x}={d[x]}" for x in ("a", "boat", "b") if x in d)
         return f"Exercise failure ({d.get('origin', 'scripted')}): {what.strip()}"
+    if k == "command" and d["msg"].get("cmd") == "escalate":
+        m = d["msg"]
+        note = f" Note: {m['note']}" if m.get("note") else ""
+        return (f"Watch officer escalated {m.get('id')} ({'recorded' if d['ok'] else 'rejected'})."
+                f"{note} Report sent: {' / '.join(str(m.get('text', '')).splitlines())}")
     if k == "command":
         m = d["msg"]
         args = " ".join(f"{x}={m[x]}" for x in sorted(m) if x != "cmd")

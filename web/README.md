@@ -49,6 +49,13 @@ the existing store and server protocol. No runtime font, tile, or CDN request is
    sends immediately after review. Feed loss, reset or view changes cancel queued answers.
    Before transmission, the queue rechecks the task revision. A server acknowledgment is
    not a boat delivery or completed observation. Unconfirmed sends are never auto-retried.
+5b. **Escalate** (`src/ui/Escalate.tsx`, `src/escalate.ts`) — on a selected contact, the watch
+   officer can report it onward (Navy / JRCC). The dialog shows a radio-ready report built only
+   from delivered data ("cue for a look … intent not established"); the officer may add a note
+   and **Record escalation**. The server checks that the contact is in the shore picture, keeps
+   the exact text in the evidence chain and the incident report, shows "ESCALATED BY WATCH
+   OFFICER hh:mmZ" and a timeline line. Nothing is transmitted outside this laptop. The console
+   never labels a contact a threat: that is the officer's decision.
 6. **Evaluator view** (judges and team, off by default) — **View settings → Evaluator
    comparison** opens a separate `/truth` socket. Purple annotations compare actual and
    delivered positions, contacts, links and revisit ages (`src/map/evaluator.ts`). The

@@ -287,3 +287,27 @@ def test_scorecard_is_read_from_eval_output_on_truth_only(tmp_path):
     import os
     os.utime(path, (1, 1))  # force a new mtime
     assert "scorecard" not in json.loads(f.tick()["truth"])
+
+
+def test_escalate_records_the_officers_report_only_for_a_shore_contact():
+    src = SimSource(1)
+    src.step(8100 * 1000)  # C-07 is in the shore picture by about 7865 s on seed 1
+    shore = src.snapshot("shore")
+    cid = next(c["id"] for c in shore["contacts"] if not c["ais"])
+    text = "USV contact C-07 ... reported by the watch officer"
+    assert src.command({"cmd": "escalate", "id": cid, "text": text, "note": "for a look"})["ok"]
+    after = src.snapshot("shore")
+    assert after["escalations"][0]["id"] == cid and after["escalations"][0]["note"] == "for a look"
+    assert any(e["kind"] == "operator_command" and "escalated" in e["text"] for e in after["events"])
+    assert not src.command({"cmd": "escalate", "id": "contact:NOPE", "text": text})["ok"]
+    assert not src.command({"cmd": "escalate", "id": cid, "text": "  "})["ok"]
+    assert not src.command({"cmd": "escalate", "id": cid, "text": "x" * 5000})["ok"]
+
+
+def test_report_names_an_escalation_and_the_text_sent():
+    from evidence.report import _line
+
+    rec = {"kind": "command", "data": {"ok": True, "msg": {
+        "cmd": "escalate", "id": "contact:C-07", "note": "", "text": "line one\nline two"}}}
+    assert _line(rec) == ("Watch officer escalated contact:C-07 (recorded). "
+                          "Report sent: line one / line two")
