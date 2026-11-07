@@ -234,8 +234,9 @@ def _home_m() -> int:
 class MockWorld:
     """Deterministic fake of the swarm, driven by the fixed event tape and operator commands."""
 
-    def __init__(self, seed: int = 1, scene: Scene | None = None):
+    def __init__(self, seed: int = 1, scene: Scene | None = None, tracks: int = 6):
         self.seed = seed
+        self.n_tracks = max(6, tracks)  # 6 = the story's traffic; more = load test (G4)
         self.sc = scene or load_scene()
         self.rng = random.Random(seed)
         self.v = float(self.sc.boat["speed_mps"])
@@ -291,6 +292,19 @@ class MockWorld:
             d = 1 if k % 2 == 0 else -1
             self.ais_tracks[cid] = (u0, sog, d)
             self.contacts[cid] = Contact(cid, lane[0], sog, 0.0, True, f"MOCK CARGO {k + 1}",
+                                         "ship_day")
+        # Load test only (--tracks N): extra synthetic AIS-like tracks along the lane, spread
+        # across the lane band, from their own random stream so the story above is unchanged.
+        extra = random.Random(self.seed + 1_000_003)
+        half = float(tomllib.loads((ROOT / "config" / "scene.toml").read_text(
+            encoding="utf-8"))["lane_half_m"])
+        self.track_offset: dict[str, float] = {}
+        for k in range(6, self.n_tracks):
+            cid = f"AIS-{k + 1:03d}"
+            sog = extra.uniform(6, 14) * KN
+            self.ais_tracks[cid] = (extra.uniform(0, self.lane_len), sog, 1 if k % 2 else -1)
+            self.track_offset[cid] = extra.uniform(-half, half)
+            self.contacts[cid] = Contact(cid, lane[0], sog, 0.0, True, f"MOCK AIS {k + 1}",
                                          "ship_day")
         self._move_ais(0.0)
         for e in self._tape():
@@ -671,6 +685,10 @@ class MockWorld:
         for cid, (u0, sog, d) in self.ais_tracks.items():
             u = (u0 + d * sog * (self.t)) % self.lane_len
             p, h = point_at(self.lane, u)
+            off = self.track_offset.get(cid, 0.0) if hasattr(self, "track_offset") else 0.0
+            if off:
+                r = math.radians(h + 90)
+                p = (p[0] + math.sin(r) * off, p[1] + math.cos(r) * off)
             c = self.contacts[cid]
             c.pos, c.cog = p, h if d > 0 else (h + 180) % 360
 
@@ -939,10 +957,14 @@ class MockWorld:
 # ---------------------------------------------------------------- server
 
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
-                serve_web: bool = False) -> None:
+                serve_web: bool = False, tracks: int = 6) -> None:
     from server.feed import serve as feed_serve
 
-    await feed_serve(MockWorld, host, port, seed, hz, ready, serve_web, name="mock feed")
+    def factory(s: int) -> MockWorld:
+        return MockWorld(s, tracks=tracks)
+
+    name = f"mock feed ({tracks} AIS tracks)" if tracks > 6 else "mock feed"
+    await feed_serve(factory, host, port, seed, hz, ready, serve_web, name=name)
 
 
 def main() -> None:
@@ -952,10 +974,12 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--hz", type=float, default=10.0)
     ap.add_argument("--serve-web", action="store_true", help="also serve web/dist over HTTP")
+    ap.add_argument("--tracks", type=int, default=6, help="synthetic AIS tracks (load test)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     try:
-        asyncio.run(serve(args.host, args.port, args.seed, args.hz, serve_web=args.serve_web))
+        asyncio.run(serve(args.host, args.port, args.seed, args.hz, serve_web=args.serve_web,
+                          tracks=args.tracks))
     except KeyboardInterrupt:
         pass
 
