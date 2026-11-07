@@ -21,6 +21,7 @@ import type { EvalData } from "../types";
 import { segAges, type Band } from "../coverage";
 import { isDocked } from "../roles";
 import { spreadLabels, spreads, type Spread } from "../uncertainty";
+import { PRIORITY, keepNonOverlapping, textBox } from "./declutter";
 import { hmShort } from "../format";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import type { Decision } from "../types";
@@ -46,12 +47,6 @@ function coverageLayers(snap: NonNullable<ReturnType<typeof useStore.getState>["
       id: "coverage-none", data: segs.filter((a) => a.band === "none"), getPath: (a) => a.path,
       getColor: [...BAND_RGB.none, alpha], getWidth: 8, widthUnits: "pixels",
       getDashArray: [2, 1.5], dashJustified: true, extensions: [new PathStyleExtension({ dash: true })],
-    }),
-    new TextLayer<(typeof segs)[number]>({
-      id: "coverage-age", data: segs, getPosition: (a) => a.path[Math.floor(a.path.length / 2)],
-      getText: (a) => `${a.id.slice(4)} ${a.age === null ? "no visit" : hmShort(a.age)}`,
-      getSize: 14, getColor: (a) => [...BAND_RGB[a.band], 255], getPixelOffset: [0, -14],
-      fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   ];
 }
@@ -200,6 +195,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [geo, setGeo] = useState<Partial<Record<GeoName, GeoFile | null>>>({});
   const [detail, setDetail] = useState(false); // zoomed in far enough for depth labels
+  const [view, setView] = useState(0); // bumps after every pan/zoom: labels are re-decluttered
   const snap = useStore((s) => s.snap);
   const scene = useStore((s) => s.scene);
   const conn = useStore((s) => s.conn);
@@ -252,6 +248,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     ro.observe(el.current);
     map.on("error", (e) => console.error("map:", e.error?.message ?? e));
     map.on("zoom", () => setDetail(map.getZoom() >= DEPTH_DETAIL_ZOOM));
+    map.on("moveend", () => setView((v) => v + 1));
+    map.on("resize", () => setView((v) => v + 1));
     map.on("load", async () => {
       setLoaded(true);
       const files = await Promise.all(GEO_FILES.map(async (n) => [n, await loadGeo(n)] as const));
@@ -299,8 +297,10 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   );
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings) });
-  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings]);
+    const map = mapRef.current;
+    const project = map ? (p: [number, number]) => { const q = map.project(p); return [q.x, q.y] as [number, number]; } : null;
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings, project) });
+  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData, showRings, view]);
 
   const credits = [...new Set(GEO_FILES.map((n) => geo[n]?.credit).filter((c): c is string => !!c))];
   if (satellite) credits.push("Contains modified Copernicus Sentinel data");
@@ -315,6 +315,12 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   );
 }
 
+const labelSize = (d: Label) => (d.kind === "boat" || d.kind === "boat-stale" ? 16 : 14);
+const labelOffset = (d: Label): [number, number] =>
+  d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10]
+    : d.kind === "docked" ? [-48, -12] : d.kind === "spread" ? [0, -10] : d.kind === "age" ? [0, -14]
+      : d.kind === "geo" ? [0, 0] : [0, 16];
+
 function buildLayers(
   snap: ReturnType<typeof useStore.getState>["snap"],
   scene: ReturnType<typeof useStore.getState>["scene"],
@@ -326,16 +332,9 @@ function buildLayers(
   geoText: LineLabel[],
   evalData: EvalData | null,
   showRings = true,
+  project: ((p: [number, number]) => [number, number]) | null = null,
 ): Layer[] {
   const layers: Layer[] = [];
-  if (geoText.length) {
-    layers.push(new TextLayer<LineLabel>({
-      id: "geo-labels", data: geoText, getPosition: (d) => d.pos, getText: (d) => d.text,
-      getSize: 14,
-      getColor: (d) => (d.kind === "depth" ? [120, 150, 175, 220] : [200, 200, 188, 230]),
-      fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
-    }));
-  }
   const labels: Label[] = cableLabels();
 
   if (scene) {
@@ -459,28 +458,59 @@ function buildLayers(
     );
     for (const b of snap.boats) {
       const id = String(b.id).padStart(2, "0");
-      if (docked(b)) labels.push({ pos: [b.lon, b.lat], text: `${id} DOCKED`, kind: "docked" });
-      else labels.push({ pos: [b.lon, b.lat], text: id, kind: isStale(b) ? "boat-stale" : "boat" });
+      if (docked(b)) labels.push({ pos: [b.lon, b.lat], text: `${id} DOCKED`, kind: "docked", ref: `boat:${b.id}` });
+      else labels.push({ pos: [b.lon, b.lat], text: id, kind: isStale(b) ? "boat-stale" : "boat", ref: `boat:${b.id}` });
     }
     for (const k of snap.contacts) {
       const base = k.ais ? (k.name ?? k.track) : `${k.track} NO AIS`;
       const tag = k.source === "fused" ? `${base} · AIS+CAM` : base;
       const text = contactStale(k) && !frozen ? `${tag} · LAST SEEN ${dur(snap.t - k.last_seen)} AGO` : tag;
-      labels.push({ pos: [k.lon, k.lat], text, kind: contactStale(k) ? "stale" : k.ais ? "ais" : "dark" });
+      labels.push({ pos: [k.lon, k.lat], text, kind: contactStale(k) ? "stale" : k.ais ? "ais" : "dark", ref: k.id });
     }
   }
 
+  // Cable segment ages join the same overlap test as every other label.
+  const ages: Label[] = snap && scene ? segAges(snap, scene).flatMap((a) => {
+    const path = scene.segments[a.id] ?? [];
+    return path.length > 1 ? [{ pos: path[Math.floor(path.length / 2)], kind: "age",
+      text: `${a.id.slice(4)} ${a.age === null ? "no visit" : hmShort(a.age)}`, band: a.band }] : [];
+  }) : [];
+  // No overlapping text (map/declutter.ts): keep the most important label of any overlap.
+  const all: Label[] = [...geoText.map((g) => ({ ...g, kind: "geo", geoKind: g.kind })), ...ages, ...labels];
+  const keep = project
+    ? keepNonOverlapping(all.map((d) => {
+      const [x, y] = project(d.pos);
+      const sel = d.ref !== undefined && (d.ref === selectedContact || d.ref === `boat:${selected}`);
+      return { box: textBox(x, y, d.text, labelSize(d), labelOffset(d)), p: sel ? PRIORITY.selected : PRIORITY[d.kind] ?? 0 };
+    }))
+    : all.map(() => true);
+  const kept = all.filter((_, i) => keep[i]);
+  const geoKept: LineLabel[] = kept.filter((d) => d.kind === "geo").map((d) => ({ pos: d.pos, text: d.text, kind: d.geoKind ?? "" }));
+  const agesKept = kept.filter((d) => d.kind === "age");
+  const labelsKept = kept.filter((d) => d.kind !== "geo" && d.kind !== "age");
+  if (geoKept.length) {
+    layers.push(new TextLayer<LineLabel>({
+      id: "geo-labels", data: geoKept, getPosition: (d) => d.pos, getText: (d) => d.text,
+      getSize: 14,
+      getColor: (d) => (d.kind === "depth" ? [120, 150, 175, 220] : [200, 200, 188, 230]),
+      fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
+    }));
+  }
+  layers.push(new TextLayer<Label>({
+    id: "coverage-age", data: agesKept, getPosition: (a) => a.pos, getText: (a) => a.text,
+    getSize: 14, getColor: (a) => [...BAND_RGB[a.band ?? "none"], 255], getPixelOffset: [0, -14],
+    fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
+  }));
   layers.push(
     new TextLayer<Label>({
-      id: "labels", data: labels, getPosition: (d) => d.pos, getText: (d) => d.text,
-      fontFamily: FONT, characterSet: "auto", getSize: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? 16 : 14),
+      id: "labels", data: labelsKept, getPosition: (d) => d.pos, getText: (d) => d.text,
+      fontFamily: FONT, characterSet: "auto", getSize: labelSize,
       getColor: (d) =>
         d.kind === "cable" ? [215, 160, 205, 230]
           : d.kind === "dark" ? T.c(T.UNKNOWN)
             : d.kind === "boat-stale" || d.kind === "stale" || d.kind === "docked" || d.kind === "spread" ? T.c(T.STALE)
               : T.c(T.TEXT, 235),
-      getPixelOffset: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10]
-        : d.kind === "docked" ? [-48, -12] : d.kind === "spread" ? [0, -10] : [0, 16]),
+      getPixelOffset: labelOffset,
       outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   );

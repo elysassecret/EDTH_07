@@ -98,6 +98,14 @@ uv run python -m server --serve-web --demo
 Re-time the final full take after choosing the accepted revision. C owns the canonical
 `server/DEMO.md` shot list; D verifies feature/video evidence and the release gate.
 
+## Map text never overlaps
+
+`src/map/declutter.ts`: after every pan, zoom and new snapshot, each label gets a box on screen;
+from the most to the least important (selected item, boats, camera-only contacts, docked,
+"could be within", segment ages, stations, stale contacts, AIS names, cables, depth/infra names)
+a label is drawn only if it touches no label already kept. Hidden names come back when you zoom
+in, and a clicked boat or contact always shows its label.
+
 ## Map symbols (colour always paired with shape or words)
 
 | Thing | Look |
