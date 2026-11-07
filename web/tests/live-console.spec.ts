@@ -399,19 +399,31 @@ test("panels resize between limits, close when pushed past the minimum and come 
     await expect(fleetEdge).toHaveCount(0);
     await expect(page.getByRole("complementary", { name: "Fleet overview" })).toHaveCount(0);
     expect((await chart.boundingBox())!.width).toBeGreaterThan(before);
-    await page.getByRole("button", { name: /^Fleet ·/ }).click(); // back at its last size
+    // the closed panel leaves a tab on the same (left) edge; it brings the panel back at its last size
+    const fleetTab = page.getByRole("button", { name: /^Show fleet/ });
+    expect((await fleetTab.boundingBox())!.x).toBeLessThan(10);
+    await fleetTab.click();
+    await expect(fleetTab).toHaveCount(0);
     await expect(page.getByRole("separator", { name: "Resize fleet panel" })).toHaveAttribute("aria-valuenow", "520");
     // keyboard: arrows resize, Enter hides; the layout is remembered across a reload
     const attEdge = page.getByRole("separator", { name: "Resize attention panel" });
     await attEdge.focus();
     await page.keyboard.press("Home");
     await expect(attEdge).toHaveAttribute("aria-valuenow", "320");
+    await page.getByRole("button", { name: "Hide attention panel" }).click();
+    const attTab = page.getByRole("button", { name: /^Show attention/ });
+    const attBox = (await attTab.boundingBox())!;
+    expect(attBox.x + attBox.width).toBeGreaterThan(1600 - 10); // on the right edge
+    await attTab.click();
     await page.getByRole("button", { name: "Hide event timeline" }).click();
     await expect(page.getByRole("region", { name: "Event timeline" })).toHaveCount(0);
     await page.reload();
     await expect(page.getByRole("separator", { name: "Resize attention panel" })).toHaveAttribute("aria-valuenow", "320");
     await expect(page.getByRole("region", { name: "Event timeline" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Timeline", exact: true }).click();
+    const timelineTab = page.getByRole("button", { name: /^Show event timeline/ });
+    const tabBox = (await timelineTab.boundingBox())!;
+    expect(tabBox.y + tabBox.height).toBeGreaterThan(1000 - 10); // along the bottom edge
+    await timelineTab.click();
     await expect(page.getByRole("region", { name: "Event timeline" })).toBeVisible();
   } finally {
     wire.stop();
