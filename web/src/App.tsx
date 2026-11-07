@@ -7,6 +7,7 @@ import {
   PanelRightClose,
   Pause,
   Play,
+  RotateCcw,
   Settings2,
   Waves,
 } from "lucide-react";
@@ -118,6 +119,7 @@ export function App() {
   }, [drawer]);
   const shown = drawer ?? lastDrawer;
   const [details, setDetails] = useState(false);
+  const [restart, setRestart] = useState(false);
   const [wall, setWall] = useState(() => new Date());
   const flow = useDecisionFlow();
   const layout = useLayout((s) => s.layout);
@@ -309,6 +311,17 @@ export function App() {
               {paused ? <Play /> : <Pause />}
               {paused ? "Run" : "Pause"}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={conn !== "live"}
+              aria-label="Restart from the shore"
+              title="Start the run again: boats back at Korsør, nothing injected"
+              onClick={() => setRestart(true)}
+            >
+              <RotateCcw />
+              <span className="hidden lg:inline">Restart</span>
+            </Button>
             <Select
               value={speedValue}
               disabled={conn !== "live"}
@@ -488,6 +501,30 @@ export function App() {
             </div>
           </SheetContent>
         </Sheet>
+        <Dialog open={restart} onOpenChange={setRestart}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Start again from the shore?</DialogTitle>
+              <DialogDescription>
+                This run ends. A new one starts from its beginning with the same seed:
+                {snap?.launch ? " the boats back at Korsør, launching one by one," : ""}
+                {" "}no exercise in effect, no answers given. The run log of this run stays on the
+                server.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRestart(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  send({ cmd: "reset", seed: snap?.seed ?? 1 });
+                  setRestart(false);
+                }}
+              >
+                Restart
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         <DecisionReview flow={flow} />
         <QueuedAnswer flow={flow} />
         <ExerciseTools

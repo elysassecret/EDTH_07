@@ -89,6 +89,7 @@ export interface SceneMsg {
   ranges?: { detect_ship_day_m: number; keep_in_view_m: number; standoff_m: number };
   // boat model numbers from config/boat.toml via the server: model values, not measured
   boat_model?: { speed_mps: number; endurance_s: number; reserve_s: number };
+  ais?: boolean; // the AIS clip (data/ais-clip-box.csv) is on the server's laptop
 }
 
 export interface Ack {

@@ -237,6 +237,27 @@ export function ExercisesInEffect({ onSend }: { onSend: (commands: Command[]) =>
   );
 }
 
+function ExerciseAction({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-md border p-2">
+      <Button variant="outline" size="sm" className="w-32 shrink-0" disabled={disabled} onClick={onClick}>
+        {label}
+      </Button>
+      <p className="text-sm text-muted-foreground">{children}</p>
+    </div>
+  );
+}
+
 export function ExerciseTools({
   open,
   onOpenChange,
@@ -260,6 +281,8 @@ export function ExerciseTools({
     if (open) {
       setSeed(String(useStore.getState().snap?.seed ?? 1));
       setResetReview(false);
+      const sel = useStore.getState().selected; // the boat you have selected on the chart
+      if (sel !== null) setBoat(String(sel));
     }
   }, [open]);
   const ids = snap?.boats.map((b) => b.id).sort((a, b) => a - b) ?? [];
@@ -290,54 +313,62 @@ export function ExerciseTools({
         <DialogHeader>
           <DialogTitle>Exercise controls</DialogTitle>
           <DialogDescription>
-            Real simulation commands, not template scenarios. Every injected
-            failure is labelled EXERCISE.
+            Test the swarm by breaking something on purpose. Nothing happens unless you press a
+            button here: 1. pick a boat, 2. pick what goes wrong. Each one is marked EXERCISE on
+            the chart and in the timeline, and Undo puts it back.
           </DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <ExercisesInEffect onSend={fire} />
           <Separator />
-          <Field>
-            <FieldLabel>Boat</FieldLabel>
-            <Select
-              value={id === undefined ? undefined : String(id)}
-              onValueChange={setBoat}
-            >
-              <SelectTrigger aria-label="Exercise boat">
-                <SelectValue placeholder="Waiting for fleet" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {ids.map((i) => (
-                    <SelectItem key={i} value={String(i)}>
-                      {usv(i)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
+          <div role="group" aria-label="Exercise boat" className="space-y-2">
+            <p className="text-sm font-medium">1. Pick a boat</p>
+            <div className="flex flex-wrap gap-2">
+              {ids.map((i) => {
+                const b = snap?.boats.find((x) => x.id === i);
+                return (
+                  <Button
+                    key={i}
+                    variant={i === id ? "default" : "outline"}
+                    size="sm"
+                    aria-pressed={i === id}
+                    aria-label={usv(i)}
+                    onClick={() => setBoat(String(i))}
+                  >
+                    {usv(i)}
+                    <span className="text-xs opacity-70">{b?.mode === "UNAVAILABLE" ? "OFF" : b?.mode}</span>
+                  </Button>
+                );
+              })}
+              {!ids.length && <span className="text-sm text-muted-foreground">Waiting for the first boat report.</span>}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">2. What goes wrong{id !== undefined ? ` on ${usv(id)}` : ""}</p>
+            <ExerciseAction
+              label="Battery low"
               disabled={disabled}
-              onClick={() => {
-                if (id !== undefined)
-                  fire([{ cmd: "inject", kind: "battery_low", a: id }]);
-              }}
+              onClick={() => id !== undefined && fire([{ cmd: "inject", kind: "battery_low", a: id }])}
             >
-              Battery low
-            </Button>
-            <Button
-              variant="outline"
+              Its battery drops to just enough to get home. It goes back to Korsør by itself, gets a
+              battery swap (about 10 min) and comes back; the others take over its work meanwhile.
+            </ExerciseAction>
+            <ExerciseAction
+              label="Switch off"
               disabled={disabled}
-              onClick={() => {
-                if (id !== undefined)
-                  fire([{ cmd: "inject", kind: "boat_off", a: id }]);
-              }}
+              onClick={() => id !== undefined && fire([{ cmd: "inject", kind: "boat_off", a: id }])}
             >
-              Switch off
-            </Button>
+              The boat stops dead: no motion, no radio. The shore only knows it went quiet; the
+              others take over its tasks once its lease runs out.
+            </ExerciseAction>
+            <ExerciseAction
+              label="Switch back on"
+              disabled={disabled}
+              onClick={() => id !== undefined && fire([{ cmd: "inject", kind: "boat_restore", a: id }])}
+            >
+              The same boat and agent again, with the battery it had. Reports come back only when
+              the shore hears it.
+            </ExerciseAction>
           </div>
           <Field>
             <FieldLabel>Link to</FieldLabel>
@@ -415,21 +446,6 @@ export function ExerciseTools({
           <p className="text-sm text-muted-foreground">
             The next chart click places a contact on a cable sample. It remains
             truth-only until a boat reports it.
-          </p>
-          <Button
-            variant="outline"
-            disabled={disabled}
-            title="Same boat and agent; no reset, teleport or battery recharge"
-            onClick={() => {
-              if (id !== undefined)
-                fire([{ cmd: "inject", kind: "boat_restore", a: id }]);
-            }}
-          >
-            Switch back on
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            Restores the same boat and agent, with battery as it was. A depleted
-            boat stays depleted; shore reports resume only when delivered.
           </p>
           <Separator />
           <Field>

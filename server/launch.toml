@@ -1,9 +1,10 @@
-# Launch demo: uv run python -m server --serve-web --demo server/launch.toml   (owner: C)
+# Shore-launch preset: uv run python -m server --serve-web --demo server/launch.toml   (owner: C)
 # Real sim. All five boats start docked at Korsør, are switched on one by one (60 s apart, a
-# seeded order) and decide among themselves who goes where. One injected battery-low sends a
-# boat home early, so the 10-minute battery swap and its return to work show within minutes.
+# seeded order) and decide among themselves who goes where. Quiet tape: no scripted failure;
+# use Exercise to send a boat home (Battery low) and watch the 10-minute swap and its return.
 seed = 1
 launch = true
+scenario = "scenarios/quiet.toml"
 start_s = 0
 start_paused = true     # press Run when the recording starts
 warp_between = 60       # slower than the video preset: the launch is the point here
@@ -11,8 +12,3 @@ warp_near = 6
 slow = [
   [0, 300],             # the five launches and the first claims
 ]
-
-[[inject]]              # send one boat home early to show the return, the swap and the rejoin
-t = 2400
-kind = "battery_low"
-a = 2

@@ -105,8 +105,7 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
 
   const before = shore!.boats.find((b) => b.id === 2)!;
   await page.getByRole("button", { name: "Exercise controls" }).click();
-  await page.getByRole("combobox", { name: "Exercise boat" }).click();
-  await page.getByRole("option", { name: "USV 02", exact: true }).click();
+  await page.getByRole("group", { name: "Exercise boat" }).getByRole("button", { name: "USV 02", exact: true }).click();
   await page.getByRole("button", { name: "Switch off", exact: true }).click();
   await page
     .getByRole("dialog")

@@ -70,7 +70,7 @@ class RunLog:
 
     @classmethod
     def open_new(cls, runs_dir: Path, seed: int, schema_version: int, t0_utc: str,
-                 launch: bool = False) -> RunLog:
+                 launch: bool = False, scenario: str = "scenarios/fixed.toml") -> RunLog:
         started = datetime.now(UTC)  # wall clock for the file name only, never for sim data
         commit, dirty = git_state()
         name = f"sim-seed{seed}-{started.strftime('%Y%m%dT%H%M%SZ')}-{started.microsecond:06d}.jsonl"
@@ -80,6 +80,7 @@ class RunLog:
             "started_utc": started.isoformat(timespec="seconds"),
             "snapshot_ms": SNAPSHOT_MS, "hash_ms": HASH_MS,
             "launch": launch,  # boats start docked and launch from the shore (world/sim.py)
+            "scenario": scenario,  # the event tape the run plays
         })
 
     def write(self, rec: dict) -> None:
