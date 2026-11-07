@@ -50,7 +50,7 @@ import {
   canOperate,
   pendingDecisions,
 } from "./console-model";
-import { dur, utc } from "./format";
+import { utc } from "./format";
 import { Chart } from "./map/Chart";
 import { useStore, type Display } from "./store";
 import { OPERATOR_MODE, t0Of } from "./types";
@@ -62,7 +62,6 @@ import {
 } from "./ui/LiveDecisions";
 import {
   ContactOverview,
-  CoveragePanel,
   EvaluatorWorkspace,
   EventTimeline,
   FleetOverview,
@@ -75,7 +74,7 @@ import {
   LiveAlerts,
   PriorityAlert,
 } from "./ui/LiveTools";
-import { ChartNotices, FleetStatus } from "./ui/LiveStatus";
+import { ChartNotices, CoverageLine, StatusDetails } from "./ui/LiveStatus";
 
 export function App() {
   const snap = useStore((s) => s.snap);
@@ -104,6 +103,7 @@ export function App() {
   >("checking");
   const [tab, setTab] = useState("attention");
   const [drawer, setDrawer] = useState<"fleet" | "attention" | null>(null);
+  const [details, setDetails] = useState(false);
   const [wall, setWall] = useState(() => new Date());
   const flow = useDecisionFlow();
   const flowRef = useRef(flow);
@@ -221,7 +221,6 @@ export function App() {
       <TabsContent value="attention" className="space-y-4">
         <DecisionWorkspace flow={flow} />
         <LiveAlerts />
-        <CoveragePanel />
         <ContactOverview />
         <EvaluatorWorkspace />
       </TabsContent>
@@ -308,6 +307,9 @@ export function App() {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            {snap?.near_event && snap.warp_mode === "auto" && !paused && (
+              <Badge variant="secondary">slowing for event</Badge>
+            )}
             {!OPERATOR_MODE && (
               <ToggleGroup
                 type="single"
@@ -357,14 +359,11 @@ export function App() {
         </header>
         <PriorityAlert />
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-2">
-          <FleetStatus />
-          <span className="text-sm text-muted-foreground" title={snap ? `T+${dur(snap.t)}` : undefined}>
-            {snap
-              ? `${paused ? "PAUSED" : `${snap.speed}× ${snap.warp_mode ?? "server"}`}${snap.near_event && snap.warp_mode === "auto" && !paused ? " · slowing for event" : ""}`
-              : "No observations received"}
-          </span>
+          <CoverageLine />
           <div className="flex gap-2">
-            <Badge variant="secondary">{open.length} pending decision{open.length === 1 ? "" : "s"}</Badge>
+            <Button variant="ghost" size="sm" aria-expanded={details} onClick={() => setDetails(!details)}>
+              {details ? "Hide details" : "Details"}
+            </Button>
             <Button variant="outline" size="sm" className="min-[1440px]:hidden" onClick={() => setDrawer("fleet")}><ShipIcon />Fleet · {snap?.boats.length ?? 0}</Button>
             <Button variant="outline" size="sm" className="xl:hidden" onClick={() => { setTab("attention"); setDrawer("attention"); }}>Attention · {open.length}</Button>
             <Button variant="ghost" size="sm" onClick={() => setPanel("help")}>
@@ -373,6 +372,11 @@ export function App() {
             </Button>
           </div>
         </div>
+        {details && (
+          <div className="shrink-0 border-b px-3 py-2">
+            <StatusDetails />
+          </div>
+        )}
         <main
           id="main"
           className="grid min-h-0 flex-1 grid-cols-1 min-[1280px]:grid-cols-[minmax(0,1fr)_352px] min-[1440px]:grid-cols-[260px_minmax(0,1fr)_352px]"
