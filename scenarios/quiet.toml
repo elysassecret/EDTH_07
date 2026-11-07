@@ -1,0 +1,7 @@
+# Quiet tape for the live console (owner: B). Only the start: no failures, no contacts, no
+# evaluation point. Nothing happens unless the watch officer injects it from Exercise.
+# The demo presets (server/demo.toml) keep scenarios/fixed.toml and its scripted exercises.
+[[event]]
+t = 0
+kind = "reset"
+ais_t0 = "2026-11-03T10:15:00"

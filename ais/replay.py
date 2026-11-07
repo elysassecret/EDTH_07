@@ -8,7 +8,7 @@ pings inside its class-dependent reception range (ais_class_a_m, ais_class_b_m).
 import csv
 from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +18,7 @@ from contract.mission import Detection, Point
 
 DEFAULT_CLIP = "data/ais-clip-box.csv"
 DEFAULT_T0 = "2026-11-03T10:15:00"
+DAY_MS = 86_400_000  # the clip is one day of traffic (data/ais-clip-box.csv)
 KNOT_MM_S = 514.444
 
 
@@ -94,12 +95,19 @@ class AisReplay:
         self.times, self.pings = _load_pings(str(self.path.resolve()), t0_iso)
 
     def between(self, t_from_ms: int, t_to_ms: int) -> tuple[AisPing, ...]:
-        """Pings with t_from_ms < t <= t_to_ms."""
+        """Pings with t_from_ms < t <= t_to_ms. The clip is one day of traffic; a run longer
+        than what is left of that day replays the same day again (times shifted by whole days),
+        so a console run with no end keeps real traffic instead of an empty sea."""
         if not self.available or t_to_ms <= t_from_ms:
             return ()
-        i = bisect_right(self.times, t_from_ms)
-        j = bisect_right(self.times, t_to_ms)
-        return self.pings[i:j]
+        k = 0
+        if t_to_ms > self.times[-1]:
+            k = (t_to_ms - self.times[0]) // DAY_MS
+        lo, hi = t_from_ms - k * DAY_MS, t_to_ms - k * DAY_MS
+        i = bisect_right(self.times, lo)
+        j = bisect_right(self.times, hi)
+        out = self.pings[i:j]
+        return tuple(replace(p, t_ms=p.t_ms + k * DAY_MS) for p in out) if k else out
 
     def for_boat(
         self, point: Point, t_from_ms: int, t_to_ms: int, class_a_m: int, class_b_m: int

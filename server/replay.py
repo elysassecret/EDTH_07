@@ -42,7 +42,8 @@ def replay(path: Path) -> Result:
     if not hashes:
         return Result(False, 0, "no hash lines to check")
 
-    src = SimSource(int(head["seed"]), launch=bool(head.get("launch")))  # no log of its own
+    src = SimSource(int(head["seed"]), launch=bool(head.get("launch")), endless=True,
+                    scenario=head.get("scenario", "scenarios/fixed.toml"))  # no log of its own
     world = src.world
     checked = 0
     for t_ms, want in hashes:

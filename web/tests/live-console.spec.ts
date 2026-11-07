@@ -512,8 +512,7 @@ test("restoration sends boat_restore for the selected boat and requires a fresh 
     await page.goto(url);
     await page.getByRole("button", { name: "Exercise controls" }).click();
     const dialog = page.getByRole("dialog", { name: "Exercise controls" });
-    await dialog.getByRole("combobox", { name: "Exercise boat" }).click();
-    await page.getByRole("option", { name: "USV 03", exact: true }).click();
+    await dialog.getByRole("group", { name: "Exercise boat" }).getByRole("button", { name: "USV 03", exact: true }).click();
     const restore = dialog.getByRole("button", {
       name: "Switch back on",
       exact: true,

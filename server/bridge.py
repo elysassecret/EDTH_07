@@ -92,7 +92,8 @@ class SimSource:
 
     def __init__(self, seed: int = 1, runs_dir: Path | None = None, demo: dict | None = None,
                  scorecard_path: Path | None = None, horizon_s: int | None = None,
-                 launch: bool = False):
+                 launch: bool = False, endless: bool = False,
+                 scenario: str = "scenarios/fixed.toml"):
         self.seed = seed
         # #59: D's scorecard_console.json from `python -m eval.run_batch --out runs/main`
         self.scorecard_path = scorecard_path or ROOT / "runs" / "main" / "scorecard_console.json"
@@ -103,16 +104,23 @@ class SimSource:
         # shore launch: boats start docked at Korsør and decide among themselves who goes where;
         # a demo preset says for itself (the scripted video keeps its placed start)
         self.launch = bool(self.demo.get("launch", False)) if self.demo else launch
+        # the event tape: the scripted exercises (fixed.toml) or none (quiet.toml, live console)
+        # a demo preset names its own tape; without one it is the scripted video tape
+        self.scenario = (str(self.demo.get("scenario", "scenarios/fixed.toml")) if self.demo
+                         else scenario)
         self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode,
-                           launch=self.launch)
+                           launch=self.launch, scenario=self.scenario)
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
         run = _toml("config/run.toml")
-        self.horizon_ms = int(run["horizon_s"]) * 1000
+        # end of the run: config/run.toml (eval, demos), --hours, or none at all (live console)
+        self.horizon_ms: int | None = int(run["horizon_s"]) * 1000
         if horizon_s is not None:  # --hours: a longer live run; D's eval keeps run.toml's value
             check_horizon(horizon_s)
             self.horizon_ms = horizon_s * 1000
+        elif endless:
+            self.horizon_ms = None
         self.revisit_target_s = int(run["revisit_target_s"])  # D's number, "confirm Friday"
-        tape = _toml("scenarios/fixed.toml").get("event", [])
+        tape = _toml(self.scenario).get("event", [])
         t0 = next((e.get("ais_t0") for e in tape if e.get("kind") == "reset"), None)
         self.t0_utc = f"{t0}Z" if t0 and not str(t0).endswith("Z") else (t0 or "")
         self.past_events: deque[int] = deque(maxlen=64)  # ms of events already applied
@@ -120,7 +128,8 @@ class SimSource:
         self.clock_ms = 0
         self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc, self.revisit_target_s)
         schema = Snapshot.model_fields["schema_version"].default
-        self.log = (RunLog.open_new(runs_dir, seed, schema, self.t0_utc, launch=self.launch)
+        self.log = (RunLog.open_new(runs_dir, seed, schema, self.t0_utc, launch=self.launch,
+                                    scenario=self.scenario)
                     if runs_dir else None)
         self._logged_events = 0
         # watch-officer escalations (console extra): the officer's decision, never the boats'
@@ -128,7 +137,8 @@ class SimSource:
         self._placed = 0  # synthetic contacts placed from the console (X-01, X-02, ...)
         self._sample_m = self._sample_lengths()
         self._contact_defaults = next(
-            (e for e in tape if e.get("kind") == "contact_start"), {"ais": False, "sog_kn": 0.0,
+            (e for e in _toml("scenarios/fixed.toml").get("event", [])
+             if e.get("kind") == "contact_start"), {"ais": False, "sog_kn": 0.0,
                                                                      "class": "unknown"})
         self.world.step()  # t = 0 processed, so every view is defined from the first frame
         self._after_tick()
@@ -153,7 +163,9 @@ class SimSource:
         return self.world.t_ms / 1000.0
 
     def step(self, dt_ms: int) -> None:
-        self.clock_ms = min(self.clock_ms + max(0, dt_ms), self.horizon_ms)
+        self.clock_ms += max(0, dt_ms)
+        if self.horizon_ms is not None:
+            self.clock_ms = min(self.clock_ms, self.horizon_ms)
         while self.world.next_tick_ms <= self.clock_ms:
             self.world.step()
             self._after_tick()
@@ -209,7 +221,8 @@ class SimSource:
             "stations": {t.id: ll(t.pts[0]) for t in m.tasks if not t.id.startswith("seg:")},
             "shore": ll(m.shore),
             "stale_after_s": self.ui["stale_after_s"],
-            "horizon_s": self.horizon_ms // 1000,
+            "horizon_s": 0 if self.horizon_ms is None else self.horizon_ms // 1000,  # 0 = no end
+            "ais": self.world._ais_clip.available,  # data/ais-clip-box.csv present on this laptop
             "revisit_target_s": self.revisit_target_s,
             "home_m": HOME_M,  # agent's "at the shore station" radius: docked boats sit inside it
             "ranges": sensor_ranges(),  # config/boat.toml, for the rings (#88)
@@ -552,12 +565,13 @@ class SimSource:
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
                 serve_web: bool = False, runs_dir: Path | None = None,
                 demo: dict | None = None, scorecard: Path | None = None,
-                horizon_s: int | None = None, launch: bool = False) -> None:
+                horizon_s: int | None = None, launch: bool = False, endless: bool = False,
+                scenario: str = "scenarios/fixed.toml") -> None:
     from server.feed import serve as feed_serve
 
     def factory(s: int) -> SimSource:
         return SimSource(s, runs_dir=runs_dir, demo=demo, scorecard_path=scorecard,
-                         horizon_s=horizon_s, launch=launch)
+                         horizon_s=horizon_s, launch=launch, endless=endless, scenario=scenario)
 
     await feed_serve(factory, host, port, seed, hz, ready, serve_web,
                      name="sim bridge (demo preset)" if demo else "sim bridge",

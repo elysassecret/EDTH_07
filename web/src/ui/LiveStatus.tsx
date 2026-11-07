@@ -18,11 +18,13 @@ export function ChartNotices() {
   const channel = useStore((s) => s.channel);
   const evalOn = useStore((s) => s.evalOn);
   const placing = useStore((s) => s.placing);
+  const scene = useStore((s) => s.scene);
   const setPlacing = useStore((s) => s.setPlacing);
   return <div className="absolute left-3 top-3 z-10 flex max-h-[45%] w-96 max-w-[calc(100%_-_1.5rem)] flex-col gap-2 overflow-y-auto overscroll-contain" data-testid="chart-notices">
     {conn !== "live" && <Alert variant={conn === "lost" ? "destructive" : "default"}><WifiOff /><AlertTitle>{conn === "lost" ? "FEED LOST" : "CONNECTING"} — {snap ? `display frozen at ${utc(t0Of(snap), snap.t)}` : "no data received"}</AlertTitle><AlertDescription>Last-known positions only. Commands disabled; queued unsent answers cancelled. Reconnecting automatically.</AlertDescription></Alert>}
     {(channel === "truth" || evalOn) && <Alert><Eye /><AlertTitle>{channel === "truth" ? "TRUTH VIEW — evaluator only" : "EVALUATOR COMPARISON ENABLED"}</AlertTitle><AlertDescription>{channel === "truth" ? "Not the shore picture. Operator decisions are disabled." : "Purple annotations use the separate /truth channel, not delivered shore observations."}</AlertDescription></Alert>}
     <SegmentList />
+    {scene?.ais === false && <Alert><CircleAlert /><AlertTitle>No AIS ships: no AIS data on this laptop</AlertTitle><AlertDescription>Put the AIS clip at data/ais-clip-box.csv (not in git) and restart the server.</AlertDescription></Alert>}
     {placing && <Alert><CircleAlert /><AlertTitle>Click the chart to place a synthetic contact</AlertTitle><AlertDescription>Truth only until reported. <Button variant="outline" size="sm" onClick={() => setPlacing(null)}>Cancel placement</Button></AlertDescription></Alert>}
     <DigestSummary />
   </div>;

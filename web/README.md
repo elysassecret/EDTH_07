@@ -15,11 +15,18 @@ The boats start docked at Korsør and are switched on one by one, 60 s apart; th
 themselves who sweeps which cable, who holds a lane picket and who relays. A boat that comes home
 gets a battery swap (about 10 min, "Battery swap at Korsør · ready about hh:mm" on its card) and
 goes back to work. `--placed` starts them already on their tasks, as before.
-To watch launch, return, swap and rejoin in a few minutes:
+The same, paused at the start with a slower warp for showing it:
 `uv run python -m server --serve-web --demo server/launch.toml`.
 
-A live run lasts 4 h of sim time (`config/run.toml`, ends 14:15Z). For a longer one add
-`--hours 10` (up to 24 h).
+- **No end time.** A live run keeps going until you stop the server. `--hours 10` gives it an
+  end (up to 24 h); the demo presets keep their own length.
+- **Nothing happens by itself.** The live run plays no scripted failure (`scenarios/quiet.toml`).
+  Exercise → pick a boat → Battery low / Switch off / cut a radio link / place a ship without AIS.
+  `--scripted` plays the old exercise tape (battery low at 12:15Z, a link cut, contact C-07).
+- **Restart** (top bar) starts the run again from its beginning: boats back at Korsør, nothing
+  injected, same seed.
+- **AIS ships** come from `data/ais-clip-box.csv` (one day of real traffic; not in git, copy it in).
+  Without it the chart says so. A run longer than the day replays the same day again.
 
 For development, run `uv run python -m server` and `pnpm --dir web dev` in separate
 terminals. The latter serves the console on http://localhost:5173. If pnpm is not

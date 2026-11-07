@@ -38,6 +38,10 @@ def main() -> None:
     ap.add_argument("--hours", type=float, default=None,
                     help="real sim: run length in hours for this console run (default: "
                          "config/run.toml, 4 h); eval and the video keep their own length")
+    ap.add_argument("--scripted", action="store_true",
+                    help="real sim: play the scripted exercise tape (scenarios/fixed.toml: battery "
+                         "low, link cut, a contact without AIS); default: nothing happens unless "
+                         "you inject it from Exercise")
     ap.add_argument("--placed", action="store_true",
                     help="real sim: start the boats already placed on their tasks (the old start); "
                          "default: they launch from Korsør and decide who goes where")
@@ -59,7 +63,10 @@ def main() -> None:
         from server.feed import ROOT
 
         extra = {"runs_dir": None if args.no_log else ROOT / "runs", "scorecard": args.scorecard,
-                 "launch": not args.placed}
+                 "launch": not args.placed,
+                 # live console: runs until stopped, unless --hours; demos keep their own length
+                 "endless": args.hours is None and not args.demo,
+                 "scenario": "scenarios/fixed.toml" if args.scripted else "scenarios/quiet.toml"}
         if args.hours is not None:
             from server.bridge import check_horizon
 
