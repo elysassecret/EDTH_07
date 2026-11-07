@@ -27,6 +27,7 @@ class Sim:
         self.batt = {b: 1000 for b in mission.boats}
         self.alive = {b: True for b in mission.boats}
         self.off: set[tuple[int, int]] = set()  # directed links switched off; membership only
+        self.slow: dict[int, int] = {}  # boat -> propulsion permille (test faults only)
         self.actions = {b: Action("PATROL", None, 0) for b in mission.boats}
         self.delay_ms, self.loss, self.rng = delay_ms, loss, random.Random(seed)
         self.boat_range_m, self.shore_range_m = boat_range_m, shore_range_m
@@ -89,7 +90,8 @@ class Sim:
         if a.target is None:
             return
         (x, y), (tx, ty) = self.pos[b], (a.target[0] * 1000, a.target[1] * 1000)
-        d, step = isqrt((tx - x) ** 2 + (ty - y) ** 2), a.speed_mm_s  # 1 s tick
+        # 1 s tick; slow[b] < 1000 models weak propulsion (#106), unknown to the boat
+        d, step = isqrt((tx - x) ** 2 + (ty - y) ** 2), a.speed_mm_s * self.slow.get(b, 1000) // 1000
         self.pos[b] = (tx, ty) if d <= step else (x + (tx - x) * step // d,
                                                   y + (ty - y) * step // d)
 

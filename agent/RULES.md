@@ -38,6 +38,37 @@ there is no leader.
     its tasks at once, so others bid on them in the next round. Nobody can stop this.
 12. **A boat never bids on a task it cannot finish and still get home** with the same margin.
 
+### Critical energy: the degraded mode (#104)
+
+What the boat does when the return rule (11) fires, and what it does not claim:
+
+- **What stays on:** propulsion towards Korsør, the heartbeat (now with mode `RETURNING`, so peers
+  and the shore know at once), radio forwarding for others, the camera and contact reports. The
+  boat keeps no task and bids on nothing.
+- **Who is told:** every peer and the shore, by the released task records (others re-auction them
+  in the next 12 s round) and by the heartbeat mode. The console raises "USV NN returning to
+  Korsør".
+- **The estimates:** the trip home uses the boat's own measured current, re-evaluated every tick,
+  so an adverse current moves the decision earlier. All of it is a model estimate at cruise speed.
+  In 60 seeded runs (30 seeds, off and elysa) the lowest battery any boat ended with was 112 ‰,
+  above the 71 ‰ reserve.
+- **What counts as recovered:** reaching Korsør (mode `UNAVAILABLE`). Recharging and coming back
+  to work are **not modelled**; a restored boat (`boat_restore`) keeps its battery.
+- **SENTINEL is not a safe mode.** It is the low-power way to hold a station with motors off
+  while the current is weak; it never replaces going home.
+
+### Health check: progress below plan (#106)
+
+12b. **Every 2 min on patrol or heading home** (`health_window_s = 120`), the boat compares how far
+    it really moved towards its target with what its own command and the current it measures
+    predict. Two checks in a row under half the prediction (`health_min_progress = 0.5`,
+    `health_fails = 2`) and it tells the shore in plain words, e.g. "progress below plan: 29 % of
+    predicted over 120 s; possible propulsion fault or strong current (model estimate)", plans
+    every bid, energy check and the trip home at the speed it really makes, and releases what no
+    longer fits. Back above 80 % (`health_recover = 0.8`): "progress back to plan". Three more
+    failed checks (`health_attempts = 3`): it releases everything and goes home. A shortfall is
+    evidence of a problem, not proof of which one.
+
 ## Contacts
 
 13. **A cue for a look**: a track with no AIS, slower than about 1 kn (`loiter_sog_mm_s = 515`),
@@ -62,8 +93,10 @@ delegated (keep in view, reassign cables, take over the relay), **3** held for a
 ## The `why` on the shore picture
 
 When a boat claims a task it sends one line, under 120 characters, built from what it knows at
-that moment, e.g. `USV 04: cheapest of 3 bids at 4 h 34 m (USV 03 5 h 41 m, USV 02 6 h 26 m);
-23 min away, battery 91% [battery return]`. The tag in brackets says why the task was open:
+that moment, e.g. `USV 04: cheapest of 3 bids (USV 03 +1 h 06 m); 23
+min away, battery ~4 h 09 m after, drops pick:S [battery return]`: the next bidder and how much
+more its bid was, the travel time, a model estimate of the battery left after doing the task once
+and getting home, and the role the boat gives up (rule 8). The tag in brackets says why the task was open:
 
 | Tag | Meaning |
 |---|---|
