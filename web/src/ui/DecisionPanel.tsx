@@ -54,21 +54,26 @@ function why(d: Decision, snap: Snapshot): string | null {
 
 export function useSend() {
   const send = useStore((s) => s.send);
+  const holdAnswer = useStore((s) => s.holdAnswer);
   const lastAck = useStore((s) => s.lastAck);
-  const [sent, setSent] = useState<{ id: string; action: Action } | null>(null);
+  const answering = useStore((s) => s.answering);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (sent && lastAck && lastAck.id === sent.id) {
-      if (!lastAck.ok) setError(lastAck.error ?? "rejected");
-      setSent(null);
-    }
-  }, [lastAck, sent]);
+    if (lastAck && !lastAck.ok && lastAck.cmd && lastAck.cmd in KEY) setError(lastAck.error ?? "rejected");
+  }, [lastAck]);
   const answer = (d: Decision, action: Action) => {
     setError(null);
-    if (send({ cmd: action, id: d.id })) setSent({ id: d.id, action });
-    else setError("Not sent: no connection to the server");
+    const cmd = { cmd: action, id: d.id } as const;
+    if (action === "confirm") {
+      // confirming what is already running changes nothing, so it goes at once
+      if (send(cmd)) useStore.setState({ answering: d.id });
+      else setError("Not sent: no connection to the server");
+      return;
+    }
+    // G2: Approve, Decline and Stop wait 5 s with UNDO before they leave the console
+    holdAnswer(cmd, `${WORD[action]}: ${d.text}`);
   };
-  return { answer, sent, error };
+  return { answer, sent: answering, error };
 }
 
 /** U1: fixed bottom-right. Hidden behind a small "none waiting" pill when nothing is open. */
@@ -77,13 +82,21 @@ export function DecisionDock() {
   const frozen = useStore((s) => s.conn) !== "live";
   const hover = useStore((s) => s.setHoverDecision);
   const { answer, sent, error } = useSend();
+  const held = useStore((s) => s.held);
+  const undo = useStore((s) => s.undoAnswer);
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    if (!held) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 200);
+    return () => window.clearInterval(id);
+  }, [held]);
   const open = openDecisions(snap);
   const d = open[0];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || ["INPUT", "SELECT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) return;
-      if (!d || sent) return;
+      if (!d || sent === d.id || useStore.getState().held) return;
       const a = actionsOf(d).find((x) => KEY[x] === e.key.toUpperCase());
       if (a && useStore.getState().conn === "live") {
         e.preventDefault();
@@ -96,18 +109,18 @@ export function DecisionDock() {
 
   if (!snap) return null;
   if (!d) return <div className="dock-idle" aria-live="polite">No decisions waiting</div>;
-  const held = tierOf(d) === "held";
+  const isHeld = tierOf(d) === "held";
   const waited = snap.t - d.t;
-  const late = held && waited >= ALARM_AFTER_S;
+  const late = isHeld && waited >= ALARM_AFTER_S;
   const reason = why(d, snap);
   return (
     <section
-      className={`dock ${held ? "held" : "delegated"} ${late ? "late" : ""}`}
+      className={`dock ${isHeld ? "held" : "delegated"} ${late ? "late" : ""}`}
       role="region" aria-label="Decision waiting for the watch officer"
       onMouseEnter={() => hover(d.id)} onMouseLeave={() => hover(null)}
     >
       <div className="dock-head">
-        <span className="dock-tier">{held ? "NEEDS YOUR YES" : "RUNNING · YOU MAY STOP IT"}</span>
+        <span className="dock-tier">{isHeld ? "NEEDS YOUR YES" : "RUNNING · YOU MAY STOP IT"}</span>
         {open.length > 1 && <span className="dock-badge">+{open.length - 1} queued</span>}
         <span className="dock-wait">waiting {dur(waited)}</span>
       </div>
@@ -115,18 +128,25 @@ export function DecisionDock() {
       {reason && <div className="dock-why">{reason}</div>}
       <div className="dock-sub">
         {d.boat ? `${usv(d.boat)} · ` : ""}
-        {held ? "The boat holds and keeps watching. No answer means no action." : "Already started under the standing order."}
+        {isHeld ? "The boat holds and keeps watching. No answer means no action." : "Already started under the standing order."}
         {d.route ? " Route dashed on the chart." : ""}
       </div>
-      <div className="buttons">
-        {actionsOf(d).map((a) => (
-          <button key={a} className={`act act-${a}`} disabled={frozen || !!sent} onClick={() => answer(d, a)} title={`Key ${KEY[a]}`}>
-            {WORD[a]}<kbd>{KEY[a]}</kbd>
-          </button>
-        ))}
-      </div>
+      {held ? (
+        <div className="undo" role="status">
+          <span>Sending in {Math.max(0, Math.ceil((held.until - nowMs) / 1000))} s · {held.label}</span>
+          <button className="act act-undo" onClick={() => { undo(); }}>UNDO<kbd>Esc</kbd></button>
+        </div>
+      ) : (
+        <div className="buttons">
+          {actionsOf(d).map((a) => (
+            <button key={a} className={`act act-${a}`} disabled={frozen || sent === d.id} onClick={() => answer(d, a)} title={`Key ${KEY[a]}`}>
+              {WORD[a]}<kbd>{KEY[a]}</kbd>
+            </button>
+          ))}
+        </div>
+      )}
       {frozen && <div className="dock-sub warn">Feed lost: answers cannot be sent</div>}
-      {sent && <div className="dock-sub">Sent, waiting for the server</div>}
+      {sent === d.id && !held && <div className="dock-sub">Sent, waiting for the server</div>}
       {error && <div className="dock-sub warn">{error}</div>}
       {open.length > 1 && (
         <ol className="dock-queue">

@@ -2,6 +2,7 @@
 // N5: if no snapshot arrives for FEED_LOST_MS, the display is marked frozen (red banner).
 // N6: the socket reconnects by itself; no page reload needed.
 import { create } from "zustand";
+import { createHold, type Held } from "./undo";
 import { OPERATOR_MODE, type Ack, type Command, type EvalData, type SceneMsg, type Scorecard, type Snapshot } from "./types";
 
 const FEED_LOST_MS = 2000;
@@ -37,6 +38,10 @@ interface State {
   toggleComms: () => void;
   // Evaluator view: a second socket to /truth, open only while this is on. Off by default,
   // never available in operator mode (?operator).
+  held: Held | null; // G2: an answer waiting out its 5 s UNDO window
+  answering: string | null; // decision id of an answer that has left, until its ack
+  holdAnswer: (c: Command, label: string) => boolean;
+  undoAnswer: () => boolean;
   panel: Panel; // the one open side panel; Esc closes it (U5)
   setPanel: (p: Panel) => void;
   display: Display; // U4 day / dusk / night (feature 33)
@@ -84,6 +89,10 @@ export const useStore = create<State>((set, get) => ({
   setHoverDecision: (id) => set({ hoverDecision: id }),
   showComms: true,
   toggleComms: () => set((s) => ({ showComms: !s.showComms })),
+  held: null,
+  answering: null,
+  holdAnswer: (c, label) => hold.hold(c, label),
+  undoAnswer: () => hold.undo(),
   panel: null,
   setPanel: (p) => set((s) => ({ panel: s.panel === p ? null : p })),
   display: loadDisplay(),
@@ -136,7 +145,7 @@ export function connect(): void {
     } else if (msg.type === "scene") {
       useStore.setState({ scene: msg });
     } else if (msg.type === "ack") {
-      useStore.setState({ lastAck: msg });
+      useStore.setState((st) => ({ lastAck: msg, answering: st.answering === msg.id ? null : st.answering }));
       if (!msg.ok) console.warn("command rejected:", msg.error);
     }
   };
@@ -186,3 +195,13 @@ function disconnectEval(): void {
     evalWs = null;
   }
 }
+
+// G2: answers wait 5 s before they leave the console (src/undo.ts)
+const hold = createHold({
+  send: (c) => {
+    const ok = useStore.getState().send(c);
+    if (ok && "id" in c) useStore.setState({ answering: c.id });
+    return ok;
+  },
+  onChange: (h) => useStore.setState({ held: h }),
+});

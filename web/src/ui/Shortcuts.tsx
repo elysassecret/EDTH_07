@@ -26,6 +26,8 @@ export function Shortcuts() {
       } else if (/^[1-9]$/.test(e.key)) {
         const id = Number(e.key);
         if (st.snap?.boats.some((b) => b.id === id)) st.select(st.selected === id ? null : id);
+      } else if (e.key === "Escape" && st.held) {
+        st.undoAnswer(); // G2: Esc first undoes a held answer, nothing else
       } else if (e.key === "Escape") {
         if (st.panel) st.setPanel(st.panel);
         st.setPlacing(null);
@@ -48,7 +50,7 @@ const KEYS: [string, string][] = [
   ["S", "Stop a running decision"],
   ["Space", "Acknowledge the top alert"],
   ["1 – 5", "Focus that USV (press again to clear)"],
-  ["Esc", "Close a panel, cancel placing, clear focus"],
+  ["Esc", "UNDO a held answer (5 s); otherwise close a panel, cancel placing, clear focus"],
   ["?", "This help"],
 ];
 

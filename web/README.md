@@ -75,6 +75,12 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
   `{"coordinates": [[lon,lat] top-left, top-right, bottom-right, bottom-left]}`. Until they exist
   the toggle reads "No satellite image yet".
 
+## Tests
+
+```bash
+pnpm --dir web test     # Vitest: src/*.test.ts (e.g. the 5-second UNDO for answers)
+```
+
 ## Folder map
 
 ```text
