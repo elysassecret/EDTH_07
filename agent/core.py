@@ -7,7 +7,7 @@ from agent.auction import Auction, ms
 from agent.contact import Contacts, ring_point, task_of
 from agent.net import Every, Net
 from agent.table import Table
-from agent.tour import Follower, Leg, Tours
+from agent.tour import Follower, Leg, Tours, Visits
 from contract.constants import (
     CLAIMED,
     HEARTBEAT,
@@ -43,6 +43,7 @@ class Agent:
         self.tours = Tours({s.id: s.pts for s in mission.tasks if kind(s.id) == "seg"})
         self.stations = {s.id: s.pts[0] for s in mission.tasks if kind(s.id) != "seg"}
         self.follow = Follower(self.tours)
+        self.visits = Visits(self.tours.pts, params.r_verify_m)
         self.auction = Auction(self)
         self.contacts = Contacts(self)
         self.peers: dict[int, tuple[int, dict]] = {}  # boat -> (tc, payload) of newest HB
@@ -73,6 +74,7 @@ class Agent:
              inbox: list[bytes]) -> tuple[Action, list[bytes]]:
         self.t = t
         self.pos, self.batt, self.cur = (own.x, own.y), own.batt, (own.cur_x, own.cur_y)
+        self.visits.credit(self.pos, t)
         for raw in inbox:
             m = self.net.receive(t, raw)
             if m is not None:
@@ -112,6 +114,7 @@ class Agent:
                 self.table.heard(m.src, m.tc)
                 if m.tc > self.peers.get(m.src, (-1, {}))[0]:
                     self.peers[m.src] = (m.tc, m.p)
+                    self.visits.credit((m.p["x"], m.p["y"]), m.tc)
         elif m.kind == "REC":
             for w in m.p["recs"]:
                 self.table.apply(from_wire(w))
@@ -164,8 +167,19 @@ class Agent:
             if all(leg[0] != k for leg in legs):
                 legs = self.tours.insert(legs, k)
         if legs != self.follow.legs or not self.started:
+            had = {leg[0] for leg in self.follow.legs}
             self.follow.set_legs(legs, self.pos)
+            if self.started and any(leg[0] not in had for leg in legs):
+                self.head_for_oldest()
             self.started = True
+
+    def head_for_oldest(self) -> None:
+        """After taking over segments, sweep first the one with the oldest sample this boat
+        knows of (never seen counts as oldest), instead of carrying on in tour order."""
+        legs, v = self.follow.legs, self.visits
+        i = min(range(len(legs)), key=lambda k: (v.oldest(legs[k][0]), k))
+        if v.oldest(legs[i][0]) < v.oldest(legs[self.follow.i][0]):
+            self.follow.i, self.follow.j = i, 0
 
     # energy --------------------------------------------------------------------------------
     def remaining_ms(self) -> int:
