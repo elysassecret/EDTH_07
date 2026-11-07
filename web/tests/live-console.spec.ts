@@ -435,6 +435,46 @@ test("panels resize between limits, close when pushed past the minimum and come 
   }
 });
 
+test("drawers leave the way they came in, and Help opens the guides", async ({ page }) => {
+  const wire = await feed(page);
+  try {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(operatorUrl);
+    await expect(page.getByText("FEED LIVE")).toBeVisible();
+    await page.waitForTimeout(2000); // let the chart finish its first load before timing frames
+    const xs = async (act: () => Promise<void>) => {
+      await page.evaluate(() => {
+        const w = window as unknown as { __x: number[] };
+        w.__x = [];
+        const t0 = performance.now();
+        const tick = () => {
+          const el = document.querySelector('[data-slot="sheet-content"]');
+          if (el) w.__x.push(el.getBoundingClientRect().x);
+          if (performance.now() - t0 < 1500) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      await act();
+      await page.waitForTimeout(1600);
+      return page.evaluate(() => (window as unknown as { __x: number[] }).__x);
+    };
+    // fleet: in from the left, out to the left (it used to slide out to the right)
+    const open = await xs(() => page.getByRole("button", { name: "Expand fleet panel" }).click());
+    expect(open.at(-1)! - open[0]).toBeGreaterThan(50);
+    await expect(page.getByRole("dialog", { name: "Fleet overview" })).toBeVisible();
+    const close = await xs(() => page.keyboard.press("Escape"));
+    expect(close.at(-1)! - close[0]).toBeLessThan(-50);
+    // Help used to hang the tab on a guide line it could not parse
+    await page.getByRole("button", { name: "Help" }).click();
+    const guide = page.getByRole("dialog", { name: "Watch guide" });
+    await expect(guide).toBeVisible();
+    await guide.locator("summary", { hasText: "What the simulator models" }).click();
+    await expect(guide.getByRole("cell", { name: "Battery swap", exact: true })).toBeVisible();
+  } finally {
+    wire.stop();
+  }
+});
+
 test("primary screen and focused review pass automated accessibility checks", async ({
   page,
 }) => {

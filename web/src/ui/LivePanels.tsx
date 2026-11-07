@@ -410,7 +410,8 @@ export function EventTimeline({ height, room }: { height: number; room: number }
   const snap = useStore((s) => s.snap);
   const setPanel = useLayout((s) => s.set);
   const showPanel = useLayout((s) => s.show);
-  const expanded = height > LIMITS.timeline.min;
+  // "Collapse" only once the list is taller than its default; the default size offers "Expand"
+  const expanded = height > LIMITS.timeline.def;
   const [filter, setFilter] = useState("All events");
   const [story, setStory] = useState(false);
   const rows = story
@@ -465,7 +466,7 @@ export function EventTimeline({ height, room }: { height: number; room: number }
             size="sm"
             onClick={() =>
               setPanel("timeline", {
-                size: expanded ? LIMITS.timeline.min : Math.min(240, maxSize("timeline", room)),
+                size: expanded ? LIMITS.timeline.def : Math.min(240, maxSize("timeline", room)),
                 open: true,
               })
             }

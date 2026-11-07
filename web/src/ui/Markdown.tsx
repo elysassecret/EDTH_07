@@ -51,7 +51,9 @@ export function Markdown({ text }: { text: string }) {
       out.push(<List key={k} className={`${ordered ? "list-decimal" : "list-disc"} space-y-1 pl-5`}>{items.map((t, n) => <li key={n}>{inline(t, `${k}i${n}`)}</li>)}</List>);
       continue;
     }
-    const para: string[] = [];
+    // a paragraph always takes at least this line, so a stray "|" line (no table separator
+    // under it) cannot stall the loop: it used to spin forever and crash the tab on Help
+    const para: string[] = [lines[i++]];
     while (i < lines.length && lines[i].trim() && !/^#{1,4}\s/.test(lines[i]) && !lines[i].trim().startsWith("|") && !li.test(lines[i])) para.push(lines[i++]);
     out.push(<p key={k}>{inline(para.join(" "), k)}</p>);
   }
