@@ -377,11 +377,19 @@ test("primary screen and focused review pass automated accessibility checks", as
   try {
     await page.goto(url);
     await page.getByRole("button", { name: /Review & approve/ }).waitFor();
+    // Measure contrast only after fade/zoom animations end, not on a half-faded frame.
+    const settled = () =>
+      page.waitForFunction(() =>
+        document.getAnimations().every((a) => a.playState !== "running"),
+      );
+    await settled();
     let result = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
     expect(result.violations).toEqual([]);
     await page.getByRole("button", { name: /Review & approve/ }).click();
+    await page.getByRole("dialog").waitFor();
+    await settled();
     result = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
