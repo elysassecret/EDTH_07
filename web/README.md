@@ -108,6 +108,23 @@ uv run python -m server --serve-web --demo
 Re-time the final full take after choosing the accepted revision. C owns the canonical
 `server/DEMO.md` shot list; D verifies feature/video evidence and the release gate.
 
+## Exercises in effect, and undoing them
+
+The chart no longer carries an exercise box. The header's **Exercise** button turns amber and
+says how many exercise conditions are in effect, for example "2 in effect".
+- Open it to see **In effect now**: each condition with its time and source (operator
+  injection or exercise script).
+- **Undo** reverses one. **Undo all** reverses every one that can be undone.
+- An undo is an ordinary injection, so it is logged in the run log and shown as EXERCISE on the
+  timeline like the original:
+  - a cut link gets `link_on` in the same direction;
+  - a switched-off boat gets `boat_restore` (same boat, battery as it was).
+- A battery-low injection cannot be undone: the simulator has no recharge yet (#116). It stays
+  listed until a reset.
+- Synthetic contacts are truth only and are never listed on the officer's screen.
+- The list comes from the real simulator (`exercises` in the snapshot, `server/bridge.py`). The
+  mock feed does not send it.
+
 ## Map text never overlaps
 
 `src/map/declutter.ts`: after every pan, zoom and new snapshot, each label gets a box on screen;

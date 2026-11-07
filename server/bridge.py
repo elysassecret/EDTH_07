@@ -213,7 +213,8 @@ class SimSource:
         if channel == "truth":
             out["cable_overdue"] = self.cable_overdue()
         out.update(type="snapshot", source="sim", seed=self.seed, t_exact=self.t,
-                   t0_utc=self.t0_utc, escalations=list(self.escalations))
+                   t0_utc=self.t0_utc, escalations=list(self.escalations),
+                   exercises=self.exercises_in_effect())
         return out
 
     def command(self, msg: dict) -> dict:
@@ -377,6 +378,34 @@ class SimSource:
             out.append({"kind": e["kind"], "text": _event_text(e), "active": active,
                         "pair": self._pair(e) if e["kind"] == "link_off" else None})
         return out
+
+    def exercises_in_effect(self) -> list[dict]:
+        """Exercise conditions still in effect, oldest first, each with the inject commands that
+        undo it (console knowledge: the console sent or scripted them). Synthetic contacts are
+        truth only and never listed. A cut link is undone by link_on in the same direction, a
+        switched-off boat by boat_restore. A battery_low cannot be undone: the world has no
+        recharge (#116), so it is listed with undo None until the run is reset."""
+        live: dict[tuple, dict] = {}
+        for e in self.world.events:
+            kind = e.get("kind")
+            if not e.get("exercise") or kind not in INJECT_KINDS:
+                continue
+            a = int(e.get("a", e.get("boat")))
+            b = e.get("b")
+            b = "shore" if b in (None, "shore", SHORE) else int(b)
+            item = {"t": int(e["t_ms"]) // 1000, "kind": kind, "text": _event_text(e),
+                    "origin": "operator injection" if e.get("origin") == "injected" else "exercise script"}
+            if kind == "link_off":
+                live[("link", a, b)] = {**item, "undo": [{"cmd": "inject", "kind": "link_on", "a": a, "b": b}]}
+            elif kind == "link_on":
+                live.pop(("link", a, b), None)
+            elif kind == "boat_off":
+                live[("off", a)] = {**item, "undo": [{"cmd": "inject", "kind": "boat_restore", "a": a}]}
+            elif kind == "boat_restore":
+                live.pop(("off", a), None)
+            elif kind == "battery_low":
+                live[("batt", a)] = {**item, "undo": None}
+        return sorted(live.values(), key=lambda i: i["t"])
 
     def _shore_links(self, links: list[Link], cuts: set[tuple[int, int]]) -> list[Link]:
         """Two console fixes on the shore's link list (no truth used):
