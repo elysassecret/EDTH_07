@@ -62,6 +62,20 @@ class Auction:
             dep = bs[1][1] if len(bs) > 1 and kind(task) in ("relay", "contact") else 0
             self.a.claim(task, bs[0][0], dep)
 
+    def take_over(self, t: int) -> None:
+        """Deputy (PLAN 7.10): when the owner of a relay or contact I am deputy for goes past
+        its lease, take it at once without an auction if I still can, else release it so the
+        auction runs straight away instead of after the deputy grace."""
+        a = self.a
+        for task, r in sorted(a.table.recs.items()):
+            if (r.state != CLAIMED or r.deputy != a.me or r.owner == a.me
+                    or a.table.lease_ok(r.owner, task, t)):
+                continue
+            if self.can_bid(task, t):
+                a.claim(task, self.cost(task), 0)
+            else:
+                a.release(task)
+
     # cost and eligibility ------------------------------------------------------------------
     def cycle_after(self, task: str) -> int:
         a = self.a
