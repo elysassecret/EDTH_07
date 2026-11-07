@@ -114,7 +114,6 @@ def test_s2_link_cut_marks_boat_4_and_it_still_reaches_shore_through_a_peer(stor
     assert after.link == "direct"
 
 
-@pytest.mark.xfail(reason="#21: via() takes the shore edge from reported neighbours")
 def test_s2_the_relay_path_shows_on_the_shore(story):
     assert boat_card(story.pictures[CUT_S + 60], 4).via != 0
 

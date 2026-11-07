@@ -98,3 +98,14 @@ def test_seg_age_is_the_worst_sample_not_any_touch():
     ages = shore.picture(60_000).seg_age
     assert ages[seg] == 59  # the far end still dates from t = 1 s
     assert ages["seg:M:0"] == 60  # never reported: aged from t = 0
+
+
+def test_one_way_cut_is_not_a_direct_shore_hop():
+    """#21: after 4 -> shore is cut, 04 still hears the shore but the shore no longer hears it."""
+    s = scene()
+    s.run_until(30_000)
+    s.off.add((4, 0))
+    s.run_until(120_000)
+    boats = {b.id: b for b in s.shore.picture(s.t).boats}
+    assert boats[4].link == "peer" and boats[4].via != 0
+    assert boats[boats[4].via].link == "direct"  # next hop is a boat the shore hears
