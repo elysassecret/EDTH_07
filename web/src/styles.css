@@ -228,3 +228,9 @@ a.btn { flex: 1; text-align: center; font-size: 14px; color: var(--text); backgr
 .app[data-display="night"] { filter: grayscale(1) sepia(1) hue-rotate(-40deg) saturate(4) brightness(0.55) contrast(1.1); }
 .app[data-display="day"] { filter: invert(0.92) hue-rotate(180deg) brightness(1.05); }
 .app[data-display="night"], .app[data-display="day"] { background: var(--bg); }
+/* U5 help overlay */
+.help { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 40; width: 380px; padding: 12px 14px;
+  background: var(--panel); border: 2px solid var(--friend); border-radius: 6px; font-size: 15px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
+.help table { width: 100%; margin: 8px 0; border-collapse: collapse; }
+.help td { padding: 3px 6px; }
+.help kbd { font-size: 13px; border: 1px solid currentColor; border-radius: 3px; padding: 0 6px; }

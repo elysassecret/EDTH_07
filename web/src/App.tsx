@@ -13,15 +13,17 @@ import { EvidencePanel } from "./ui/Evidence";
 import { DecisionDock } from "./ui/DecisionPanel";
 import { Digest } from "./ui/Digest";
 import { StatusLine } from "./ui/StatusLine";
+import { HelpOverlay, Shortcuts } from "./ui/Shortcuts";
 
-function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }: {
-  sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void; inject: boolean; onInject: () => void;
-  evidence: boolean; onEvidence: () => void;
-}) {
+function TopBar({ sat, satState, onSat }: { sat: boolean; satState: "none" | "ready" | "checking"; onSat: () => void }) {
+  const panel = useStore((s) => s.panel);
+  const setPanel = useStore((s) => s.setPanel);
+  const inject = panel === "inject";
+  const evidence = panel === "evidence";
+  const menu = panel === "menu";
   const snap = useStore((s) => s.snap);
   const channel = useStore((s) => s.channel);
   const setChannel = useStore((s) => s.setChannel);
-  const [menu, setMenu] = useState(false);
   return (
     <header className="topbar">
       <div className="title">Shore console · Great Belt cable watch</div>
@@ -31,9 +33,10 @@ function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }
       </div>
       <WarpControl />
       <div className="controls">
-        <button className={menu ? "on" : ""} aria-expanded={menu} onClick={() => setMenu((v) => !v)}>View ▾</button>
+        <button className={menu ? "on" : ""} aria-expanded={menu} onClick={() => setPanel("menu")}>View ▾</button>
+        <button onClick={() => setPanel("help")} title="Keyboard shortcuts (?)">?</button>
         {menu && (
-          <div className="viewmenu" role="menu" onClick={() => setMenu(false)}>
+          <div className="viewmenu" role="menu">
             {!OPERATOR_MODE && <EvalToggle />}
             {!OPERATOR_MODE && <button onClick={() => setChannel(channel === "shore" ? "truth" : "shore")} className={channel === "truth" ? "on" : ""}>
               {channel === "shore" ? "Channel: SHORE (delivered)" : "Channel: TRUTH (evaluator)"}
@@ -44,8 +47,8 @@ function TopBar({ sat, satState, onSat, inject, onInject, evidence, onEvidence }
               {satState === "ready" ? (sat ? "Satellite ON" : "Satellite OFF") : satState === "none" ? "No satellite image yet" : "Satellite…"}
             </button>
             <DisplayToggle />
-            <button onClick={onInject} className={inject ? "on" : ""}>Exercise controls</button>
-            <button onClick={onEvidence} className={evidence ? "on" : ""}>Evidence</button>
+            <button onClick={() => setPanel("inject")} className={inject ? "on" : ""}>Exercise controls</button>
+            <button onClick={() => setPanel("evidence")} className={evidence ? "on" : ""}>Evidence</button>
           </div>
         )}
       </div>
@@ -96,13 +99,13 @@ export function App() {
   const [sat, setSat] = useState(false);
   const [satState, setSatState] = useState<"none" | "ready" | "checking">("checking");
   const onSatState = useCallback((s: "none" | "ready") => setSatState(s), []);
-  const [inject, setInject] = useState(false);
-  const [evidence, setEvidence] = useState(false);
+  const panel = useStore((st) => st.panel);
+  const setPanel = useStore((st) => st.setPanel);
   const display = useStore((st) => st.display);
   return (
     <div className="app" data-display={display}>
-      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} inject={inject} onInject={() => setInject((v) => !v)}
-        evidence={evidence} onEvidence={() => setEvidence((v) => !v)} />
+      <TopBar sat={sat} satState={satState} onSat={() => setSat((v) => !v)} />
+      <Shortcuts />
       <FeedBanner />
       <TruthBanner />
       <EvalBanner />
@@ -114,8 +117,9 @@ export function App() {
           <Chart satellite={sat} onSatelliteState={onSatState} />
           <CoverageBox />
           <EventLog />
-          {inject && <InjectPanel onClose={() => setInject(false)} />}
-          {evidence && <EvidencePanel onClose={() => setEvidence(false)} />}
+          {panel === "inject" && <InjectPanel onClose={() => setPanel(null)} />}
+          {panel === "evidence" && <EvidencePanel onClose={() => setPanel(null)} />}
+          {panel === "help" && <HelpOverlay />}
         </div>
         <FleetPanel />
       </main>
