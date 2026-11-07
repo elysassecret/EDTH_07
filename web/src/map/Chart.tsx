@@ -181,6 +181,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
           return;
         }
         if (o && typeof o.id === "number") st.select(o.id);
+        else if (o && typeof o.id === "string" && o.id.startsWith("seg:")) st.selectSegment(o.id);
         else if (o && typeof o.id === "string") st.selectContact(o.id);
         else { st.select(null); st.selectContact(null); }
       },
