@@ -329,7 +329,8 @@ class Agent:
                 "roles": self.table.held_by(self.me),
                 "to": list(self.action.target) if self.action and self.action.target else None,
                 "spd": self.action.speed_mm_s if self.action and self.action.target else 0,
-                "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE)}
+                "nbr": sorted(n for n, tc in self.direct.items() if self.t - tc <= PEER_STALE),
+                "det": self.params.r_detect_m, "kiv": self.params.keep_in_view_m}
 
     def view(self) -> dict:
         """JSON-safe state for /truth, state hashes and tests."""
