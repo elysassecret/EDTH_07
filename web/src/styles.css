@@ -83,3 +83,8 @@ html[data-display="night"] .chart { filter: grayscale(1) sepia(1) hue-rotate(-40
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* panel drag (ui/Panels.tsx): keep the resize cursor and stop text selection while dragging */
+html[data-resizing] * { user-select: none !important; }
+html[data-resizing="col"] * { cursor: col-resize !important; }
+html[data-resizing="row"] * { cursor: row-resize !important; }

@@ -108,6 +108,21 @@ uv run python -m server --serve-web --demo
 Re-time the final full take after choosing the accepted revision. C owns the canonical
 `server/DEMO.md` shot list; D verifies feature/video evidence and the release gate.
 
+## Panels: resize, hide, bring back
+
+The fleet list (left), the attention workspace (right) and the event timeline (bottom) can be
+resized by dragging their edge next to the chart.
+- Each panel stops at its maximum, and never takes the space the chart needs (the chart keeps
+  at least 360 px wide; the timeline takes at most half the window height).
+- Drag a panel below its smallest size and it holds there; push on and it closes, and the
+  chart gets the space. The hide icon in each panel header does the same.
+- A closed panel comes back from the **Fleet**, **Attention** or **Timeline** button above the
+  chart, at the size it had. Selecting a boat or contact opens the attention panel again.
+- Keyboard: focus the edge (Tab), then arrow keys resize (Shift = bigger steps), Home =
+  smallest, End = largest allowed, Enter hides. Double-click an edge for the default size.
+- Sizes are remembered in this browser. **View settings → Reset panel sizes** restores them.
+- Rules and limits: `src/panels.ts` (tested in `src/panels.test.ts`).
+
 ## Map text never overlaps
 
 `src/map/declutter.ts`: after every pan, zoom and new snapshot, each label gets a box on screen;

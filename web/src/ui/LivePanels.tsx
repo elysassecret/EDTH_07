@@ -1,6 +1,8 @@
 // Template presentation, operational data exclusively from the existing live store.
 import { useState } from "react";
-import { Activity, ArrowRight, Eye, Radio, Ship } from "lucide-react";
+import { Activity, ArrowRight, Eye, PanelBottomClose, Radio, Ship } from "lucide-react";
+import { LIMITS, maxSize } from "../panels";
+import { Splitter, useLayout } from "./Panels";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -395,9 +397,11 @@ export function SelectedContext() {
   );
 }
 
-export function EventTimeline() {
+export function EventTimeline({ height, room }: { height: number; room: number }) {
   const snap = useStore((s) => s.snap);
-  const [expanded, setExpanded] = useState(false);
+  const setPanel = useLayout((s) => s.set);
+  const showPanel = useLayout((s) => s.show);
+  const expanded = height > LIMITS.timeline.min;
   const [filter, setFilter] = useState("All events");
   const [story, setStory] = useState(false);
   const rows = story
@@ -411,7 +415,8 @@ export function EventTimeline() {
     .reverse()
     .filter((e) => filter === "All events" || eventCategory(e) === filter);
   return (
-    <section className="shrink-0 border-t" aria-label="Event timeline">
+    <section className="relative shrink-0 border-t" aria-label="Event timeline">
+      <Splitter id="timeline" edge="top" size={height} room={room} />
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
         <span className="flex items-center gap-2 text-sm font-medium">
           <Activity className="size-4" />
@@ -449,18 +454,34 @@ export function EventTimeline() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setExpanded(!expanded)}
+            onClick={() =>
+              setPanel("timeline", {
+                size: expanded ? LIMITS.timeline.min : Math.min(240, maxSize("timeline", room)),
+                open: true,
+              })
+            }
             aria-expanded={expanded}
           >
             {expanded ? "Collapse" : "Expand"}
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label="Hide event timeline"
+            title="Hide (the Timeline button brings it back)"
+            onClick={() => showPanel("timeline", false)}
+          >
+            <PanelBottomClose />
+          </Button>
         </div>
       </div>
       <div
-        className={`${expanded ? "max-h-40" : "max-h-16"} overflow-y-auto overscroll-contain border-t px-4`}
+        className="overflow-y-auto overscroll-contain border-t px-4"
+        style={{ height }}
       >
         {matching.length ? (
-          matching.slice(0, expanded ? 60 : 2).map((e, i) => (
+          matching.slice(0, 60).map((e, i) => (
             <div
               className="flex gap-3 border-b py-2 text-sm last:border-0"
               key={`${e.t}-${e.kind}-${i}`}
