@@ -125,7 +125,6 @@ def test_s3_contact_detected_held_then_watched_in_view(story):
     assert story.detect_s < story.claim_s <= story.in_view_s < DEPART_S
 
 
-@pytest.mark.xfail(reason="#17: shore contacts arrive with the delivered OBS/CONTACT picture")
 def test_s3_shore_shows_the_contact(story):
     assert story.pictures[story.claim_s // 60 * 60 + 60].contacts
 
@@ -135,9 +134,8 @@ def test_s4_cannot_hold_on_departure(story):
     assert DEPART_S <= story.released_s <= DEPART_S + 60
 
 
-@pytest.mark.xfail(reason="#17: the cannot-hold report needs the shore contact picture")
 def test_s4_shore_keeps_the_contact_after_it_leaves(story):
-    assert story.pictures[DEPART_S + 60].contacts
+    assert story.pictures[(DEPART_S // 60 + 1) * 60].contacts  # pictures are every minute
 
 
 def test_s5_uncovered_picket_stays_visible_to_the_end(story):
