@@ -87,7 +87,7 @@ def test_seed_one_picket_and_relay_stay_out_through_evaluate():
             assert "pick:N" in sim.nodes[3].table.held_by(3)
     for boat in (3, 5):
         assert not sim.nodes[boat].returning
-        assert sim.boats[boat].own().batt > 900
+        assert sim.boats[boat].own().batt > 850  # 03 rounds C-07's 1 nm stand-off ring (PLAN 7.9)
     assert sim.actions[5].mode == SENTINEL
     assert "relay" in sim.nodes[5].table.held_by(5)
     # Hotel load does not hide the sweeper's genuine energy limit at seven hours.
