@@ -363,8 +363,8 @@ class World:
         if not self._ais_clip.available:
             return []
         t_ms = max(0, self.t - getattr(self, "warm_ms", 0))
-        end_ms = max(t_ms, 30_000)
-        start_ms = max(-30_000, t_ms - window_ms)
+        end_ms = t_ms
+        start_ms = t_ms - window_ms
         pings = self._ais_clip.between(start_ms, end_ms)
         if not pings:
             return []
@@ -391,8 +391,8 @@ class World:
             ping = latest[track]
             dt = max(0, min(t_ms - ping.t_ms, 60_000))
             vx, vy = velocity(ping.sog, ping.cog)
-            x = ping.x + vx * dt // 1000
-            y = ping.y + vy * dt // 1000
+            x = ping.x + round(vx * dt / 1_000_000)
+            y = ping.y + round(vy * dt / 1_000_000)
             rng = class_a_m if ping.ais_class == "Class A" else class_b_m
             seen_by = [
                 boat for boat, b_pt in active_boats.items() if dist(b_pt, (x, y)) <= rng
