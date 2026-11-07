@@ -113,3 +113,18 @@ def test_one_way_cut_is_not_a_direct_shore_hop():
     boats = {b.id: b for b in s.shore.picture(s.t).boats}
     assert boats[4].link == "peer" and boats[4].via != 0
     assert boats[boats[4].via].link == "direct"  # next hop is a boat the shore hears
+
+
+def test_shore_explains_each_assignment_from_the_bids_it_heard():
+    """Roadmap: explain every assignment. When 01 goes home, each takeover is logged once with the
+    winner's bid and the other bids of that round the shore received; nothing is guessed."""
+    s = scene()
+    s.run_until(600_000)
+    s.set_batt(1, 200)
+    s.run_until(900_000)
+    lines = [e for e in s.shore.events if e["kind"] == "assignment"]
+    assert lines and all(e["text"].startswith("USV ") for e in lines)
+    for task in ("seg:G:0", "seg:M:0"):
+        owner = s.shore.table.recs[task].owner
+        mine = [e["text"] for e in lines if f" took {task}:" in e["text"]]
+        assert len(mine) == 1 and mine[0].startswith(f"USV {owner:02d} took {task}")
