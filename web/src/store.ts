@@ -30,6 +30,10 @@ interface State {
   live: Snapshot | null; // the newest live picture (always kept, also while replaying)
   replayT: number | null; // sim s of the replay frame on screen; null = live
   showReplay: (frame: Snapshot | null) => void; // null = back to live
+  replayPlaying: boolean; // playing the recording forward (the live run is not affected)
+  replaySpeed: number; // playback warp, 0.25-999 (sim seconds per real second)
+  setReplayPlaying: (on: boolean) => void;
+  setReplaySpeed: (v: number) => void;
   lastMsgAt: number; // wall-clock ms of the last snapshot (UI timing only, never sim data)
   lastAck: Ack | null;
   commandError: string | null; // local transport feedback, never a fabricated server ACK
@@ -92,7 +96,11 @@ export const useStore = create<State>((set, get) => ({
   live: null,
   replayT: null,
   showReplay: (frame) =>
-    set((s) => (frame ? { snap: frame, replayT: frame.t } : { snap: s.live, replayT: null })),
+    set((s) => (frame ? { snap: frame, replayT: frame.t } : { snap: s.live, replayT: null, replayPlaying: false })),
+  replayPlaying: false,
+  replaySpeed: 60,
+  setReplayPlaying: (on) => set({ replayPlaying: on }),
+  setReplaySpeed: (v) => set({ replaySpeed: Math.min(999, Math.max(0.25, v)) }),
   lastMsgAt: 0,
   lastAck: null,
   commandError: null,
