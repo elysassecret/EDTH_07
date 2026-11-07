@@ -18,6 +18,8 @@ Owner: Simeone (B). Every number below comes directly from `config/boat.toml`, `
 | **Shore launch** | `launch_gap_s = 60` | With `World(launch=True)` (the console default) every boat starts docked at Korsør with no task and is switched on 60 s after the previous one, in a seeded order; the agents decide who goes where. |
 | **Battery swap** | `swap_s = 600`, `dock_m = 50` | A boat docked at Korsør (within 50 m, agent mode `UNAVAILABLE`) gets a full battery after 10 min; logged as `swap_start` and `battery_swap`. A team assumption, not a measured time. |
 
+| **Power below cruise** | `power_exponent = 3` | Below cruise speed the drain is the hotel load plus the propulsion share times (speed / cruise)³: a rule of thumb for displacement hulls, not hull data. At cruise it is the same as before. |
+
 ## What Is NOT Modelled
 
 - **Waves, wind and sea state:** Motion integrates velocity through water plus the uniform current vector in integer millimetres; hull slamming, wave-induced camera stabilization loss and windage are not simulated.

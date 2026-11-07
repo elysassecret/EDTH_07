@@ -10,3 +10,7 @@ hotel_load_permille = 100  # chosen sim input: motors-off load / total cruise lo
 launch_gap_s = 60          # launch from shore: one boat switched on every 60 s, in a seeded order
 dock_m = 50                # a boat this close to the shore point counts as docked (agent HOME_M)
 swap_s = 600               # battery swap at the dock: about 10 min (team assumption, #116)
+
+# Below cruise speed, propulsion power falls with the cube of speed (displacement-hull rule of
+# thumb; replace with the hull's measured power curve). At cruise nothing changes. 0 = off.
+power_exponent = 3

@@ -35,6 +35,7 @@ class Boat:
         current: Point = (0, 0),
         hotel_load_permille: int = 1000,
         propulsion_permille: int = 1000,
+        cruise_mm_s: int | None = None,
     ) -> None:
         if dt_ms < 0 or action.speed_mm_s < 0:
             raise ValueError("time step and speed must be nonnegative")
@@ -52,6 +53,10 @@ class Boat:
         motors_on = distance > 0 and action.speed_mm_s > 0
         # Total cruise load already includes hotel load; do not add it twice.
         rate = 1000 if motors_on else hotel_load_permille
+        if motors_on and cruise_mm_s and action.speed_mm_s < cruise_mm_s:
+            # below cruise, propulsion power falls with the cube of speed (displacement-hull rule
+            # of thumb, config/energy.toml power_exponent; not hull data); the hotel load stays
+            rate = power_rate(action.speed_mm_s, cruise_mm_s, hotel_load_permille)
         available = self.charge_ms * 1000 - self.drain_remainder
         requested_ms = dt_ms
         dt_ms = min(dt_ms, available // rate)
@@ -71,3 +76,10 @@ class Boat:
                 self.y_mm += dy * travel // distance
         self.x_mm += current[0] * dt_ms // 1000
         self.y_mm += current[1] * dt_ms // 1000
+
+
+def power_rate(speed_mm_s: int, cruise_mm_s: int, hotel_load_permille: int) -> int:
+    """Battery drain at a speed, permille of the cruise drain: hotel + propulsion * (v/v_c)^3.
+    At cruise it is 1000, as before; at rest, the hotel load."""
+    v = min(max(speed_mm_s, 0), cruise_mm_s)
+    return hotel_load_permille + (1000 - hotel_load_permille) * v**3 // cruise_mm_s**3

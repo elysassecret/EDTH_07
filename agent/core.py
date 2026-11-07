@@ -58,6 +58,16 @@ STUCK_GAP_MS = 5_000  # not steering for this long (drifting on station) starts 
 WATER_RECHECK_MS = 10_000
 WATER_CORRIDOR_M = 150  # off the planned leg by more than this, and blocked: plan again  # how often the line to the next water waypoint is checked again
 WATER_WP_M = 30  # a water waypoint counts as reached this close (the world moves ~2.3 m a tick)
+# Phase 1 energy management. Mirrors of config values the agent cannot read (no files on the
+# boat); tests/agent/test_phase1.py checks each against its config file.
+REVISIT_TARGET_MS = 12_000_000  # config/run.toml revisit_target_s (D's number)
+DWELL_START_MS = 2_400_000  # dwell on the cable while there is at least 40 min of slack...
+DWELL_STOP_MS = 600_000  # ...and sweep again once it falls under 10 min
+ECO_SPEED_PERMILLE = 800  # the way home at 80 % of cruise speed
+HOTEL_PERMILLE = 100  # config/energy.toml hotel_load_permille (motors-off drain)
+# drain at the economical speed, permille of cruise drain: hotel + rest * 0.8^3 (cube law,
+# config/energy.toml power_exponent = 3)
+ECO_DRAIN_PERMILLE = HOTEL_PERMILLE + (1000 - HOTEL_PERMILLE) * ECO_SPEED_PERMILLE**3 // 1000**3
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
 TIME_SOURCE = "sim clock (simulation; no GNSS model)"  # same words as evidence/build.py
 
@@ -127,6 +137,7 @@ class Agent:
         # goal, waypoints still to go, start of the current leg
         self.water: tuple[tuple[int, int], list[tuple[int, int]], tuple[int, int]] | None = None
         self.home: tuple[int, list[tuple[int, int]]] | None = None  # when planned, route home
+        self.dwelling = False  # Phase 1: holding on the cable with motors off
         # since, goal, where it was then, last tick it was steering for that goal
         self.stuck: tuple[int, tuple[int, int], tuple[int, int], int] | None = None
         self.detoured = False  # the stand-off ring made me skip or round part of my sweep
@@ -354,10 +365,11 @@ class Agent:
             return [frm, self.mission.shore]
         return water.home_path(frm, self.mission.shore)
 
-    def route_ms(self, pts: list[tuple[int, int]]) -> int:
-        """Time along a route at planning speed, with the current this boat measures taken leg by
-        leg (helping on one leg, against it on the next). Never below a quarter of the speed."""
-        v, total = self.v_plan(), 0
+    def route_ms(self, pts: list[tuple[int, int]], speed_mm_s: int | None = None) -> int:
+        """Time along a route at planning speed (or the given speed), with the current this boat
+        measures taken leg by leg (helping on one leg, against it on the next). Never below a
+        quarter of the speed."""
+        v, total = speed_mm_s or self.v_plan(), 0
         for a, b in pairwise(pts):
             d = dist(a, b)
             if d:
@@ -365,9 +377,19 @@ class Agent:
                 total += ms(d, max(v + along, v // 4))
         return total
 
+    def eco_mm_s(self) -> int:
+        """Phase 1: the way home is driven at ECO_SPEED_PERMILLE of the planning speed."""
+        return max(self.v_plan() * ECO_SPEED_PERMILLE // 1000, 1)
+
+    def home_energy_ms(self, pts: list[tuple[int, int]]) -> int:
+        """Battery (ms of cruise drain) for the way home along pts at the economical speed: the
+        time at that speed times its drain rate (ECO_DRAIN_PERMILLE of the cruise drain)."""
+        return self.route_ms(pts, self.eco_mm_s()) * ECO_DRAIN_PERMILLE // 1000
+
     def return_ms(self, frm: tuple[int, int]) -> int:
-        """Time to the shore from a point by water, with the current this boat measures."""
-        return self.route_ms(self.home_route(frm))
+        """Battery to get home from a point by water at the economical speed, with the current
+        this boat measures (ms of cruise drain: the unit of remaining_ms)."""
+        return self.home_energy_ms(self.home_route(frm))
 
     def return_due(self) -> bool:
         """Battery rule 11, checked every tick against the trip home by water. The route is planned
@@ -375,7 +397,7 @@ class Agent:
         p = self.params
         if self.home is None or self.t - self.home[0] >= HOME_RECHECK_MS:
             self.home = (self.t, self.home_route(self.pos))
-        trip = self.route_ms([self.pos, *self.home[1][1:]])
+        trip = self.home_energy_ms([self.pos, *self.home[1][1:]])
         need = p.return_safety_permille * (trip + p.reserve_ms) // 1000
         return self.remaining_ms() <= need
 
@@ -450,7 +472,7 @@ class Agent:
         if self.returning:
             if dist(self.pos, self.mission.shore) <= HOME_M:
                 return Action(UNAVAILABLE, None, 0)
-            return Action(RETURNING, self.mission.shore, v)
+            return Action(RETURNING, self.mission.shore, self.eco_mm_s())
         watched = self.contacts.watching()
         if watched and not self.contacts.stale(watched.split(":", 1)[1], self.t):
             return Action(SHADOWING, self.contacts.ring(watched), v)
@@ -465,8 +487,31 @@ class Agent:
             if kind(task) in ("relay", "pick"):
                 return self.keep_station(self.station(task))
         if self.legs():
+            if self.dwell_ok():
+                return self.keep_station(self.follow.target(self.pos))
             return Action(PATROL, self.follow.target(self.pos), v)
         return Action(SENTINEL, None, 0)
+
+    def dwell_ok(self) -> bool:
+        """Phase 1, dwell on the cable: a sweeper whose cables are fresh holds on its next cable
+        point with motors off (drift and correct, as a picket does) instead of sweeping again.
+        Slack = the revisit target, less the age of its oldest sample, less one full sweep of its
+        tour: the time it could wait and still get round before any sample goes over target.
+        It starts to dwell above DWELL_START_MS (40 min) of slack and sweeps again below DWELL_STOP_MS
+        (10 min). Measured: a sweeper is rarely ahead of the target, so this fires only sometimes."""
+        if not self.water_rules() or self.params.policy == "static":
+            return False
+        legs = self.legs()
+        oldest = min(self.visits.oldest(k) for k, _ in legs)
+        if oldest < 0:
+            self.dwelling = False  # a sample never visited: sweep
+            return False
+        slack = REVISIT_TARGET_MS - (self.t - oldest) - ms(self.tours.cycle_m(legs), self.v_plan())
+        was = self.dwelling
+        self.dwelling = slack > (DWELL_STOP_MS if was else DWELL_START_MS)
+        if self.dwelling != was:
+            self.log("dwell" if self.dwelling else "sweep", {"slack_s": slack // 1000})
+        return self.dwelling
 
     # safety filter (PLAN 7.9) --------------------------------------------------------------
     def avoid(self, a: Action) -> Action:

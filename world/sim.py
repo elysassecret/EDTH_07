@@ -78,6 +78,7 @@ class World:
             self._base_current = Current((0, 0), self._base_current.flip_ms)
         self.current = self._base_current
         self.hotel_load_permille = energy["hotel_load_permille"]
+        self.power_exponent = int(energy.get("power_exponent", 0))  # 3: cube law below cruise
         self.launch_gap_ms = round(energy.get("launch_gap_s", 60) * 1000)
         self.dock_m = int(energy.get("dock_m", 50))
         self.swap_ms = round(energy.get("swap_s", 600) * 1000)
@@ -441,6 +442,7 @@ class World:
                     duration,
                     current=self.boat_currents.get(boat, current),
                     hotel_load_permille=self.hotel_load_permille,
+                    cruise_mm_s=self.params.speed_mm_s if self.power_exponent == 3 else None,
                     propulsion_permille=prop,
                 )
             dx, dy = state.x_mm - before[0], state.y_mm - before[1]

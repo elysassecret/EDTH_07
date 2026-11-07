@@ -103,6 +103,19 @@ What the boat does when the return rule (11) fires, and what it does not claim:
     again from the nearest water waypoint and, on patrol, skips the cable point it could not
     reach (`STUCK_MS`). Lines between water waypoints clear the coast by 30 m more than the margin.
 
+### Saving battery (Phase 1)
+
+12h. **The way home is driven at 80 % of cruise speed** (`ECO_SPEED_PERMILLE`). Below cruise the
+    model's propulsion power falls with the cube of speed (config/energy.toml `power_exponent`, a
+    displacement-hull rule of thumb, not hull data), so the way home costs about 56 % of the
+    battery per hour (`ECO_DRAIN_PERMILLE`), about 70 % of it per kilometre. Rules 11 and 12 count
+    the way home at that speed and drain, so a boat stays on its work longer before it has to go.
+12i. **A sweeper with fresh cables dwells on them.** When the revisit target, less the age of its
+    oldest sample, less one full sweep of its tour, leaves more than 40 min of slack, it holds on
+    its next cable point with motors off (drift and correct, like a picket) and sweeps again when
+    the slack falls under 10 min. Sweepers are rarely that far ahead, so this happens only
+    sometimes; it never lets a sample go over the target that a full sweep would have kept in.
+
 ### Back from Korsør (#117)
 
 12c. **A docked boat whose battery is back to 90 %** (`rejoin_battery = 0.9`, after a battery swap)
