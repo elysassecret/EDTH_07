@@ -36,7 +36,10 @@ there is no leader.
 11. **A boat goes home when its battery covers only 1.2 × (the trip home, against the current it
     measures, plus a 30 min reserve)** (`return_safety = 1.2`, `reserve_s = 1800`). It releases all
     its tasks at once, so others bid on them in the next round. Nobody can stop this.
-12. **A boat never bids on a task it cannot finish and still get home** with the same margin.
+12. **A boat never bids on a task it cannot finish and still get home**: the trip out (reach it,
+    do it once) plus the trip home from its far end with the margin of rule 11 (1.2 × the way
+    home, plus the 30 min reserve). Both trips home are timed along the water route round the
+    coast (12f), with the measured current leg by leg, not the straight line.
 
 ### Critical energy: the degraded mode (#104)
 

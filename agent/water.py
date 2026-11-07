@@ -67,7 +67,12 @@ def _hits(a: Point, b: Point, ring, near_a: bool, near_b: bool) -> bool:
     """Does a-b cross this ring, ignoring crossings within EXIT_M of an end standing on it?"""
     d = b[0] - a[0], b[1] - a[1]
     length = dist(a, b)
+    lo_x, hi_x = min(a[0], b[0]), max(a[0], b[0])
+    lo_y, hi_y = min(a[1], b[1]), max(a[1], b[1])
     for u, v in pairwise(ring):
+        if (max(u[0], v[0]) < lo_x or min(u[0], v[0]) > hi_x
+                or max(u[1], v[1]) < lo_y or min(u[1], v[1]) > hi_y):
+            continue  # this coast edge is nowhere near the line
         d1, d2 = _cross(a, b, u), _cross(a, b, v)
         d3, d4 = _cross(u, v, a), _cross(u, v, b)
         if not ((d1 > 0) != (d2 > 0) and (d3 > 0) != (d4 > 0)):
@@ -142,3 +147,51 @@ def path(a: Point, b: Point) -> list[Point]:
         chain.append(NODES[i])
         i = prev[i]
     return [a, *reversed(chain), b]
+
+
+_HOME: dict[Point, tuple[list[int], list[int]]] = {}  # home -> (distance, next node; -1 = home)
+
+
+def _home_table(home: Point) -> tuple[list[int], list[int]]:
+    """Shortest water distance from every waypoint to home, and its next hop (Dijkstra once)."""
+    if home not in _HOME:
+        n = len(NODES)
+        best, nxt = [10**12] * n, [-2] * n
+        heap: list[tuple[int, int]] = []
+        for i, p in enumerate(NODES):
+            if not blocked(p, home):
+                best[i], nxt[i] = dist(p, home), -1
+                heappush(heap, (best[i], i))
+        done = [False] * n
+        while heap:
+            d, i = heappop(heap)
+            if done[i]:
+                continue
+            done[i] = True
+            for j, w in EDGES[i]:
+                if d + w < best[j]:
+                    best[j], nxt[j] = d + w, i
+                    heappush(heap, (best[j], j))
+        _HOME[home] = (best, nxt)
+    return _HOME[home]
+
+
+def home_path(a: Point, home: Point) -> list[Point]:
+    """The water route from a to a fixed home point (the shore), same answer as path(a, home)
+    but fast: the waypoints' distances home are computed once, and only the waypoints that could
+    beat the best so far are checked for a clear line from a."""
+    if a == home or not blocked(a, home):
+        return [a, home]
+    best, nxt = _home_table(home)
+    order = sorted(range(len(NODES)), key=lambda i: (dist(a, NODES[i]) + best[i], i))
+    pick = next((i for i in order if best[i] < 10**12 and not blocked(a, NODES[i])), None)
+    if pick is None:
+        pick = _nearest(a)[0] if NODES else None  # deep on land: leave by the nearest waypoint
+    if pick is None or best[pick] >= 10**12:
+        return [a, home]
+    out = [a]
+    i = pick
+    while i >= 0:
+        out.append(NODES[i])
+        i = nxt[i]
+    return [*out, home]

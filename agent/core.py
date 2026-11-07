@@ -8,6 +8,7 @@ told, hash-linked by evidence/chain.py. Its signed head rides in every heartbeat
 and peers hold a copy and a lost or altered boat cannot silently rewrite its record.
 """
 from hashlib import sha256
+from itertools import pairwise
 from math import isqrt
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -42,6 +43,7 @@ from evidence.chain import Chain, head_message
 HOME_M = 50  # at the shore station
 STANDOFF_MARGIN_M = 50  # steer round the stand-off ring this far outside it
 AIM_M = 500  # while rounding a ring, aim this far ahead along the tangent
+HOME_RECHECK_MS = 10_000  # how often the water route home is planned again for the battery rule
 WATER_RECHECK_MS = 10_000  # how often the line to the next water waypoint is checked again
 WATER_WP_M = 30  # a water waypoint counts as reached this close (the world moves ~2.3 m a tick)
 STATION_BACK_M = 100  # SENTINEL: once correcting, drive back to this close before drifting again
@@ -109,6 +111,7 @@ class Agent:
         self.started = False
         self.boot_t: int | None = None  # first step after being switched on
         self.water: tuple[tuple[int, int], list[tuple[int, int]]] | None = None  # goal, waypoints
+        self.home: tuple[int, list[tuple[int, int]]] | None = None  # when planned, route home
         self.detoured = False  # the stand-off ring made me skip or round part of my sweep
         self.majority_since: int | None = None
         self.majority = False
@@ -327,18 +330,36 @@ class Agent:
     def remaining_ms(self) -> int:
         return self.batt * self.params.endurance_ms // 1000
 
+    def home_route(self, frm: tuple[int, int]) -> list[tuple[int, int]]:
+        """The way home Korsør from a point: the water route round the coast (12f), which can be
+        much longer than the straight line (from the north stations it goes round Zealand)."""
+        if not self.water_rules():
+            return [frm, self.mission.shore]
+        return water.home_path(frm, self.mission.shore)
+
+    def route_ms(self, pts: list[tuple[int, int]]) -> int:
+        """Time along a route at planning speed, with the current this boat measures taken leg by
+        leg (helping on one leg, against it on the next). Never below a quarter of the speed."""
+        v, total = self.v_plan(), 0
+        for a, b in pairwise(pts):
+            d = dist(a, b)
+            if d:
+                along = (self.cur[0] * (b[0] - a[0]) + self.cur[1] * (b[1] - a[1])) // d
+                total += ms(d, max(v + along, v // 4))
+        return total
+
     def return_ms(self, frm: tuple[int, int]) -> int:
-        """Time to the shore from a point, with the current this boat measures."""
-        shore, v = self.mission.shore, self.v_plan()
-        d = dist(frm, shore)
-        if d == 0:
-            return 0
-        along = (self.cur[0] * (shore[0] - frm[0]) + self.cur[1] * (shore[1] - frm[1])) // d
-        return ms(d, max(v + along, v // 4))
+        """Time to the shore from a point by water, with the current this boat measures."""
+        return self.route_ms(self.home_route(frm))
 
     def return_due(self) -> bool:
+        """Battery rule 11, checked every tick against the trip home by water. The route is planned
+        again every HOME_RECHECK_MS; between plans the boat's own position replaces its start."""
         p = self.params
-        need = p.return_safety_permille * (self.return_ms(self.pos) + p.reserve_ms) // 1000
+        if self.home is None or self.t - self.home[0] >= HOME_RECHECK_MS:
+            self.home = (self.t, self.home_route(self.pos))
+        trip = self.route_ms([self.pos, *self.home[1][1:]])
+        need = p.return_safety_permille * (trip + p.reserve_ms) // 1000
         return self.remaining_ms() <= need
 
     def go_home(self) -> None:

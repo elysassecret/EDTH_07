@@ -178,20 +178,30 @@ class Auction:
             c += a.params.role_penalty_ms  # take a watcher from the lane before the cables
         return c
 
-    def need_ms(self, task: str) -> int:
-        """Model estimate of the energy (ms at cruise) to reach the task, do it once and get home
-        from its far end, with the current this boat measures."""
+    def need_parts(self, task: str) -> tuple[int, int]:
+        """Model estimate (ms at cruise) of the trip out (reach the task, do it once) and of the
+        trip home by water from its far end, with the current this boat measures."""
         a = self.a
         k = kind(task)
         far = (a.tours.pts[task][-1] if k == "seg" else a.contacts.position(task)
                if k == "contact" else a.station(task))
         one_pass = ms(a.tours.len[task], a.v_plan()) if k == "seg" else 0
-        return self.reach_ms(task) + one_pass + a.return_ms(far)
+        return self.reach_ms(task) + one_pass, a.return_ms(far)
+
+    def need_ms(self, task: str) -> int:
+        out, back = self.need_parts(task)
+        return out + back
 
     def energy_ok(self, task: str) -> bool:
+        """Rule 12: the trip out, then the trip home with the same margin as the return rule 11
+        (return_safety on the way home, plus the reserve). The margin is on the way home, the
+        uncertain part (current, a slower boat); the way out is driven, and checked every tick by
+        rule 11. Before, the margin also multiplied the way out, and no fresh boat could take the
+        far end of the HVDC cable (seg:H:0) from Korsør."""
         p = self.a.params
+        out, back = self.need_parts(task)
         return (self.a.remaining_ms() - p.reserve_ms
-                >= p.return_safety_permille * self.need_ms(task) // 1000)
+                >= out + p.return_safety_permille * back // 1000)
 
     def can_bid(self, task: str, t: int) -> bool:
         a = self.a
@@ -225,10 +235,10 @@ class Auction:
         pts = a.tours.pts[task]
         here = (p["x"], p["y"])
         v = prm.speed_mm_s
-        need = ms(min(dist(here, pts[0]), dist(here, pts[-1])) + a.tours.len[task]
-                  + dist(pts[-1], a.mission.shore), v)
+        out = ms(min(dist(here, pts[0]), dist(here, pts[-1])) + a.tours.len[task], v)
+        back = ms(dist(pts[-1], a.mission.shore), v)
         left = p["batt"] * prm.endurance_ms // 1000 - prm.reserve_ms
-        return left >= prm.return_safety_permille * need // 1000
+        return left >= out + prm.return_safety_permille * back // 1000
 
     def last_sweeper(self, t: int) -> bool:
         """Never take the last boat sweeping cables off them (PLAN F7)."""

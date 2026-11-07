@@ -95,7 +95,11 @@ def test_seed_one_picket_and_relay_stay_out_through_evaluate():
     assert sim.nodes[2].returning
     assert sim.actions[3].mode == PATROL
     north_tasks = {task.id for task in sim.mission.tasks if task.id.startswith("seg:H:")}
-    assert north_tasks <= set(sim.nodes[3].table.held_by(3))
+    # every north segment is swept by a boat at sea; since battery swaps (#116) the fleet shares
+    # them (USV 01 is back from Korsør), so they are no longer all USV 03's
+    at_sea = {k for b, n in sim.nodes.items() if not n.returning for k in n.table.held_by(b)}
+    assert north_tasks <= at_sea
+    assert set(sim.nodes[3].table.held_by(3)) & north_tasks
     assert "pick:N" not in sim.nodes[3].table.held_by(3)
     expected = sim.state_hash()
     sim.reset()
