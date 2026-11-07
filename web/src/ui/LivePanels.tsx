@@ -477,8 +477,8 @@ export function EventTimeline({ height, room }: { height: number; room: number }
             variant="ghost"
             size="icon"
             className="size-8"
-            aria-label="Hide event timeline"
-            title="Hide (the tab along the bottom brings it back)"
+            aria-label="Collapse event timeline"
+            title="Collapse to a thin bar"
             onClick={() => showPanel("timeline", false)}
           >
             <PanelBottomClose />

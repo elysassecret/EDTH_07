@@ -347,9 +347,10 @@ test("laptop sheets preserve chart space and operator mode never exposes truth",
       .boundingBox();
     expect(map?.width).toBeGreaterThan(600);
     expect(map?.height).toBeGreaterThan(200);
-    await page
-      .getByRole("button", { name: "Attention · 1", exact: true })
-      .click();
+    // no panel buttons in the top bar: the icon sidebars stay on their edges and open the drawers
+    await expect(page.getByRole("button", { name: /^Attention ·/ })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Fleet sidebar" })).toBeVisible();
+    await page.getByRole("button", { name: "Expand attention panel" }).click();
     await expect(
       page.getByRole("dialog", { name: "Operator attention" }),
     ).toBeVisible();
@@ -395,32 +396,36 @@ test("panels resize between limits, close when pushed past the minimum and come 
     await drag(1000); // far past the maximum
     await expect(fleetEdge).toHaveAttribute("aria-valuenow", "520");
     expect((await chart.boundingBox())!.width).toBeLessThan(before);
-    await drag(-600); // pushed past the minimum: closes, the chart takes the space
+    await drag(-600); // pushed past the minimum: collapses to the icon sidebar, the chart takes the space
     await expect(fleetEdge).toHaveCount(0);
     await expect(page.getByRole("complementary", { name: "Fleet overview" })).toHaveCount(0);
     expect((await chart.boundingBox())!.width).toBeGreaterThan(before);
-    // the closed panel leaves a tab on the same (left) edge; it brings the panel back at its last size
-    const fleetTab = page.getByRole("button", { name: /^Show fleet/ });
-    expect((await fleetTab.boundingBox())!.x).toBeLessThan(10);
-    await fleetTab.click();
-    await expect(fleetTab).toHaveCount(0);
+    // the collapsed panel stays as a narrow sidebar on the same (left) edge, one dot per boat
+    const fleetRail = page.getByRole("navigation", { name: "Fleet sidebar" });
+    const railBox = (await fleetRail.boundingBox())!;
+    expect(railBox.x).toBeLessThan(10);
+    expect(railBox.width).toBeLessThanOrEqual(56);
+    await expect(fleetRail.getByRole("button", { name: /^USV \d\d/ }).first()).toBeVisible();
+    await fleetRail.getByRole("button", { name: "Expand fleet panel" }).click();
+    await expect(fleetRail).toHaveCount(0);
     await expect(page.getByRole("separator", { name: "Resize fleet panel" })).toHaveAttribute("aria-valuenow", "520");
     // keyboard: arrows resize, Enter hides; the layout is remembered across a reload
     const attEdge = page.getByRole("separator", { name: "Resize attention panel" });
     await attEdge.focus();
     await page.keyboard.press("Home");
     await expect(attEdge).toHaveAttribute("aria-valuenow", "320");
-    await page.getByRole("button", { name: "Hide attention panel" }).click();
-    const attTab = page.getByRole("button", { name: /^Show attention/ });
-    const attBox = (await attTab.boundingBox())!;
+    await page.getByRole("button", { name: "Collapse attention panel" }).click();
+    const attRail = page.getByRole("navigation", { name: "Attention sidebar" });
+    const attBox = (await attRail.boundingBox())!;
     expect(attBox.x + attBox.width).toBeGreaterThan(1600 - 10); // on the right edge
-    await attTab.click();
-    await page.getByRole("button", { name: "Hide event timeline" }).click();
+    await expect(attRail.getByRole("button", { name: /^Decisions waiting: \d+/ })).toBeVisible();
+    await attRail.getByRole("button", { name: "Expand attention panel" }).click();
+    await page.getByRole("button", { name: "Collapse event timeline" }).click();
     await expect(page.getByRole("region", { name: "Event timeline" })).toHaveCount(0);
     await page.reload();
     await expect(page.getByRole("separator", { name: "Resize attention panel" })).toHaveAttribute("aria-valuenow", "320");
     await expect(page.getByRole("region", { name: "Event timeline" })).toHaveCount(0);
-    const timelineTab = page.getByRole("button", { name: /^Show event timeline/ });
+    const timelineTab = page.getByRole("button", { name: /^Expand event timeline/ });
     const tabBox = (await timelineTab.boundingBox())!;
     expect(tabBox.y + tabBox.height).toBeGreaterThan(1000 - 10); // along the bottom edge
     await timelineTab.click();
