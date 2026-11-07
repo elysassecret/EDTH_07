@@ -42,6 +42,17 @@ def sensor_ranges() -> dict:
         "keep_in_view_m": int(boat["keep_in_view_m"]),
         "standoff_m": int(boat["standoff_m"]),
     }
+
+
+def boat_model() -> dict:
+    """Model numbers the console needs for estimates (config/boat.toml, B's file), read, never
+    hard-coded: cruise speed for "could be within" circles and transit estimates, endurance and
+    reserve for the response-cost preview. Model values, not measured on a hull."""
+    import tomllib
+
+    boat = tomllib.loads((ROOT / "config" / "boat.toml").read_text(encoding="utf-8"))
+    return {"speed_mps": float(boat["speed_mps"]), "endurance_s": int(boat["endurance_s"]),
+            "reserve_s": int(boat["reserve_s"])}
 WEB_DIST = ROOT / "web" / "dist"
 log = logging.getLogger("feed")
 

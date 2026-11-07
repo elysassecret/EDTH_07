@@ -161,6 +161,19 @@ def test_scene_carries_ring_ranges_from_boat_config():
     assert MockWorld(1).scene_msg()["ranges"] == want
 
 
+def test_scene_carries_boat_model_from_boat_config():
+    import tomllib
+
+    from server.feed import ROOT
+    from server.mock_feed import MockWorld
+
+    boat = tomllib.loads((ROOT / "config" / "boat.toml").read_text())
+    want = {"speed_mps": boat["speed_mps"], "endurance_s": boat["endurance_s"],
+            "reserve_s": boat["reserve_s"]}
+    assert SimSource(1).scene_msg()["boat_model"] == want
+    assert MockWorld(1).scene_msg()["boat_model"] == want
+
+
 @pytest.mark.parametrize("make", ["sim", "mock"])
 def test_injection_works_for_any_boat_and_link(make):
     """BUILD_PLAN step 14: not only the scripted boats 01, 04 and 05."""
