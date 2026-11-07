@@ -24,10 +24,10 @@ import tomllib
 from collections import deque
 from pathlib import Path
 
-from agent.core import Agent
+from agent.core import HOME_M, Agent
 from agent.shore import ShoreNode
 from contract.constants import SHORE
-from contract.geo import to_lonlat
+from contract.geo import to_lonlat, to_xy
 from contract.tasks import from_wire, merge
 from contract.views import Boat, Contact, ContactFlags, Event, Link, Snapshot, TaskView
 from server.alerts import AlertBook
@@ -71,8 +71,11 @@ def _event_text(e: dict) -> str:
 class SimSource:
     """World + ShoreNode adapted to the Feed source interface (see server/feed.py)."""
 
-    def __init__(self, seed: int = 1, runs_dir: Path | None = None):
+    def __init__(self, seed: int = 1, runs_dir: Path | None = None, demo: dict | None = None):
         self.seed = seed
+        # demo preset (server/demo.toml, --demo): warp, extra slow windows, scheduled
+        # injections and a fast-forward start. None = the normal console behaviour.
+        self.demo = demo or {}
         self.world = World(root=ROOT, seed=seed, agent_factory=Agent, shore_factory=ShoreNode)
         self.ui = json.loads((ROOT / "config" / "ui.json").read_text(encoding="utf-8"))
         run = _toml("config/run.toml")
@@ -84,13 +87,31 @@ class SimSource:
         self.past_events: deque[int] = deque(maxlen=64)  # ms of events already applied
         # sim time requested so far; can sit between ticks at slow warp (5x at 10 Hz = 0.5 s)
         self.clock_ms = 0
-        self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc)
+        self.alerts = AlertBook(int(self.ui["stale_after_s"]), self.t0_utc, self.revisit_target_s)
         schema = Snapshot.model_fields["schema_version"].default
         self.log = RunLog.open_new(runs_dir, seed, schema, self.t0_utc) if runs_dir else None
         self._logged_events = 0
+        self._placed = 0  # synthetic contacts placed from the console (X-01, X-02, ...)
+        self._sample_m = self._sample_lengths()
+        self._contact_defaults = next(
+            (e for e in tape if e.get("kind") == "contact_start"), {"ais": False, "sog_kn": 0.0,
+                                                                     "class": "unknown"})
         self.world.step()  # t = 0 processed, so every view is defined from the first frame
         self._after_tick()
         self._flush()
+        if self.demo:
+            self._start_demo()
+
+    def _start_demo(self) -> None:
+        """Scheduled injections go through command(), so the run log can replay them."""
+        for inj in self.demo.get("inject", []):
+            msg = {"cmd": "inject", "kind": inj["kind"], "a": inj["a"], "at_s": inj["t"]}
+            if "b" in inj:
+                msg["b"] = inj["b"]
+            res = self.command(msg)
+            if not res["ok"]:
+                raise ValueError(f"demo injection {inj}: {res['error']}")
+        self.step(int(self.demo.get("start_s", 0)) * 1000)
 
     # ---- Feed source interface
     @property
@@ -133,10 +154,14 @@ class SimSource:
     def near_event(self) -> bool:
         t = self.world.t_ms
         times = [*self.past_events, *self.world.upcoming_event_times()]
-        return any(abs(t - e) <= EVENT_WINDOW_MS for e in times if e > 0)
+        if any(abs(t - e) <= EVENT_WINDOW_MS for e in times if e > 0):
+            return True
+        return any(a * 1000 <= t <= b * 1000 for a, b in self.demo.get("slow", []))
 
     def speed(self) -> int:
-        return int(self.ui["warp_near_events" if self.near_event() else "warp_between_events"])
+        near = self.demo.get("warp_near", self.ui["warp_near_events"])
+        far = self.demo.get("warp_between", self.ui["warp_between_events"])
+        return int(near if self.near_event() else far)
 
     def scene_msg(self) -> dict:
         m = self.world.mission
@@ -152,6 +177,7 @@ class SimSource:
             "stale_after_s": self.ui["stale_after_s"],
             "horizon_s": self.horizon_ms // 1000,
             "revisit_target_s": self.revisit_target_s,
+            "home_m": HOME_M,  # agent's "at the shore station" radius: docked boats sit inside it
         }
 
     def snapshot(self, channel: str = "shore", speed: int | None = None) -> dict:
@@ -159,6 +185,8 @@ class SimSource:
         snap = self._truth(speed) if channel == "truth" else self._shore(speed)
         out = snap.model_dump(mode="json")
         # console extras (not contract fields): framing, source label, wall-clock origin
+        if channel == "truth":
+            out["cable_overdue"] = self.cable_overdue()
         out.update(type="snapshot", source="sim", seed=self.seed, t_exact=self.t,
                    t0_utc=self.t0_utc)
         return out
@@ -178,6 +206,10 @@ class SimSource:
                     return {"ok": False, "error": "decision id missing"}
                 ok = self.world.shore.command(self.world.t_ms, {"cmd": cmd, "id": msg["id"]})
                 return {"ok": bool(ok)} if ok else {"ok": False, "error": "not a shore command"}
+            if cmd == "inject" and msg.get("kind") == "contact_start":
+                return self._place_contact(msg)
+            if cmd == "inject" and msg.get("kind") == "boat_restore":
+                return {"ok": False, "error": "boat_restore needs world support (issue #34)"}
             if cmd == "inject":
                 kind, a = msg.get("kind"), int(msg["a"])
                 if kind not in INJECT_KINDS:
@@ -192,7 +224,9 @@ class SimSource:
                         return {"ok": False, "error": f"no boat {event['b']}"}
                     if event["b"] == a:
                         return {"ok": False, "error": "a link needs two different ends"}
-                self.world.inject(event)
+                # console extra: "at_s" schedules it for a later tick (demo preset)
+                at = msg.get("at_s")
+                self.world.inject(event, None if at is None else int(at) * 1000)
                 return {"ok": True}
             if cmd == "ack":
                 if not isinstance(msg.get("id"), str):
@@ -202,6 +236,54 @@ class SimSource:
         except (KeyError, ValueError, TypeError) as e:
             return {"ok": False, "error": f"bad command: {e}"}
         return {"ok": False, "error": f"unknown cmd {cmd!r}"}
+
+    def _sample_lengths(self) -> list[int]:
+        """Metres of cable each sample stands for: up to the next sample on the same task,
+        and the last one up to the end of its line (world/routes.py samples every step_m)."""
+        from shapely.geometry import LineString
+
+        ends = {t.id: LineString(t.pts).length for t in self.world.mission.tasks
+                if t.id.startswith("seg:")}
+        samples = self.world.scene.samples
+        out = []
+        for i, sm in enumerate(samples):
+            nxt = samples[i + 1] if i + 1 < len(samples) else None
+            stop = nxt.offset_m if nxt is not None and nxt.task == sm.task else ends[sm.task]
+            out.append(max(0, round(stop - sm.offset_m)))
+        return out
+
+    def cable_overdue(self) -> dict:
+        """Evaluator only: true cable km past the revisit target, from each sample's real
+        visit time. A console estimate; the scored metric comes from eval/ (D)."""
+        t = self.world.t_ms
+        target_ms = self.revisit_target_s * 1000
+        visits = self.world.truth_view()["sample_visit_ms"]
+        never = sum(m for m, v in zip(self._sample_m, visits, strict=True) if v is None)
+        over = sum(m for m, v in zip(self._sample_m, visits, strict=True)
+                   if v is not None and t - v > target_ms)
+        return {"target_s": self.revisit_target_s, "overdue_km": round(over / 1000, 2),
+                "never_visited_km": round(never / 1000, 2),
+                "total_km": round(sum(self._sample_m) / 1000, 2)}
+
+    def _place_contact(self, msg: dict) -> dict:
+        """Feature 13: a synthetic contact where the judge clicked, snapped to the nearest
+        cable sample. Speed, class and AIS default to the scripted C-07's (scenarios/fixed.toml).
+        Truth only: the shore learns of it only if a boat sees it."""
+        lat, lon = float(msg["lat"]), float(msg["lon"])
+        x, y = to_xy(lat, lon)
+        samples = self.world.scene.samples
+        i = min(range(len(samples)),
+                key=lambda k: ((samples[k].point[0] - x) ** 2 + (samples[k].point[1] - y) ** 2, k))
+        s = samples[i]
+        slon, slat = to_lonlat(*s.point)
+        self._placed += 1
+        d = self._contact_defaults
+        cid = f"X-{self._placed:02d}"
+        self.world.inject({"kind": "contact_start", "id": cid, "lat": slat, "lon": slon,
+                           "ais": bool(msg.get("ais", d.get("ais", False))),
+                           "sog_kn": float(d.get("sog_kn", 0.0)), "class": str(d.get("class")),
+                           "course": 0})
+        return {"ok": True, "placed": cid, "on": s.task, "offset_m": s.offset_m}
 
     # ---- views
     def _exercise_events(self) -> list[Event]:
@@ -324,10 +406,13 @@ class SimSource:
 
 
 async def serve(host: str, port: int, seed: int, hz: float = 10.0, ready=None,
-                serve_web: bool = False, runs_dir: Path | None = None) -> None:
+                serve_web: bool = False, runs_dir: Path | None = None,
+                demo: dict | None = None) -> None:
     from server.feed import serve as feed_serve
 
     def factory(s: int) -> SimSource:
-        return SimSource(s, runs_dir=runs_dir)
+        return SimSource(s, runs_dir=runs_dir, demo=demo)
 
-    await feed_serve(factory, host, port, seed, hz, ready, serve_web, name="sim bridge")
+    await feed_serve(factory, host, port, seed, hz, ready, serve_web,
+                     name="sim bridge (demo preset)" if demo else "sim bridge",
+                     start_paused=bool(demo and demo.get("start_paused")))

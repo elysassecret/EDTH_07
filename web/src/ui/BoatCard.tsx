@@ -4,8 +4,9 @@ import { useStore } from "../store";
 import { ContactList } from "./ContactList";
 import { DecisionPanel } from "./DecisionPanel";
 import { AlertPanel } from "./AlertPanel";
+import { EvalPanel } from "./EvalPanel";
 import { deg, dur, hm, hhmm } from "../format";
-import { roleText } from "../roles";
+import { isDocked, roleText } from "../roles";
 import { t0Of, type Boat, type Snapshot } from "../types";
 
 const LIVE_S = 5; // reports younger than this read "LIVE"
@@ -24,6 +25,8 @@ function linkText(b: Boat): string {
 
 export function BoatCard({ b, snap, staleAfter }: { b: Boat; snap: Snapshot; staleAfter: number }) {
   const selected = useStore((s) => s.selected);
+  const scene = useStore((s) => s.scene);
+  const docked = isDocked(b, scene);
   const select = useStore((s) => s.select);
   const frozen = useStore((s) => s.conn) !== "live";
   const t0 = t0Of(snap);
@@ -41,12 +44,12 @@ export function BoatCard({ b, snap, staleAfter }: { b: Boat; snap: Snapshot; sta
     >
       <div className="card-head">
         <span className="id">USV {String(b.id).padStart(2, "0")}</span>
-        <span className={`chip mode-${b.mode}`}>{MODE_WORD[b.mode] ?? b.mode}</span>
+        <span className={`chip mode-${b.mode}`}>{docked ? "DOCKED" : (MODE_WORD[b.mode] ?? b.mode)}</span>
         <span className={`age ${stale ? "old" : ""}`}>
           {frozen ? "FROZEN" : neverHeard ? "NEVER HEARD" : age <= LIVE_S ? "LIVE" : `LAST SEEN ${dur(age)} AGO`}
         </span>
       </div>
-      <div className="role">{roleText(b)}</div>
+      <div className="role">{roleText(b, scene)}</div>
       <dl>
         <dt>Battery</dt>
         <dd>
@@ -73,6 +76,7 @@ export function FleetPanel() {
   const staleAfter = scene?.stale_after_s ?? 60;
   return (
     <aside className="panel">
+      <EvalPanel />
       <DecisionPanel />
       <AlertPanel />
       <h2>Fleet · {snap.boats.length} USVs</h2>

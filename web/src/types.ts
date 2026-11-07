@@ -54,6 +54,7 @@ export interface Snapshot extends Omit<C.Snapshot, "boats" | "contacts" | "decis
   t0_utc?: string;
   warp_mode?: "auto" | "manual" | "paused"; // server/feed.py (feature 25)
   near_event?: boolean; // auto-warp slowed around a scripted or injected event
+  narration?: { t: number; text: string }[]; // server/narrator.py, /shore only
 }
 
 export interface SceneMsg {
@@ -67,9 +68,13 @@ export interface SceneMsg {
   stale_after_s: number;
   horizon_s: number;
   revisit_target_s?: number; // config/run.toml (D), via the server
+  home_m?: number; // agent's "at the shore station" radius (agent/core.py HOME_M)
 }
 
-export interface Ack { type: "ack"; cmd: string | null; id: string | null; ok: boolean; error?: string }
+export interface Ack {
+  type: "ack"; cmd: string | null; id: string | null; ok: boolean; error?: string;
+  placed?: string; on?: string; offset_m?: number; // contact_start (feature 13)
+}
 
 /** Contract commands, plus console extras the mock accepts (ack, speed, pause, reset). */
 export type Command =
@@ -77,7 +82,33 @@ export type Command =
   | { cmd: "ack"; id: string }
   | { cmd: "speed"; value: number | "auto" }
   | { cmd: "pause"; on?: boolean }
-  | { cmd: "reset"; seed?: number };
+  | { cmd: "reset"; seed?: number }
+  | { cmd: "inject"; kind: "contact_start"; lat: number; lon: number; ais?: boolean };
 
 export const T0_FALLBACK = "2026-11-03T10:15:00Z"; // scenarios/fixed.toml ais_t0 (UTC, unverified)
 export const t0Of = (s: { t0_utc?: string } | null) => s?.t0_utc ?? T0_FALLBACK;
+
+/** Evaluator comparison, only on /truth frames (server/evaluator.py). Never on /shore. */
+export interface EvalData {
+  t: number;
+  boats: {
+    id: number; true: LonLat; shore: LonLat | null; offset_m: number | null; shore_age_s: number | null;
+    true_link: string | null; shore_link: string | null; true_mode: string | null; shore_mode: string | null;
+  }[];
+  contacts: { id: string; track: string | null; pos: LonLat; ais: boolean | null; on_shore: boolean }[];
+  links: { a: number; b: number; true: string; shore: string }[];
+  seg_age: Record<string, { shore: number | null; true: number | null }>;
+  /** True cable km past the revisit target (real sim only; null on the mock). */
+  cable_overdue: { target_s: number; overdue_km: number; never_visited_km: number; total_km: number } | null;
+}
+
+/** Hook for D's three-mode scorecard (eval/), sent on /truth as "scorecard" when a source
+ * offers it. Not built here: the console only shows what eval/ supplies. */
+export interface Scorecard {
+  source: string; // e.g. "eval/run_batch.py"
+  seeds: number[];
+  rows: { mode: string; metric: string; median: number; min: number; max: number; unit: string }[];
+}
+
+/** ?operator in the URL: the watch officer's screen, no evaluator or truth controls. */
+export const OPERATOR_MODE = new URLSearchParams(window.location.search).has("operator");

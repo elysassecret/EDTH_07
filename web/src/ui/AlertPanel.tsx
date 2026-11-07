@@ -38,7 +38,9 @@ export function sortedAlerts(alerts: Alert[]): Alert[] {
 function useAck() {
   const send = useStore((s) => s.send);
   const frozen = useStore((s) => s.conn) !== "live";
-  return { ack: (id: string) => send({ cmd: "ack", id }), frozen };
+  const setDigest = useStore((s) => s.setDigest);
+  // U2: acknowledging is a natural moment to catch up on what changed
+  return { ack: (id: string) => { send({ cmd: "ack", id }); setDigest(true); }, frozen };
 }
 
 function AlertRow({ a, t0 }: { a: Alert; t0: string }) {

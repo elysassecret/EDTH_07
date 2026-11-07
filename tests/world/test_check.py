@@ -13,7 +13,8 @@ def test_short_real_audit_is_deterministic_and_pre_event_modes_match():
     a = run_case((ROOT, 1, "elysa", 2300, 10))
     b = run_case((ROOT, 1, "off", 2300, 10))
     assert a == run_case((ROOT, 1, "elysa", 2300, 10))
-    assert a["initial_phase"] == "cold-fixed"
+    assert a["initial_phase"]["strategy"] == "cold-seeded-cable-offsets-v1"
+    assert a["initial_phase"]["enabled"] is True
     assert a["comparison_ms"] == 10000
     assert a["contact"]["first_local_detection_ms"] is None
     assert comparisons([a, b])[0]["elysa_off_pre_event_physical_equal"] is True

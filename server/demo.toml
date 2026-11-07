@@ -1,0 +1,20 @@
+# Demo preset for the video: uv run python -m server --serve-web --demo   (owner: C)
+# Real sim, scenarios/fixed.toml plus one injected relay loss. Every sim time below was measured
+# on seed 1 on 7 Nov 2026 (server/DEMO.md); re-measure if agent/ or world/ change.
+seed = 1
+start_s = 6900          # fast-forward: the video opens 5 min (sim) before the battery event
+start_paused = true     # press Run (or reset) when the recording starts
+warp_between = 240      # between events, as config/ui.json
+warp_near = 6           # around events; 6x instead of 5x keeps the run near 2:20 real time
+# extra slow-downs (sim seconds) for beats that are not tape events
+slow = [
+  [7850, 7880],         # USV 02 starts keeping C-07 in view
+  [8040, 8065],         # USV 03 takes over keeping C-07 in view
+  [8255, 8275],         # USV 02 released: back to its cable sweep
+  [13290, 13315],       # shore hears USV 02 and 03 again through the new relay (USV 03)
+]
+
+[[inject]]              # relay loss: the brief's "relay as a role another boat can take over"
+t = 11100
+kind = "boat_off"
+a = 5
