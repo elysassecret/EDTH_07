@@ -26,8 +26,8 @@ class Sim:
         self.pos[SHORE] = (mission.shore[0] * 1000, mission.shore[1] * 1000)
         self.batt = {b: 1000 for b in mission.boats}
         self.alive = {b: True for b in mission.boats}
-        self.off: set[tuple[int, int]] = set()
-        self.slow: dict[int, int] = {}  # boat -> propulsion permille (test faults only)  # directed links switched off; membership only
+        self.off: set[tuple[int, int]] = set()  # directed links switched off; membership only
+        self.slow: dict[int, int] = {}  # boat -> propulsion permille (test faults only)
         self.actions = {b: Action("PATROL", None, 0) for b in mission.boats}
         self.delay_ms, self.loss, self.rng = delay_ms, loss, random.Random(seed)
         self.boat_range_m, self.shore_range_m = boat_range_m, shore_range_m
