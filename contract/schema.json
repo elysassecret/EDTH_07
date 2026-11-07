@@ -63,6 +63,11 @@
           "title": "Batt",
           "type": "integer"
         },
+        "detect_m": {
+          "default": 5000,
+          "title": "Detect M",
+          "type": "integer"
+        },
         "endurance_s": {
           "title": "Endurance S",
           "type": "integer"
@@ -74,6 +79,11 @@
         },
         "id": {
           "title": "Id",
+          "type": "integer"
+        },
+        "keep_in_view_m": {
+          "default": 2000,
+          "title": "Keep In View M",
           "type": "integer"
         },
         "last_heard": {
@@ -131,6 +141,11 @@
           },
           "title": "Tour",
           "type": "array"
+        },
+        "verify_m": {
+          "default": 500,
+          "title": "Verify M",
+          "type": "integer"
         },
         "via": {
           "anyOf": [
@@ -211,6 +226,18 @@
           "title": "Lat",
           "type": "number"
         },
+        "length_band_m": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Length Band M"
+        },
         "lon": {
           "title": "Lon",
           "type": "number"
@@ -234,6 +261,18 @@
           "title": "Seen By",
           "type": "array"
         },
+        "ship_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ship Type"
+        },
         "sog": {
           "title": "Sog",
           "type": "integer"
@@ -247,6 +286,11 @@
           ],
           "title": "Source",
           "type": "string"
+        },
+        "standoff_m": {
+          "default": 1852,
+          "title": "Standoff M",
+          "type": "integer"
         },
         "state": {
           "title": "State",
@@ -277,6 +321,11 @@
         "watcher": {
           "title": "Watcher",
           "type": "integer"
+        },
+        "why": {
+          "default": "",
+          "title": "Why",
+          "type": "string"
         },
         "x": {
           "title": "X",
@@ -448,6 +497,11 @@
             "held"
           ],
           "title": "Tier",
+          "type": "string"
+        },
+        "why": {
+          "default": "",
+          "title": "Why",
           "type": "string"
         }
       },
@@ -682,6 +736,11 @@
         "v": {
           "title": "V",
           "type": "integer"
+        },
+        "why": {
+          "default": "",
+          "title": "Why",
+          "type": "string"
         }
       },
       "required": [
