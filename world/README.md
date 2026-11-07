@@ -21,7 +21,7 @@ Both modes print a final truth snapshot and physical-state hash; neither is an e
 result. Core mode also prints public agent views and the heartbeats actually received by
 shore (original creation times and hop counts), not a fabricated live fleet picture.
 
-`world.check` runs cold fixed-phase integration cases across seeds, speeds and policies;
+`world.check` runs cold seeded-position integration cases across seeds, speeds and policies;
 it is **not eval/'s final benchmark**. See `world/VALIDATION.md` for the performed checks,
 recording artifacts, known shore-semantic gaps and remaining release gates.
 
@@ -39,7 +39,9 @@ recording artifacts, known shore-semantic gaps and remaining release gates.
 - `inject(event, t_ms=None)` queues the next unprocessed tick by default. Explicit times
   must be future tick boundaries. Injection `kind`/fields match the scenario event tape.
 - `reset(seed=None)` reconstructs physical state and all supplied nodes, clears injections,
-  and optionally changes the seed.
+  and optionally changes the seed. Sweepers start at deterministic seeded cable offsets;
+  seed 1 preserves the original demo. Pickets/relay keep stations. No past visits are invented.
+  `vary_start_phase=False` explicitly requests the legacy positions for a control run.
 - `snapshot()` is **truth only**. For `/shore`, C uses `sim.shore.picture(sim.t_ms, speed)`
   (the agent's contract Snapshot). `shore_view()` stays a raw delivered-report diagnostic,
   not a second console picture. Do not substitute world truth for missing delivered data.

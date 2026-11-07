@@ -15,6 +15,7 @@ const ICON_CROSS = {
   id: "x", width: 32, height: 32, mask: true,
   url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><path d="M6 6L26 26M26 6L6 26" stroke="#fff" stroke-width="6" stroke-linecap="round"/></svg>')}`,
 };
+const end = (n: number | "shore") => (n === 0 || n === "shore" ? "shore" : `USV ${String(n).padStart(2, "0")}`);
 const FONT = "system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 
 interface Seg { from: LonLat; to: LonLat; link: Link }
@@ -69,7 +70,8 @@ export function commsLayers(snap: Snapshot, shore: LonLat | null, frozen: boolea
     }),
     new TextLayer<Seg>({
       id: "comms-cut-label", data: broken.filter((s) => s.link.state === "cut"),
-      getPosition: mid, getText: () => "LINK CUT", getSize: 12, getColor: dim(CUT), getPixelOffset: [0, 16],
+      // name both ends: two cut links that end close together must not read as one
+      getPosition: mid, getText: (s: Seg) => (s.link.a === 0 ? `${end(s.link.b)}–shore CUT` : `${end(s.link.a)}–${end(s.link.b)} CUT`), getSize: 14, getColor: dim(CUT), getPixelOffset: [0, 16],
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   ];

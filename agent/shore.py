@@ -197,12 +197,16 @@ class ShoreNode:
 
     # picture ----------------------------------------------------------------------------------
     def via(self, t: int) -> dict[int, int]:
-        """Next hop toward shore per boat, by breadth-first search over reported links."""
+        """Next hop toward shore per boat, by breadth-first search over reported links.
+        Links are directed: a boat that hears the shore may not be heard by it (#21), so the
+        shore edge comes only from heartbeats the shore itself heard with 0 hops."""
         adj: dict[int, list[int]] = {SHORE: []}
         for b, (tc, _, p) in sorted(self.boats.items()):
             if t - tc > PEER_STALE:
                 continue
             for n in p.get("nbr", []):
+                if n == SHORE:
+                    continue
                 adj.setdefault(b, []).append(n)
                 adj.setdefault(n, []).append(b)
         for b, tc in sorted(self.direct.items()):

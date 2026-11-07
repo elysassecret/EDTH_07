@@ -16,7 +16,10 @@ import { boxBounds, boxGeo, cableLabels, cablesGeo, laneGeo, type Label } from "
 import { GEO_FILES, depthLabels, infraLabels, loadGeo, type GeoFile, type GeoName, type LineLabel } from "./geo";
 import * as T from "./theme";
 import { commsLayers } from "./comms";
+import { evaluatorLayers } from "./evaluator";
+import type { EvalData } from "../types";
 import { segAges, type Band } from "../coverage";
+import { isDocked } from "../roles";
 import { hmShort } from "../format";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import type { Decision } from "../types";
@@ -46,7 +49,7 @@ function coverageLayers(snap: NonNullable<ReturnType<typeof useStore.getState>["
     new TextLayer<(typeof segs)[number]>({
       id: "coverage-age", data: segs, getPosition: (a) => a.path[Math.floor(a.path.length / 2)],
       getText: (a) => `${a.id.slice(4)} ${a.age === null ? "no visit" : hmShort(a.age)}`,
-      getSize: 11, getColor: (a) => [...BAND_RGB[a.band], 255], getPixelOffset: [0, -14],
+      getSize: 14, getColor: (a) => [...BAND_RGB[a.band], 255], getPixelOffset: [0, -14],
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   ];
@@ -151,6 +154,7 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   const selectedContact = useStore((s) => s.selectedContact);
   const showComms = useStore((s) => s.showComms);
   const hoverDecision = useStore((s) => s.hoverDecision);
+  const evalData = useStore((s) => s.evalData);
 
   useEffect(() => {
     if (!el.current) return;
@@ -170,6 +174,12 @@ export function Chart({ satellite, onSatelliteState }: Props) {
       onClick: (info) => {
         const o = info.object as { id?: unknown } | undefined;
         const st = useStore.getState();
+        if (st.placing && info.coordinate) {
+          const [lon, lat] = info.coordinate as [number, number];
+          st.send({ cmd: "inject", kind: "contact_start", lat, lon, ais: st.placing.ais });
+          st.setPlacing(null);
+          return;
+        }
         if (o && typeof o.id === "number") st.select(o.id);
         else if (o && typeof o.id === "string") st.selectContact(o.id);
         else { st.select(null); st.selectContact(null); }
@@ -230,8 +240,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
   );
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText) });
-  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText]);
+    overlayRef.current?.setProps({ layers: buildLayers(snap, scene, conn === "lost", selected, selectedContact, showComms, hoverDecision, geoText, evalData) });
+  }, [snap, scene, conn, selected, selectedContact, showComms, hoverDecision, geoText, evalData]);
 
   const credits = [...new Set(GEO_FILES.map((n) => geo[n]?.credit).filter((c): c is string => !!c))];
   if (satellite) credits.push("Contains modified Copernicus Sentinel data");
@@ -255,12 +265,13 @@ function buildLayers(
   showComms: boolean,
   hoverDecision: string | null,
   geoText: LineLabel[],
+  evalData: EvalData | null,
 ): Layer[] {
   const layers: Layer[] = [];
   if (geoText.length) {
     layers.push(new TextLayer<LineLabel>({
       id: "geo-labels", data: geoText, getPosition: (d) => d.pos, getText: (d) => d.text,
-      getSize: (d) => (d.kind === "depth" ? 10 : 12),
+      getSize: 14,
       getColor: (d) => (d.kind === "depth" ? [120, 150, 175, 220] : [200, 200, 188, 230]),
       fontFamily: FONT, outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }));
@@ -340,9 +351,13 @@ function buildLayers(
         getRadius: 20, filled: false, stroked: true, getLineColor: T.c(T.TEXT), lineWidthUnits: "pixels", getLineWidth: 2,
       }),
     );
+    // Docked (UNAVAILABLE inside the agents' home radius, src/roles.ts):
+    // a hollow ring and "DOCKED", so a boat beside the shore square is never read as the shore.
+    const docked = (b: Boat) => isDocked(b, scene);
+    const afloat = snap.boats.filter((b) => !docked(b));
     layers.push(
       new LineLayer<Boat>({
-        id: "boat-heading", data: snap.boats,
+        id: "boat-heading", data: afloat,
         getSourcePosition: (b) => [b.lon, b.lat],
         getTargetPosition: (b) => {
           const r = ((b.hdg ?? 0) * Math.PI) / 180;
@@ -351,9 +366,14 @@ function buildLayers(
         getColor: (b) => T.c(boatColor(b)), getWidth: 2, widthUnits: "pixels",
       }),
       new ScatterplotLayer<Boat>({
-        id: "boats", data: snap.boats, getPosition: (b) => [b.lon, b.lat], radiusUnits: "pixels", pickable: true,
+        id: "boats", data: afloat, getPosition: (b) => [b.lon, b.lat], radiusUnits: "pixels", pickable: true,
         getRadius: 9, getFillColor: (b) => T.c(boatColor(b), isStale(b) ? 120 : 230),
         stroked: true, getLineColor: [10, 20, 30, 255], lineWidthUnits: "pixels", getLineWidth: 1.5,
+      }),
+      new ScatterplotLayer<Boat>({
+        id: "boats-docked", data: snap.boats.filter(docked), getPosition: (b) => [b.lon, b.lat],
+        radiusUnits: "pixels", pickable: true, getRadius: 7, filled: false, stroked: true,
+        getLineColor: (b) => T.c(boatColor(b), 230), lineWidthUnits: "pixels", getLineWidth: 2,
       }),
     );
     const sel = snap.boats.filter((b) => b.id === selected);
@@ -364,7 +384,9 @@ function buildLayers(
       }),
     );
     for (const b of snap.boats) {
-      labels.push({ pos: [b.lon, b.lat], text: String(b.id).padStart(2, "0"), kind: isStale(b) ? "boat-stale" : "boat" });
+      const id = String(b.id).padStart(2, "0");
+      if (docked(b)) labels.push({ pos: [b.lon, b.lat], text: `${id} DOCKED`, kind: "docked" });
+      else labels.push({ pos: [b.lon, b.lat], text: id, kind: isStale(b) ? "boat-stale" : "boat" });
     }
     for (const k of snap.contacts) {
       const base = k.ais ? (k.name ?? k.track) : `${k.track} NO AIS`;
@@ -377,15 +399,17 @@ function buildLayers(
   layers.push(
     new TextLayer<Label>({
       id: "labels", data: labels, getPosition: (d) => d.pos, getText: (d) => d.text,
-      fontFamily: FONT, characterSet: "auto", getSize: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? 15 : 13),
+      fontFamily: FONT, characterSet: "auto", getSize: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? 16 : 14),
       getColor: (d) =>
         d.kind === "cable" ? [215, 160, 205, 230]
           : d.kind === "dark" ? T.c(T.UNKNOWN)
-            : d.kind === "boat-stale" || d.kind === "stale" ? T.c(T.STALE)
+            : d.kind === "boat-stale" || d.kind === "stale" || d.kind === "docked" ? T.c(T.STALE)
               : T.c(T.TEXT, 235),
-      getPixelOffset: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10] : [0, 16]),
+      getPixelOffset: (d) => (d.kind === "boat" || d.kind === "boat-stale" ? [0, -20] : d.kind === "cable" ? [0, -10]
+        : d.kind === "docked" ? [-48, -12] : [0, 16]),
       outlineWidth: 3, outlineColor: [12, 20, 28, 255], fontSettings: { sdf: true },
     }),
   );
+  if (evalData) layers.push(...evaluatorLayers(evalData)); // evaluator view only, on top
   return layers;
 }

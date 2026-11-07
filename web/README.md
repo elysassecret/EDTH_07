@@ -30,6 +30,11 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
    and "slowing for event", SHORE/TRUTH switch, Exercise controls, satellite toggle), then the
    banners (FEED LOST, TRUTH, EXERCISE) and the alert strip. `src/ui/`: decisions, alerts, one
    card per USV and one per contact. Click a card or a symbol on the chart to highlight it.
+6. **Evaluator view** (judges and team, off by default) — **Evaluator ON** opens a second socket
+   to `/truth` and shows, in purple, where each boat really is next to where the shore last
+   heard it, true contacts the shore doesn't have, links where truth and belief differ, and true
+   vs shore revisit age (`src/ui/EvalPanel.tsx`, `src/map/evaluator.ts`). Add `?operator` to the
+   URL for the watch officer's screen: no evaluator or truth switches.
 5. **Over the chart** — the coverage box (oldest cable visit, gap line, all segments) top left,
    the event log bottom left, the exercise injection panel top right.
 
@@ -46,7 +51,8 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 | Radio link up | thin blue line between two boats, or boat and Korsør |
 | Route to shore | thicker bright blue line from each boat to its next hop (`via`) |
 | Decision route | dashed white line to where an open decision would send the boat; brighter while the mouse is on its card |
-| Link cut | red dashed line, red ✕ and "LINK CUT" (grey dashed = link down) |
+| Link cut | red dashed line, red ✕ and both ends named, e.g. "USV 01–USV 04 CUT" or "USV 04–shore CUT" (grey dashed = link down) |
+| Docked USV | hollow ring and "NN DOCKED" next to Korsør (UNAVAILABLE inside the agents' home radius); card chip DOCKED |
 | Cables | magenta (power) / violet (data); scenario cables thicker |
 | Shipping lane | grey dashed (measured from one day of AIS) |
 | Box | white dotted |
@@ -68,6 +74,12 @@ pnpm --dir web install && pnpm --dir web dev   # console on http://localhost:517
 - `public/geo/s2_box.png` + `public/geo/s2_box.json` — Sentinel-2 image and
   `{"coordinates": [[lon,lat] top-left, top-right, bottom-right, bottom-left]}`. Until they exist
   the toggle reads "No satellite image yet".
+
+## Tests
+
+```bash
+pnpm --dir web test     # Vitest: src/*.test.ts (e.g. the 5-second UNDO for answers)
+```
 
 ## Folder map
 

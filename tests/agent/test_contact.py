@@ -1,4 +1,6 @@
 """Phase 5 boat side: the scripted contact story on the scene-like mission (PLAN section 2)."""
+from dataclasses import replace
+
 from contract.constants import CLAIMED, RELEASED, SHADOWING
 from contract.mission import load_params
 from tests.agent.harness import Sim
@@ -50,6 +52,21 @@ def test_stop_ends_the_watch():
     s.run_until(s.t + 60_000)
     assert s.agents[3].contacts.watching() is None
     assert s.agents[3].mode != SHADOWING and s.agents[2].contacts.holding is None
+
+
+def test_static_boats_report_the_contact_but_never_leave_station():
+    """#19: static means fixed stations forever; detection and reports still run."""
+    s = Sim(scene_mission(), replace(PARAMS, policy="static"), START)
+    s.add_track("C-07", C07, sog=206, cog=0)
+    modes = set()
+    while s.t <= 3_000_000:
+        s.tick()
+        modes |= {a.mode for a in s.agents.values()}
+    assert SHADOWING not in modes
+    assert all(a.contacts.holding is None for a in s.agents.values())
+    flags = [a.contacts.flags.get(TASK, {}) for a in s.agents.values()]
+    assert any(f.get("dwell") for f in flags)  # it was seen and reported
+    assert not any(f.get("capped") for f in flags)
 
 
 def test_shore_shows_the_contact_and_cards_from_delivered_messages_only():
