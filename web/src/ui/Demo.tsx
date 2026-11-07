@@ -158,7 +158,8 @@ export function InjectPanel({ onClose }: { onClose: () => void }) {
         <label className="check"><input type="checkbox" checked={ais} onChange={(e) => setAis(e.target.checked)} /> AIS on</label>
       </div>
       <div className="row">
-        <button disabled title="Needs world support: issue #34">Bring boat back (needs #34)</button>
+        <button disabled={frozen} onClick={() => fire(`Switched back on: ${usv(boat)}`, [{ cmd: "inject", kind: "boat_restore", a: boat }])}
+          title="Same boat and battery as when it was switched off (no recharge)">Switch back on</button>
       </div>
       <div className="muted small">
         {other === "shore" ? `One way: ${usv(boat)} → shore (shore can still reach the boat).` : both ? "Both directions." : `One way: ${usv(boat)} → ${name(other)}.`}

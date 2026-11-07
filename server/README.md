@@ -70,8 +70,13 @@ input, not a sim result. Snapshots validate against `contract/views.py`
 Exercise injections on the real sim (`inject`): `battery_low`, `boat_off`, `link_off`/`link_on`
 (any boat, any directed link) and `contact_start` with `lat`/`lon` (and optional `ais`): a
 synthetic contact snapped to the nearest cable sample, with C-07's scripted speed and class;
-truth only, so the shore learns of it only if a boat sees it. `boat_restore` waits for world
-support (issue #34).
+truth only, so the shore learns of it only if a boat sees it. `boat_restore` switches a
+switched-off boat back on: the same boat and agent, no reset or recharge (world/API.md, #63).
+
+Evaluator scorecard (#59): `SimSource.scorecard()` reads D's `scorecard_console.json` (default
+`runs/main/scorecard_console.json`, written by `uv run python -m eval.run_batch --out runs/main`;
+`--scorecard PATH` picks another) and sends it on /truth only. No file, no scorecard: the panel
+says it waits for eval/. `preliminary: true` shows PRELIMINARY next to the table.
 
 Messages (JSON): `scene` once on connect (segment geometry, stations, `revisit_target_s` from
 `config/run.toml`), then contract snapshots at

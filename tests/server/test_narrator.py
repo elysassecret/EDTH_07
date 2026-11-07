@@ -52,9 +52,11 @@ def test_demo_story_on_the_real_sim():
     demo = tomllib.loads((ROOT / "server" / "demo.toml").read_text(encoding="utf-8"))
     f = Feed(lambda s: SimSource(s, demo=demo), seed=1, hz=10)
     f.paused = False
+    every: list[dict] = []
     while f.world.t < 14_000:
         f.tick()
-    story = " | ".join(texts(f.narrator.lines))
+        every += [ln for ln in f.narrator.lines[-12:] if ln not in every]
+    story = " | ".join(texts(every))
     for want in ("USV 01 returning to Korsør", "lane picket S now uncovered",
                  "USV 04 reaches shore through USV", "USV 03 keeping C-07 in view",
                  "USV 03 back on lane picket N", "Shore has not heard USV 03",
