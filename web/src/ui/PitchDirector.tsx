@@ -22,17 +22,18 @@ export const PITCH_TIMELINE: PitchTimelineScene[] = [
 export function PitchDirector() {
   const [t, setT] = useState(0);
   const [active, setActive] = useState(false);
+  const [gulfDismissed, setGulfDismissed] = useState(false);
   const startTimeRef = useRef<number | null>(null);
   const firedEventsRef = useRef<Set<string>>(new Set());
 
-  const conn = useStore((s) => s.conn);
-  const send = useStore((s) => s.send);
-
-  // Master clock running monotonic timeline 0..180s
+  // Master monotonic clock: runs once on mount and NEVER resets under any circumstances
   useEffect(() => {
     let animId: number;
+    let started = false;
 
     const startTimer = () => {
+      if (started) return;
+      started = true;
       startTimeRef.current = performance.now();
       setActive(true);
       (window as unknown as { __pharos_pitch_ready?: boolean; __pharos_pitch_lead?: number }).__pharos_pitch_ready = true;
@@ -42,6 +43,7 @@ export function PitchDirector() {
     // Wait until simulation is connected and map is ready
     const checkReady = setInterval(() => {
       const map = (window as unknown as { __pharos_map?: { isStyleLoaded: () => boolean } }).__pharos_map;
+      const conn = useStore.getState().conn;
       if (conn === "live" && map && (!map.isStyleLoaded || map.isStyleLoaded())) {
         clearInterval(checkReady);
         startTimer();
@@ -62,12 +64,20 @@ export function PitchDirector() {
       clearInterval(checkReady);
       cancelAnimationFrame(animId);
     };
-  }, [conn]);
+  }, []); // Empty deps: strictly monotonic timeline, never resets on store/conn updates
+
+  // Permanently dismiss Gulf of Finland once transition completes (one-way latch)
+  useEffect(() => {
+    if (t >= 26.8 && !gulfDismissed) {
+      setGulfDismissed(true);
+    }
+  }, [t, gulfDismissed]);
 
   // Orchestrate camera movements and simulation events at precise timestamps
   useEffect(() => {
     if (!active) return;
     const fired = firedEventsRef.current;
+    const send = useStore.getState().send;
     const map = (window as unknown as {
       __pharos_map?: {
         flyTo: (opts: { center: [number, number]; zoom: number; duration?: number; essential?: boolean }) => void;
@@ -82,7 +92,7 @@ export function PitchDirector() {
     };
 
     // T = 26s: Transition into Great Belt live dashboard
-    if (t >= 26.0 && t < 27.0) {
+    if (t >= 26.0) {
       fireOnce("t_26_unpause", () => {
         send({ cmd: "pause", on: false });
         if (map) {
@@ -92,7 +102,7 @@ export function PitchDirector() {
     }
 
     // T = 34s: Smooth zoom into active patrol formation
-    if (t >= 34.0 && t < 36.0) {
+    if (t >= 34.0) {
       fireOnce("t_34_zoom_fleet", () => {
         if (map) {
           map.flyTo({ center: [10.96, 55.42], zoom: 12.0, duration: 3500, essential: true });
@@ -101,7 +111,7 @@ export function PitchDirector() {
     }
 
     // T = 49s: Scene 2 drift station-keeping camera follow
-    if (t >= 49.0 && t < 51.0) {
+    if (t >= 49.0) {
       fireOnce("t_49_drift_view", () => {
         if (map) {
           map.flyTo({ center: [10.97, 55.39], zoom: 12.6, duration: 3500, essential: true });
@@ -110,7 +120,7 @@ export function PitchDirector() {
     }
 
     // T = 66s: Scene 2 boat failure trigger ("Watch this")
-    if (t >= 66.0 && t < 68.0) {
+    if (t >= 66.0) {
       fireOnce("t_66_fail_boat_01", () => {
         send({ cmd: "inject", kind: "battery_low", a: 1 });
         if (map) {
@@ -120,7 +130,7 @@ export function PitchDirector() {
     }
 
     // T = 92s: Scene 3 relay vessel failure (USV 05 offline)
-    if (t >= 92.0 && t < 94.0) {
+    if (t >= 92.0) {
       fireOnce("t_92_relay_off", () => {
         send({ cmd: "inject", kind: "boat_off", a: 5 });
         if (map) {
@@ -130,14 +140,14 @@ export function PitchDirector() {
     }
 
     // T = 104s: Scene 3 shore link cut
-    if (t >= 104.0 && t < 106.0) {
+    if (t >= 104.0) {
       fireOnce("t_104_link_cut", () => {
         send({ cmd: "inject", kind: "link_off", a: 4, b: "shore" });
       });
     }
 
     // T = 116s: Scene 4 auction visualization wide view
-    if (t >= 116.0 && t < 118.0) {
+    if (t >= 116.0) {
       fireOnce("t_116_auction_view", () => {
         if (map) {
           map.flyTo({ center: [10.98, 55.36], zoom: 11.0, duration: 2500, essential: true });
@@ -146,14 +156,14 @@ export function PitchDirector() {
     }
 
     // T = 152s: Scene 5 wide strategic corridor
-    if (t >= 152.0 && t < 154.0) {
+    if (t >= 152.0) {
       fireOnce("t_152_closing_pan", () => {
         if (map) {
           map.flyTo({ center: [10.96, 55.36], zoom: 10.3, duration: 3500, essential: true });
         }
       });
     }
-  }, [t, active, send]);
+  }, [t, active]);
 
   return (
     <div
@@ -167,7 +177,7 @@ export function PitchDirector() {
       }}
     >
       {/* 1. SCENE 1 (0:00 - 0:26): HISTORICAL GULF OF FINLAND INCIDENT RECONSTRUCTION */}
-      {t < 26.8 && (
+      {!gulfDismissed && (
         <div
           style={{
             position: "absolute",
