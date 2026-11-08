@@ -26,9 +26,14 @@ The same, paused at the start with a slower warp for showing it:
 - **Restart** (top bar) starts the run again from its beginning: boats back at Korsør, nothing
   injected, same seed.
 - **Replay, like a live video stream.** The bar under the top bar runs from the start of this
-  run to now. Drag back to watch the officer's picture as it was (recorded every 30 sim-seconds);
-  the simulation keeps running meanwhile and commands are off. **Go live** (or the far right)
-  returns to now. **Restart** starts the run again. The clock in the top bar is **Sim time**: the
+  run to now, with a mark for each event (amber: exercises); hover a mark to read it, click it to
+  watch from just before it. Drag back to watch the officer's picture as it was (recorded every
+  10 sim-seconds); the simulation keeps running meanwhile and commands are off. While you watch
+  the past, **Play replay** plays the recording forward at the speed in the speed field, showing
+  only recorded frames, never new simulation; it returns to live by itself when it catches up.
+  **Go live** (or the far right) returns to now.
+- **Speed** is stepless: type any factor from 0.25× to 999× (Enter), drag the speed slider, or
+  press Auto. Live it sets the simulation's warp; in replay it sets the playback speed. **Restart** starts the run again. The clock in the top bar is **Sim time**: the
   simulated clock, starting at 10:15Z on 3 Nov 2026 (the day of the real AIS recording), with the
   speed it runs at (e.g. 240×); Wall UTC is your real clock.
 - **AIS ships** come from `data/ais-clip-box.csv` (one day of real traffic; not in git, copy it in).

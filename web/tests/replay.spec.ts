@@ -33,3 +33,45 @@ test("replay timeline: watch the past while the run goes on, then go live", asyn
   await expect(page.getByText(/^REPLAY /)).toHaveCount(0);
   await page.getByRole("button", { name: "Pause simulation" }).click();
 });
+
+test("stepless speed: 0.25x and 999x are accepted, out of range is refused", async ({ page }) => {
+  await page.goto("/?feed=ws://127.0.0.1:18870");
+  await expect(page.getByText("FEED LIVE")).toBeVisible({ timeout: 30000 });
+  const factor = page.getByRole("group", { name: "Simulation speed" }).getByRole("textbox", { name: "Speed factor" });
+  for (const v of ["0.25", "999", "37.5"]) {
+    await factor.fill(v);
+    await factor.press("Enter");
+    await expect(page.getByText(new RegExp(`Sim time · (paused|${v.replace(".", "\\.")}×)`))).toBeVisible();
+  }
+  await factor.fill("5000"); // out of range: not sent, field returns to the last value
+  await factor.press("Enter");
+  await expect(factor).toHaveValue("37.5");
+  await page.getByRole("button", { name: "Auto", exact: true }).click();
+});
+
+test("replay playback: Play plays the recording forward and stops at live", async ({ page, request }) => {
+  await page.goto("/?feed=ws://127.0.0.1:18870");
+  await expect(page.getByText("FEED LIVE")).toBeVisible({ timeout: 30000 });
+  const run = page.getByRole("button", { name: "Run simulation" });
+  if (await run.isVisible()) await run.click();
+  await expect
+    .poll(async () => (await (await request.get("http://127.0.0.1:18870/api/history")).json()).frames, {
+      timeout: 60000,
+    })
+    .toBeGreaterThan(12);
+  await page.getByRole("button", { name: "Pause simulation" }).click();
+  const slider = page.getByRole("slider", { name: "Replay position" });
+  await slider.focus();
+  await page.keyboard.press("Home");
+  await expect(page.getByRole("button", { name: "Play replay" })).toBeVisible();
+  const t0 = await page.locator("header time").last().innerText();
+  const factor = page.getByRole("group", { name: "Simulation speed" }).getByRole("textbox", { name: "Speed factor" });
+  await factor.fill("200");
+  await factor.press("Enter");
+  await page.getByRole("button", { name: "Play replay" }).click();
+  // the replayed clock moves forward on recorded frames only
+  await expect.poll(() => page.locator("header time").last().innerText(), { timeout: 20000 }).not.toBe(t0);
+  // the live run is paused: playback catches up and returns to live by itself
+  await expect(page.getByRole("button", { name: "Watching live" })).toBeVisible({ timeout: 60000 });
+  await expect(page.getByRole("button", { name: "Run simulation" })).toBeVisible();
+});

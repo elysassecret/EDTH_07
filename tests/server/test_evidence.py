@@ -17,7 +17,9 @@ def evidence(tmp_path_factory):
     d = tmp_path_factory.mktemp("run")
     s = SimSource(1, runs_dir=d)
     s.command({"cmd": "inject", "kind": "link_off", "a": 3, "b": "shore"})
-    while s.t < 400:
+    # since #141 a contact task opens only after enough qualifying own-camera looks: run until
+    # the shore has C-07's task and its decisions, then answer one
+    while s.t < 9_000 and not s.snapshot("shore")["decisions"]:
         s.step(24_000)
     s.command({"cmd": "stop", "id": "contact:C-07"})
     s.step(24_000)

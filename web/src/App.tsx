@@ -79,7 +79,7 @@ import {
   PriorityAlert,
 } from "./ui/LiveTools";
 import { ChartNotices, CoverageLine, StatusDetails } from "./ui/LiveStatus";
-import { ReplayBar } from "./ui/Timeline";
+import { ReplayBar, SpeedControl } from "./ui/Timeline";
 import { AttentionRail, FleetRail, Splitter, TimelineRail, useLayout, useViewport } from "./ui/Panels";
 import { fit, inline, roomFor } from "./panels";
 
@@ -231,21 +231,13 @@ export function App() {
   const source = snap?.source ?? scene?.source;
   // run controls follow the live picture, also while a replay frame is on screen
   const run = useStore((s) => s.live) ?? snap;
-  const paused = run?.speed === 0 || run?.warp_mode === "paused";
-  // the chosen warp (kept while paused); older servers without warp_set: as before
-  const speedValue = run?.warp_set !== undefined
-    ? String(run.warp_set)
-    : run?.warp_mode === "auto" || !run || paused ? "auto" : String(run.speed);
-  const speeds = [
-    ...new Set([
-      1,
-      5,
-      60,
-      240,
-      ...(run && run.speed > 0 ? [run.speed] : []),
-      ...(typeof run?.warp_set === "number" ? [run.warp_set] : []),
-    ]),
-  ].sort((a, b) => a - b);
+  const replayPlaying = useStore((s) => s.replayPlaying);
+  const setReplayPlaying = useStore((s) => s.setReplayPlaying);
+  const replaySpeed = useStore((s) => s.replaySpeed);
+  const setReplaySpeed = useStore((s) => s.setReplaySpeed);
+  // paused only when the server says so: a 0.25x warp is sent as speed 1 (whole numbers)
+  const paused = run?.warp_mode ? run.warp_mode === "paused" : run?.speed === 0;
+
   const attention = (
     <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-4">
       <TabsList className="w-full">
@@ -301,22 +293,38 @@ export function App() {
             </div>
             <div className="hidden sm:block">
               <p className="text-xs text-muted-foreground" title="The simulated clock: the run starts at 10:15Z on 3 Nov 2026 (the day of the real AIS recording) and runs faster than real time">
-                {replayT !== null ? "Sim time · REPLAY" : `Sim time · ${paused ? "paused" : `${run?.speed ?? 0}×`}`}
+                {replayT !== null
+                  ? `Sim time · REPLAY ${replayPlaying ? `${replaySpeed}×` : "paused"}`
+                  : `Sim time · ${paused ? "paused" : `${run?.warp ?? run?.speed ?? 0}×`}`}
               </p>
               <time className={replayT !== null ? "text-red-500" : undefined}>
                 {snap ? utc(t0Of(snap), snap.t) : "Waiting for feed"}
               </time>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={conn !== "live"}
-              aria-label={paused ? "Run simulation" : "Pause simulation"}
-              onClick={() => send({ cmd: "pause", on: !paused })}
-            >
-              {paused ? <Play /> : <Pause />}
-              {paused ? "Run" : "Pause"}
-            </Button>
+            {replayT !== null ? (
+              // watching a past moment: Play/Pause plays the recording, the live run goes on
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-red-600 text-white hover:bg-red-700"
+                aria-label={replayPlaying ? "Pause replay" : "Play replay"}
+                onClick={() => setReplayPlaying(!replayPlaying)}
+              >
+                {replayPlaying ? <Pause /> : <Play />}
+                {replayPlaying ? "Pause replay" : "Play replay"}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={conn !== "live"}
+                aria-label={paused ? "Run simulation" : "Pause simulation"}
+                onClick={() => send({ cmd: "pause", on: !paused })}
+              >
+                {paused ? <Play /> : <Pause />}
+                {paused ? "Run" : "Pause"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -328,34 +336,22 @@ export function App() {
               <RotateCcw />
               <span className="hidden lg:inline">Restart</span>
             </Button>
-            <Select
-              value={speedValue}
-              disabled={conn !== "live"}
-              onValueChange={(value) =>
-                send({
-                  cmd: "speed",
-                  value: value === "auto" ? "auto" : Number(value),
-                })
-              }
-            >
-              <SelectTrigger
-                aria-label="Simulation speed"
-                size="sm"
-                className="hidden w-24 md:flex"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="auto">Auto</SelectItem>
-                  {speeds.map((speed) => (
-                    <SelectItem key={speed} value={String(speed)}>
-                      {speed}×
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            {replayT !== null ? (
+              <SpeedControl
+                value={replaySpeed}
+                auto={false}
+                allowAuto={false}
+                onChange={(v) => v !== "auto" && setReplaySpeed(v)}
+              />
+            ) : (
+              <SpeedControl
+                value={typeof run?.warp_set === "number" ? run.warp_set : (run?.warp ?? run?.speed ?? 1) || 1}
+                auto={run?.warp_set === "auto" || run?.warp_set === undefined}
+                allowAuto
+                disabled={conn !== "live"}
+                onChange={(v) => send({ cmd: "speed", value: v })}
+              />
+            )}
             {run?.near_event && run.warp_mode === "auto" && !paused && (
               <Badge variant="secondary">slowing for event</Badge>
             )}

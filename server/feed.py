@@ -56,7 +56,10 @@ def boat_model() -> dict:
     return {"speed_mps": float(boat["speed_mps"]), "endurance_s": int(boat["endurance_s"]),
             "reserve_s": int(boat["reserve_s"])}
 WEB_DIST = ROOT / "web" / "dist"
-RECORD_EVERY_S = 30  # the replay timeline keeps the shore picture every 30 sim-seconds
+RECORD_EVERY_S = 10  # the replay timeline keeps the shore picture every 10 sim-seconds
+MARKS_MAX = 400  # newest timeline marks (events) kept for the replay line
+FRAMES_MAX = 400  # most frames one /api/frames answer carries
+SPEED_MIN, SPEED_MAX = 0.25, 999.0  # stepless warp range (live run and replay playback)
 
 
 class History:
@@ -67,8 +70,18 @@ class History:
     def __init__(self) -> None:
         self.times: list[int] = []
         self.frames: list[bytes] = []
+        self.marks: list[dict] = []  # events seen on the shore picture, for the timeline
+        self._seen: set[tuple[int, str]] = set()
 
     def add(self, snap: dict) -> None:
+        for e in snap.get("events", []):
+            key = (int(e["t"]), str(e["text"]))
+            if key not in self._seen:
+                self._seen.add(key)
+                self.marks.append({"t": key[0], "text": key[1], "kind": e.get("kind", ""),
+                                   "exercise": bool(e.get("exercise"))})
+        if len(self.marks) > MARKS_MAX:
+            del self.marks[: len(self.marks) - MARKS_MAX]
         t = int(snap["t"])
         if self.times and t < self.times[-1] + RECORD_EVERY_S:
             return
@@ -78,7 +91,15 @@ class History:
     def span(self) -> dict:
         return {"from": self.times[0] if self.times else None,
                 "to": self.times[-1] if self.times else None, "every_s": RECORD_EVERY_S,
-                "frames": len(self.times)}
+                "frames": len(self.times), "marks": sorted(self.marks, key=lambda m: m["t"])}
+
+    def between(self, t_from: float, t_to: float) -> bytes:
+        """The recorded frames from t_from to t_to (at most FRAMES_MAX), as one JSON array, for
+        playing the recording back: the frame at or before t_from first, so playback starts on
+        what was on screen."""
+        i = max(bisect_right(self.times, t_from) - 1, 0)
+        j = min(bisect_right(self.times, t_to), i + FRAMES_MAX)
+        return b"[" + b",".join(zlib.decompress(f) for f in self.frames[i:j]) + b"]"
 
     def at(self, t: float) -> bytes | None:
         """The frame recorded at or just before sim time t (the first one if t is earlier)."""
@@ -104,7 +125,7 @@ class Feed:
         self.clients: dict = {}  # connection -> channel
         self.start_paused = start_paused  # demo: every (re)start waits for "Run"
         self.paused = start_paused
-        self.speed_override: int | None = None
+        self.speed_override: float | None = None
 
     def handle_command(self, msg: dict) -> dict:
         log.info("command t=%.1f %s", self.world.t, json.dumps(msg, sort_keys=True))
@@ -124,7 +145,13 @@ class Feed:
                 return {"ok": True}
             if cmd == "speed":
                 v = msg.get("value")
-                self.speed_override = None if v in (None, "auto") else max(1, int(v))
+                if v in (None, "auto"):
+                    self.speed_override = None
+                else:
+                    f = float(v)
+                    if not SPEED_MIN <= f <= SPEED_MAX:  # also refuses NaN
+                        return {"ok": False, "error": f"speed must be {SPEED_MIN:g}–{SPEED_MAX:g}x"}
+                    self.speed_override = f
                 return {"ok": True}
         except (TypeError, ValueError) as e:
             return {"ok": False, "error": f"bad command: {e}"}
@@ -157,11 +184,13 @@ class Feed:
             self.clients.pop(ws, None)
             log.info("client left /%s (%d total)", channel, len(self.clients))
 
-    def _speed(self) -> int:
+    def _speed(self) -> float:
         return 0 if self.paused else (self.speed_override or self.world.speed())
 
-    def _snap(self, channel: str, speed: int) -> dict:
-        out = self.world.snapshot(channel, speed)
+    def _snap(self, channel: str, speed: float) -> dict:
+        # the contract's speed is a whole number (0 = paused); the exact warp rides as "warp"
+        out = self.world.snapshot(channel, 0 if speed == 0 else max(1, round(speed)))
+        out["warp"] = speed
         # console extras (feature 25): who sets the warp, and whether auto-warp is slowed
         out["warp_mode"] = ("paused" if self.paused else
                             "manual" if self.speed_override else "auto")
@@ -174,7 +203,7 @@ class Feed:
         scene = self.world.scene_msg()
         return Narrator(int(scene.get("stale_after_s", 60)))
 
-    def _frames(self, speed: int) -> dict[str, dict]:
+    def _frames(self, speed: float) -> dict[str, dict]:
         """Both channels. Only /truth carries "eval" (shore belief next to truth): the
         operator's /shore picture never does. /shore carries "narration", made from /shore
         frames alone (server/narrator.py)."""
@@ -189,13 +218,13 @@ class Feed:
             truth["scorecard"] = card
         return {"shore": shore, "truth": truth}
 
-    def _frame(self, channel: str, speed: int) -> str:
+    def _frame(self, channel: str, speed: float) -> str:
         return json.dumps(self._frames(speed)[channel])
 
     def tick(self) -> dict[str, str]:
         """One frame: advance the source and render both channels (no I/O, testable)."""
         speed = self._speed()
-        self.world.step(int(speed * 1000 / self.hz))
+        self.world.step(round(speed * 1000 / self.hz))
         return {ch: json.dumps(snap) for ch, snap in self._frames(speed).items()}
 
     async def run(self) -> None:
@@ -242,9 +271,15 @@ async def _api(feed: Feed, connection, request):
     from evidence.report import report, tamper_demo
 
     url = urlsplit(request.path)
-    if url.path in ("/api/history", "/api/frame"):  # replay timeline: real sim and mock
+    if url.path in ("/api/history", "/api/frame", "/api/frames"):  # replay: real sim and mock
         if url.path == "/api/history":
             body = json.dumps(feed.history.span()).encode()
+        elif url.path == "/api/frames":
+            q = parse_qs(url.query)
+            try:
+                body = feed.history.between(float(q["from"][0]), float(q["to"][0]))
+            except (KeyError, ValueError):
+                return connection.respond(400, "need ?from=<sim s>&to=<sim s>\n")
         else:
             q = parse_qs(url.query)
             try:

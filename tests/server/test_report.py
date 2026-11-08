@@ -9,11 +9,13 @@ from evidence.report import report, tamper_demo
 from server.bridge import SimSource
 
 
-def _run(tmp_path, until=7_600):
+def _run(tmp_path, until=8_400):
     s = SimSource(1, runs_dir=tmp_path)
-    while s.t < 7_500:
+    # since #141 C-07's task opens after enough qualifying own-camera looks (about 7950 s)
+    while s.t < min(until, 9_000) and "contact:C-07" not in s.snapshot("shore")["tasks"]:
         s.step(60_000)
-    s.command({"cmd": "stop", "id": "contact:C-07"})
+    if s.t < until:
+        s.command({"cmd": "stop", "id": "contact:C-07"})
     while s.t < until:
         s.step(60_000)
     s.close()
@@ -22,7 +24,7 @@ def _run(tmp_path, until=7_600):
 
 def test_report_lists_the_window_and_the_chain_check(tmp_path):
     s = _run(tmp_path)
-    md = report(s.log.path, tmp_path / "k.pem", 7_000, 7_600)
+    md = report(s.log.path, tmp_path / "k.pem", 7_000, 8_400)
     assert "Chain check: **OK**" in md
     assert "battery_low boat=1" in md and "link_off a=4 b=shore" in md
     assert "Watch officer command: stop id=contact:C-07 (accepted)" in md

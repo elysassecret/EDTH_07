@@ -46,8 +46,10 @@ test("real demo supports reviewed keyboard approval, delivered receipt and same-
       timeout: 30000,
     })
     .toBe(true);
-  await page.getByRole("combobox", { name: "Simulation speed" }).click();
-  await page.getByRole("option", { name: "60×", exact: true }).click();
+  const factor = page.getByRole("group", { name: "Simulation speed" }).getByRole("textbox", { name: "Speed factor" });
+  await factor.fill("60");
+  await factor.press("Enter");
+  await expect.poll(() => sent.some((c) => c.cmd === "speed" && (c as { value?: number }).value === 60)).toBe(true);
   await page.getByRole("button", { name: "Run simulation" }).click();
 
   const card = page.getByRole("article", {
