@@ -146,3 +146,4 @@ export interface Scorecard {
  * accepted and means the default. */
 export const EVALUATOR_MODE = new URLSearchParams(window.location.search).has("evaluator");
 export const OPERATOR_MODE = !EVALUATOR_MODE;
+export const PITCH_MODE = new URLSearchParams(window.location.search).has("pitch");

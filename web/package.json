@@ -10,7 +10,8 @@
     "mock": "cd .. && uv run python -m server.mock_feed",
     "gen:contract": "json2ts -i ../contract/schema.json -o src/contract.ts --additionalProperties false --bannerComment \"// GENERATED from contract/schema.json by pnpm gen:contract. Do not edit.\"",
     "test": "vitest run",
-    "test:e2e": "pnpm build && playwright test"
+    "test:e2e": "pnpm build && playwright test",
+    "record:pitch": "node ../demo-recording/record.mjs"
   },
   "dependencies": {
     "@deck.gl/core": "^9.4.1",

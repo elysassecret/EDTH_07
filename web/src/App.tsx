@@ -57,7 +57,8 @@ import { Chart } from "./map/Chart";
 import { Legend } from "./map/Legend";
 import { GUIDE, Markdown } from "./ui/Markdown";
 import { useStore, type Display } from "./store";
-import { OPERATOR_MODE, t0Of } from "./types";
+import { OPERATOR_MODE, PITCH_MODE, t0Of } from "./types";
+import { PitchDirector } from "./ui/PitchDirector";
 import {
   DecisionReview,
   DecisionWorkspace,
@@ -708,6 +709,7 @@ export function App() {
           </DialogContent>
         </Dialog>
         <Toaster theme={display === "day" ? "light" : "dark"} closeButton />
+        {PITCH_MODE && <PitchDirector />}
       </div>
     </TooltipProvider>
   );

@@ -286,3 +286,6 @@ const hold = createHold({
 
 // ?evaluator: the comparison starts on, so open its /truth socket now (after the store exists).
 if (EVALUATOR_MODE) connectEval();
+if (typeof window !== "undefined") {
+  (window as unknown as { __pharos_store: unknown }).__pharos_store = useStore;
+}

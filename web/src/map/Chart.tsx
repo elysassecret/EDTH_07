@@ -239,7 +239,8 @@ export function Chart({ satellite, onSatelliteState }: Props) {
     map.addControl(overlay);
     overlayRef.current = overlay;
     mapRef.current = map;
-    if (import.meta.env.DEV) (window as unknown as { __map: unknown }).__map = map; // debugging
+    (window as unknown as { __map: unknown; __pharos_map: unknown }).__map = map;
+    (window as unknown as { __map: unknown; __pharos_map: unknown }).__pharos_map = map;
     // Keep the box in view when the panel or window changes size.
     const ro = new ResizeObserver(() => {
       map.resize();
