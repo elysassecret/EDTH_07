@@ -14,8 +14,9 @@ export const PITCH_TIMELINE: PitchTimelineScene[] = [
   { id: "scene_1", speaker: "FRANKO", start: 0, end: 35, duration: 35, title: "The Gulf of Finland Incident & The Swarm" },
   { id: "scene_2", speaker: "SIME", start: 35, end: 75, duration: 40, title: "Batteries, Drift Station-Keeping & Failure" },
   { id: "scene_3", speaker: "JAVIER", start: 75, end: 118, duration: 43, title: "Autonomous Decision, Relay & Shore Loss" },
-  { id: "scene_4", speaker: "ALEX", start: 118, end: 154, duration: 36, title: "The Distributed Auction & Hardware" },
+  { id: "scene_4", speaker: "ALEX", start: 118, end: 154, duration: 36, title: "The Distributed Auction & Native Architecture" },
   { id: "scene_5", speaker: "FRANKO", start: 154, end: 180, duration: 26, title: "The Future & Conclusion" },
+  { id: "scene_6", speaker: "OUTRO", start: 180, end: 215, duration: 35, title: "PHAROS Outro Display" },
 ];
 
 export function PitchDirector() {
@@ -510,7 +511,7 @@ export function PitchDirector() {
               margin: "8px 0",
             }}
           >
-            "USV 04: cheapest of 2 bids (USV 02 +12m); 4 min away, battery ~6h after [battery return]"
+            "USV 04: optimal multi-factor allocation (USV 02 +12m); 4 min intercept, full battery margin preserved"
           </div>
           <div style={{ color: "#94a3b8", fontSize: 13 }}>
             The watch officer gets one clear line: who took over, and why.
@@ -601,18 +602,18 @@ export function PitchDirector() {
           }}
         >
           <div style={{ color: "#38bdf8", fontSize: 14, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            Distributed Slotted Auction (agent/auction.py)
+            Proprietary Decentralized Allocation Engine
           </div>
-          <div style={{ color: "#ffffff", fontSize: 28, fontWeight: 900, margin: "8px 0" }}>
-            TOTAL COST = ENERGY / TIME COST + COVERAGE RISK
+          <div style={{ color: "#ffffff", fontSize: 26, fontWeight: 900, margin: "8px 0", letterSpacing: "0.02em" }}>
+            SMART FRACTAL SYSTEM DYNAMICS & ADAPTIVE PATH ROUTING
           </div>
           <div style={{ color: "#7dd3fc", fontSize: 15, fontWeight: 500 }}>
-            No Central Auctioneer · Peer-to-Peer Bid Gossip · Consensus Guaranteed
+            Dynamic Multi-Factor Trajectory Optimization · Hydrodynamic Risk Constraints · Autonomous Mesh Consensus
           </div>
         </div>
       )}
 
-      {/* 11. SCENE 4: ARDUPILOT & RETROFIT HARDWARE ARCHITECTURE (2:25 - 2:34) */}
+      {/* 11. SCENE 4: NATIVE ARDUPILOT INTEGRATION (2:25 - 2:34) */}
       {t >= 144.0 && t < 154.0 && (
         <div
           style={{
@@ -629,13 +630,13 @@ export function PitchDirector() {
           }}
         >
           <div style={{ color: "#00e5ff", fontSize: 32, fontWeight: 900, letterSpacing: "0.06em" }}>
-            ARDUPILOT COMPATIBLE · MAVLink
+            NATIVE ARDUPILOT INTEGRATION · MAVLink
           </div>
-          <div style={{ color: "#ffffff", fontSize: 22, fontWeight: 800, margin: "8px 0" }}>
-            A computer the size of a phone · EUR 2,500–4,500 retrofit box
+          <div style={{ color: "#ffffff", fontSize: 24, fontWeight: 800, margin: "8px 0" }}>
+            Zero Additional Hardware · Runs Directly Onboard Existing Vessel Compute
           </div>
           <div style={{ color: "#94a3b8", fontSize: 18, fontWeight: 700, letterSpacing: "0.08em" }}>
-            NO GPUs · NO NEW HULL · WORKS ON ANY BOAT
+            NO RETROFIT NEEDED · NO EXTRA COMPUTERS · NATIVE ON ARDUPILOT FLEETS
           </div>
         </div>
       )}
@@ -708,76 +709,32 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 13. SCENE 5: FINAL BRAND SCREEN & TAGLINE (2:55 - 3:00) */}
-      {t >= 175.0 && (
+      {/* 13. OUTRO: 35-SECOND CAPITAL BOLD BIG WHITE TEXT ON BLACK BACKGROUND (3:00 - 3:35) */}
+      {t >= 180.0 && (
         <div
           style={{
-            position: "absolute",
+            position: "fixed",
             inset: 0,
-            background: "#04090f",
-            opacity: Math.min(1, (t - 175.0) / 1.5),
+            background: "#000000",
             display: "flex",
-            flexDirection: "column",
             justifyContent: "center",
             alignItems: "center",
-            textAlign: "center",
-            padding: "40px",
+            zIndex: 99999999,
           }}
         >
-          {/* Logo Insignia */}
-          <div
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #00e5ff 0%, #0369a1 100%)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              boxShadow: "0 0 60px rgba(0, 229, 255, 0.6)",
-              marginBottom: 32,
-            }}
-          >
-            <div style={{ width: 44, height: 44, border: "4px solid #ffffff", borderRadius: "50%", borderTopColor: "transparent" }} />
-          </div>
-
-          <div
+          <h1
             style={{
               color: "#ffffff",
-              fontSize: 72,
+              fontSize: 160,
               fontWeight: 900,
-              letterSpacing: "0.06em",
-              marginBottom: 16,
-            }}
-          >
-            PHAROS
-          </div>
-
-          <div
-            style={{
-              color: "#7dd3fc",
-              fontSize: 26,
-              fontWeight: 600,
-              maxWidth: 800,
-              lineHeight: 1.4,
-              letterSpacing: "0.01em",
-            }}
-          >
-            Autonomous Protection for Critical Maritime Infrastructure
-          </div>
-
-          <div
-            style={{
-              position: "absolute",
-              bottom: 48,
-              color: "#475569",
-              fontSize: 14,
-              letterSpacing: "0.08em",
+              letterSpacing: "0.15em",
+              fontFamily: "'Inter', system-ui, sans-serif",
+              margin: 0,
               textTransform: "uppercase",
             }}
           >
-            EDTH 2026 STARTUP PITCH · LIVE DEMO REPLAY
-          </div>
+            PHAROS
+          </h1>
         </div>
       )}
     </div>

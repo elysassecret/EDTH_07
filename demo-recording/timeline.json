@@ -110,17 +110,17 @@
       {
         "t": 118,
         "action": "slotted_auction_bids",
-        "overlay": "SLOTTED DISTRIBUTED AUCTION · NO AUCTIONEER"
+        "overlay": "DECENTRALIZED AUCTION ENGINE · NO CENTRAL SERVER"
       },
       {
         "t": 128,
-        "action": "cost_formula",
-        "overlay": "TOTAL COST = ENERGY / TIME COST + COVERAGE RISK"
+        "action": "fractal_path_planning",
+        "overlay": "SMART FRACTAL SYSTEM MANAGEMENT & ADAPTIVE PATH ROUTING"
       },
       {
         "t": 144,
-        "action": "hardware_architecture",
-        "overlay": "ARDUPILOT COMPATIBLE · NO GPUs · NO NEW HULL"
+        "action": "native_ardupilot",
+        "overlay": "NATIVE ARDUPILOT INTEGRATION · ZERO HARDWARE MODIFICATION"
       }
     ]
   },
@@ -151,11 +151,21 @@
         "t": 171,
         "action": "statement_detection_box",
         "overlay": "A DETECTION BOX"
-      },
+      }
+    ]
+  },
+  {
+    "id": "scene_6",
+    "speaker": "OUTRO",
+    "start": 180,
+    "end": 215,
+    "duration": 35,
+    "title": "PHAROS Outro Display",
+    "phases": [
       {
-        "t": 175,
-        "action": "final_brand_fade",
-        "overlay": "PHAROS: Autonomous Protection for Critical Maritime Infrastructure"
+        "t": 180,
+        "action": "brand_outro",
+        "overlay": "PHAROS"
       }
     ]
   }

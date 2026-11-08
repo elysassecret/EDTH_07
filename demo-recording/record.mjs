@@ -16,10 +16,10 @@ console.log(`Output directory:  ${out}`);
 // 1. Verify timeline
 const timeline = JSON.parse(await readFile(path.join(here, 'timeline.json'), 'utf8'));
 const totalSec = timeline.reduce((n, s) => n + s.duration, 0);
-if (totalSec !== 180) {
-  throw new Error(`Timeline durations must total exactly 180 seconds (found: ${totalSec}s)`);
+if (totalSec !== 215) {
+  throw new Error(`Timeline durations must total exactly 215 seconds (found: ${totalSec}s)`);
 }
-console.log(`Timeline verified: ${timeline.length} scenes, exactly 180 seconds.`);
+console.log(`Timeline verified: ${timeline.length} scenes, exactly 215 seconds.`);
 
 // 2. Verify FFmpeg & FFprobe
 function exec(cmd, args, cwd = root) {
@@ -119,11 +119,11 @@ try {
 
   const video = page.video();
   const startTime = performance.now();
-  console.log('Pitch recording sequence active: recording 180 seconds...');
+  console.log('Pitch recording sequence active: recording 215 seconds (180s pitch + 35s PHAROS outro)...');
 
   // Track elapsed time and log scene milestones
   let lastLoggedScene = '';
-  while (performance.now() - startTime < 180500) {
+  while (performance.now() - startTime < 215500) {
     const elapsedSec = (performance.now() - startTime) / 1000;
     const currentScene = timeline.find((s) => elapsedSec >= s.start && elapsedSec < s.end);
     if (currentScene && currentScene.id !== lastLoggedScene) {
@@ -133,7 +133,7 @@ try {
     await new Promise((r) => setTimeout(r, 1000));
   }
 
-  console.log('180 seconds completed. Capturing final snapshot...');
+  console.log('215 seconds completed. Capturing final snapshot...');
   await page.screenshot({ path: path.join(out, 'final_frame.png') });
 
   // Close context to finish writing raw video
@@ -148,12 +148,12 @@ try {
   const finalMp4Path = path.join(out, 'pharos-pitch.mp4');
   console.log(`\nTranscoding to final MP4: ${finalMp4Path}...`);
 
-  // We enforce exactly 180.00 seconds output with 30fps CFR
+  // We enforce exactly 215.00 seconds output with 30fps CFR
   exec('ffmpeg', [
     '-y',
     '-ss', String(leadSec),
     '-i', rawVideoPath,
-    '-t', '180.00',
+    '-t', '215.00',
     '-vf', 'fps=30,scale=1920:1080',
     '-an',
     '-c:v', 'libx264',
@@ -187,7 +187,7 @@ try {
     { name: 'scene4_01_distributed_auction.png', ss: '126.0' },
     { name: 'scene4_02_ardupilot_hardware.png', ss: '148.0' },
     { name: 'scene5_01_closing_statements.png', ss: '172.0' },
-    { name: 'scene5_02_pharos_brand_finale.png', ss: '178.0' },
+    { name: 'scene6_01_pharos_outro.png', ss: '195.0' },
   ];
 
   for (const kf of keyframes) {
