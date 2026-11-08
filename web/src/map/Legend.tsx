@@ -3,6 +3,7 @@
 import { useState, type ReactElement } from "react";
 import * as T from "./theme";
 import { useStore } from "../store";
+import { PITCH_MODE } from "../types";
 import { CUT, ROUTE, UP } from "./comms";
 import { BAND_RGB, RING_DETECT, RING_KEEP, RING_STANDOFF } from "./Chart";
 
@@ -60,8 +61,8 @@ export function legendRows(r?: { detect_ship_day_m: number; keep_in_view_m: numb
 
 export function Legend() {
   const ranges = useStore((s) => s.scene?.ranges);
-  // open by default where it fits beside the box; on a 1280 px projector it starts folded to one line
-  const [open, setOpen] = useState(() => window.matchMedia("(min-width: 1440px)").matches);
+  // open by default where it fits beside the box; in pitch video mode or on small screens it stays closed
+  const [open, setOpen] = useState(() => !PITCH_MODE && window.matchMedia("(min-width: 1440px)").matches);
   return (
     <section aria-label="Chart legend" className="absolute bottom-9 left-2 z-10 max-w-[calc(100%_-_1rem)] rounded-md border bg-background/90 px-2 py-1 text-sm shadow-md">
       <button type="button" className="font-medium" aria-expanded={open} onClick={() => setOpen(!open)}>
