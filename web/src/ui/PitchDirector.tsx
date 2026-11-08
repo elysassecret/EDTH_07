@@ -11,11 +11,11 @@ export interface PitchTimelineScene {
 }
 
 export const PITCH_TIMELINE: PitchTimelineScene[] = [
-  { id: "scene_1", speaker: "FRANKO", start: 0, end: 35, duration: 35, title: "The Gulf of Finland Incident & The Swarm" },
-  { id: "scene_2", speaker: "SIME", start: 35, end: 75, duration: 40, title: "Batteries, Drift Station-Keeping & Failure" },
-  { id: "scene_3", speaker: "JAVIER", start: 75, end: 118, duration: 43, title: "Autonomous Decision, Relay & Shore Loss" },
-  { id: "scene_4", speaker: "ALEX", start: 118, end: 154, duration: 36, title: "The Distributed Auction & Native Architecture" },
-  { id: "scene_5", speaker: "FRANKO", start: 154, end: 180, duration: 26, title: "The Future & Conclusion" },
+  { id: "scene_1", speaker: "FRANKO", start: 0, end: 42, duration: 42, title: "The Gulf of Finland Incident & The Swarm" },
+  { id: "scene_2", speaker: "SIME", start: 42, end: 78, duration: 36, title: "Batteries, Drift Station-Keeping & Failure" },
+  { id: "scene_3", speaker: "JAVIER", start: 78, end: 116, duration: 38, title: "Autonomous Decision, Relay & Shore Loss" },
+  { id: "scene_4", speaker: "ALEX", start: 116, end: 152, duration: 36, title: "The Distributed Auction & Native Architecture" },
+  { id: "scene_5", speaker: "FRANKO", start: 152, end: 180, duration: 28, title: "The Future & Conclusion" },
   { id: "scene_6", speaker: "OUTRO", start: 180, end: 215, duration: 35, title: "PHAROS Outro Display" },
 ];
 
@@ -81,9 +81,9 @@ export function PitchDirector() {
       }
     };
 
-    // T = 16s: Transition into Great Belt live dashboard
-    if (t >= 16.0 && t < 17.0) {
-      fireOnce("t_16_unpause", () => {
+    // T = 26s: Transition into Great Belt live dashboard
+    if (t >= 26.0 && t < 27.0) {
+      fireOnce("t_26_unpause", () => {
         send({ cmd: "pause", on: false });
         if (map) {
           map.flyTo({ center: [10.98, 55.35], zoom: 10.6, duration: 2500, essential: true });
@@ -91,27 +91,27 @@ export function PitchDirector() {
       });
     }
 
-    // T = 23s: Smooth zoom into active patrol formation
-    if (t >= 23.0 && t < 25.0) {
-      fireOnce("t_23_zoom_fleet", () => {
+    // T = 34s: Smooth zoom into active patrol formation
+    if (t >= 34.0 && t < 36.0) {
+      fireOnce("t_34_zoom_fleet", () => {
         if (map) {
           map.flyTo({ center: [10.96, 55.42], zoom: 12.0, duration: 3500, essential: true });
         }
       });
     }
 
-    // T = 45s: Scene 2 drift station-keeping camera follow
-    if (t >= 45.0 && t < 47.0) {
-      fireOnce("t_45_drift_view", () => {
+    // T = 49s: Scene 2 drift station-keeping camera follow
+    if (t >= 49.0 && t < 51.0) {
+      fireOnce("t_49_drift_view", () => {
         if (map) {
-          map.flyTo({ center: [10.97, 55.39], zoom: 12.6, duration: 4000, essential: true });
+          map.flyTo({ center: [10.97, 55.39], zoom: 12.6, duration: 3500, essential: true });
         }
       });
     }
 
-    // T = 63s: Scene 2 boat failure trigger ("Watch this")
-    if (t >= 63.0 && t < 65.0) {
-      fireOnce("t_63_fail_boat_01", () => {
+    // T = 66s: Scene 2 boat failure trigger ("Watch this")
+    if (t >= 66.0 && t < 68.0) {
+      fireOnce("t_66_fail_boat_01", () => {
         send({ cmd: "inject", kind: "battery_low", a: 1 });
         if (map) {
           map.flyTo({ center: [10.97, 55.37], zoom: 11.2, duration: 2500, essential: true });
@@ -119,9 +119,9 @@ export function PitchDirector() {
       });
     }
 
-    // T = 90s: Scene 3 relay vessel failure (USV 05 offline)
-    if (t >= 90.0 && t < 92.0) {
-      fireOnce("t_90_relay_off", () => {
+    // T = 92s: Scene 3 relay vessel failure (USV 05 offline)
+    if (t >= 92.0 && t < 94.0) {
+      fireOnce("t_92_relay_off", () => {
         send({ cmd: "inject", kind: "boat_off", a: 5 });
         if (map) {
           map.flyTo({ center: [11.02, 55.34], zoom: 11.6, duration: 2500, essential: true });
@@ -136,20 +136,20 @@ export function PitchDirector() {
       });
     }
 
-    // T = 118s: Scene 4 auction visualization wide view
-    if (t >= 118.0 && t < 120.0) {
-      fireOnce("t_118_auction_view", () => {
+    // T = 116s: Scene 4 auction visualization wide view
+    if (t >= 116.0 && t < 118.0) {
+      fireOnce("t_116_auction_view", () => {
         if (map) {
           map.flyTo({ center: [10.98, 55.36], zoom: 11.0, duration: 2500, essential: true });
         }
       });
     }
 
-    // T = 154s: Scene 5 wide strategic corridor
-    if (t >= 154.0 && t < 156.0) {
-      fireOnce("t_154_closing_pan", () => {
+    // T = 152s: Scene 5 wide strategic corridor
+    if (t >= 152.0 && t < 154.0) {
+      fireOnce("t_152_closing_pan", () => {
         if (map) {
-          map.flyTo({ center: [10.96, 55.36], zoom: 10.3, duration: 4000, essential: true });
+          map.flyTo({ center: [10.96, 55.36], zoom: 10.3, duration: 3500, essential: true });
         }
       });
     }
@@ -166,14 +166,14 @@ export function PitchDirector() {
         fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
-      {/* 1. SCENE 1 (0:00 - 0:16): HISTORICAL GULF OF FINLAND INCIDENT RECONSTRUCTION */}
-      {t < 16.8 && (
+      {/* 1. SCENE 1 (0:00 - 0:26): HISTORICAL GULF OF FINLAND INCIDENT RECONSTRUCTION */}
+      {t < 26.8 && (
         <div
           style={{
             position: "absolute",
             inset: 0,
             background: "#04090f",
-            opacity: t > 16.0 ? Math.max(0, 1 - (t - 16.0) / 0.8) : 1,
+            opacity: t > 26.0 ? Math.max(0, 1 - (t - 26.0) / 0.8) : 1,
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
@@ -324,8 +324,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 2. PERSISTENT UPPER-LEFT HUD BANNER (0:16 - 2:34) */}
-      {t >= 16.0 && t < 154.0 && (
+      {/* 2. PERSISTENT UPPER-LEFT HUD BANNER (0:26 - 2:32) */}
+      {t >= 26.0 && t < 152.0 && (
         <div
           style={{
             position: "absolute",
@@ -356,17 +356,17 @@ export function PitchDirector() {
               PHAROS · AUTONOMOUS USV SWARM
             </div>
             <div style={{ color: "#7dd3fc", fontSize: 13, fontWeight: 500 }}>
-              {t < 35 && "5 Vessels · Distributed Radio Mesh · Single Hive Mind"}
-              {t >= 35 && t < 75 && "Autonomous Station-Keeping & Drift Optimization"}
-              {t >= 75 && t < 118 && "Distributed Consensus · Self-Healing Mesh Network"}
-              {t >= 118 && t < 154 && "Slotted Local Auction · ArduPilot Integration"}
+              {t < 42 && "5 Vessels · Distributed Radio Mesh · Single Hive Mind"}
+              {t >= 42 && t < 78 && "Autonomous Station-Keeping & Drift Optimization"}
+              {t >= 78 && t < 116 && "Distributed Consensus · Self-Healing Mesh Network"}
+              {t >= 116 && t < 152 && "Slotted Local Auction · Native ArduPilot Integration"}
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. SCENE 2: DRIFT STATION-KEEPING BANNER (0:45 - 0:55) */}
-      {t >= 45.0 && t < 55.0 && (
+      {/* 3. SCENE 2: DRIFT STATION-KEEPING BANNER (0:49 - 0:58) */}
+      {t >= 49.0 && t < 58.0 && (
         <div
           style={{
             position: "absolute",
@@ -391,8 +391,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 4. SCENE 2: 10× LESS POWER COMPARISON CARD (0:55 - 1:02) */}
-      {t >= 55.0 && t < 62.0 && (
+      {/* 4. SCENE 2: 10× LESS POWER COMPARISON CARD (0:58 - 1:06) */}
+      {t >= 58.0 && t < 66.0 && (
         <div
           style={{
             position: "absolute",
@@ -426,8 +426,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 5. SCENE 2: BOAT FAILURE & GAP COVERAGE NOTIFICATION (1:03 - 1:12) */}
-      {t >= 63.0 && t < 72.0 && (
+      {/* 5. SCENE 2: BOAT FAILURE & GAP COVERAGE NOTIFICATION (1:06 - 1:14) */}
+      {t >= 66.0 && t < 74.0 && (
         <div
           style={{
             position: "absolute",
@@ -454,8 +454,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 6. SCENE 2: 30 TESTS · 0 VIOLATIONS BADGE (1:12 - 1:15) */}
-      {t >= 72.0 && t < 75.0 && (
+      {/* 6. SCENE 2: 30 TESTS · 0 VIOLATIONS BADGE (1:14 - 1:18) */}
+      {t >= 74.0 && t < 78.0 && (
         <div
           style={{
             position: "absolute",
@@ -479,8 +479,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 7. SCENE 3: EXPLAINABLE DECISION CALLOUT (1:15 - 1:30) */}
-      {t >= 75.0 && t < 90.0 && (
+      {/* 7. SCENE 3: EXPLAINABLE DECISION CALLOUT (1:18 - 1:32) */}
+      {t >= 78.0 && t < 92.0 && (
         <div
           style={{
             position: "absolute",
@@ -519,8 +519,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 8. SCENE 3: RELAY REPLACEMENT NOTIFICATION (1:30 - 1:42) */}
-      {t >= 90.0 && t < 102.0 && (
+      {/* 8. SCENE 3: RELAY REPLACEMENT NOTIFICATION (1:32 - 1:44) */}
+      {t >= 92.0 && t < 104.0 && (
         <div
           style={{
             position: "absolute",
@@ -547,8 +547,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 9. SCENE 3: SHORE LINK CUT & RECONCILIATION (1:42 - 1:53) */}
-      {t >= 102.0 && t < 113.0 && (
+      {/* 9. SCENE 3: SHORE LINK CUT & RECONCILIATION (1:44 - 1:54) */}
+      {t >= 104.0 && t < 114.0 && (
         <div
           style={{
             position: "absolute",
@@ -556,14 +556,14 @@ export function PitchDirector() {
             left: "50%",
             transform: "translateX(-50%)",
             background: "rgba(15, 23, 42, 0.94)",
-            border: t < 108 ? "1px solid #ef4444" : "1px solid #22c55e",
-            boxShadow: t < 108 ? "0 0 30px rgba(239, 68, 68, 0.3)" : "0 0 30px rgba(34, 197, 94, 0.3)",
+            border: t < 109 ? "1px solid #ef4444" : "1px solid #22c55e",
+            boxShadow: t < 109 ? "0 0 30px rgba(239, 68, 68, 0.3)" : "0 0 30px rgba(34, 197, 94, 0.3)",
             padding: "18px 40px",
             borderRadius: 12,
             textAlign: "center",
           }}
         >
-          {t < 108 ? (
+          {t < 109 ? (
             <>
               <div style={{ color: "#ef4444", fontSize: 15, fontWeight: 800, letterSpacing: "0.08em" }}>
                 COMMUNICATION TO SHORE SEVERED
@@ -585,8 +585,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 10. SCENE 4: SLOTTED AUCTION FORMULA (1:58 - 2:25) */}
-      {t >= 118.0 && t < 144.0 && (
+      {/* 10. SCENE 4: DECENTRALIZED ALLOCATION ENGINE (1:56 - 2:22) */}
+      {t >= 116.0 && t < 142.0 && (
         <div
           style={{
             position: "absolute",
@@ -613,8 +613,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 11. SCENE 4: NATIVE ARDUPILOT INTEGRATION (2:25 - 2:34) */}
-      {t >= 144.0 && t < 154.0 && (
+      {/* 11. SCENE 4: NATIVE ARDUPILOT INTEGRATION (2:22 - 2:32) */}
+      {t >= 142.0 && t < 152.0 && (
         <div
           style={{
             position: "absolute",
@@ -641,8 +641,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 12. SCENE 5: THE THREE CLOSING STATEMENTS (2:43 - 2:55) */}
-      {t >= 163.0 && t < 175.0 && (
+      {/* 12. SCENE 5: THE THREE CLOSING STATEMENTS (2:42 - 2:58) */}
+      {t >= 162.0 && t < 178.0 && (
         <div
           style={{
             position: "absolute",
@@ -655,7 +655,7 @@ export function PitchDirector() {
             gap: 20,
           }}
         >
-          {t >= 163.0 && (
+          {t >= 162.0 && (
             <div
               style={{
                 background: "rgba(7, 18, 28, 0.92)",
@@ -672,7 +672,7 @@ export function PitchDirector() {
               DAYS AT SEA
             </div>
           )}
-          {t >= 167.0 && (
+          {t >= 166.0 && (
             <div
               style={{
                 background: "rgba(7, 18, 28, 0.92)",
@@ -689,7 +689,7 @@ export function PitchDirector() {
               ONE OPERATOR
             </div>
           )}
-          {t >= 171.0 && (
+          {t >= 170.0 && (
             <div
               style={{
                 background: "rgba(7, 18, 28, 0.92)",

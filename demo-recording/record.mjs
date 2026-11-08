@@ -176,16 +176,16 @@ try {
   // 8. Extract representative scene snapshot frames for review
   console.log('\nExtracting representative scene frames for verification...');
   const keyframes = [
-    { name: 'scene1_01_gulf_reconstruction.png', ss: '6.0' },
-    { name: 'scene1_02_great_belt_swarm.png', ss: '22.0' },
-    { name: 'scene2_01_drift_station_keeping.png', ss: '50.0' },
-    { name: 'scene2_02_boat_failure_coverage.png', ss: '68.0' },
-    { name: 'scene2_03_endurance_scorecard.png', ss: '73.0' },
-    { name: 'scene3_01_decision_explanation.png', ss: '82.0' },
-    { name: 'scene3_02_relay_reconfiguration.png', ss: '96.0' },
-    { name: 'scene3_03_shore_reconciliation.png', ss: '110.0' },
-    { name: 'scene4_01_distributed_auction.png', ss: '126.0' },
-    { name: 'scene4_02_ardupilot_hardware.png', ss: '148.0' },
+    { name: 'scene1_01_gulf_reconstruction.png', ss: '12.0' },
+    { name: 'scene1_02_great_belt_swarm.png', ss: '32.0' },
+    { name: 'scene2_01_drift_station_keeping.png', ss: '52.0' },
+    { name: 'scene2_02_boat_failure_coverage.png', ss: '69.0' },
+    { name: 'scene2_03_endurance_scorecard.png', ss: '75.0' },
+    { name: 'scene3_01_decision_explanation.png', ss: '84.0' },
+    { name: 'scene3_02_relay_reconfiguration.png', ss: '98.0' },
+    { name: 'scene3_03_shore_reconciliation.png', ss: '108.0' },
+    { name: 'scene4_01_distributed_auction.png', ss: '128.0' },
+    { name: 'scene4_02_ardupilot_hardware.png', ss: '146.0' },
     { name: 'scene5_01_closing_statements.png', ss: '172.0' },
     { name: 'scene6_01_pharos_outro.png', ss: '195.0' },
   ];

@@ -3,8 +3,8 @@
     "id": "scene_1",
     "speaker": "FRANKO",
     "start": 0,
-    "end": 35,
-    "duration": 35,
+    "end": 42,
+    "duration": 42,
     "title": "Gulf of Finland Incident & Swarm Introduction",
     "phases": [
       {
@@ -13,12 +13,12 @@
         "overlay": "DECEMBER 2024: 90 KM DRAGGED ANCHOR · 5 CABLES SEVERED"
       },
       {
-        "t": 16,
+        "t": 26,
         "action": "transition_to_dashboard",
         "overlay": "PHAROS AUTONOMOUS USV SWARM · SINGLE HIVE MIND"
       },
       {
-        "t": 23,
+        "t": 34,
         "action": "zoom_patrol_fleet",
         "overlay": "CONTINUOUS CABLE INFRASTRUCTURE PATROL"
       }
@@ -27,38 +27,38 @@
   {
     "id": "scene_2",
     "speaker": "SIME",
-    "start": 35,
-    "end": 75,
-    "duration": 40,
+    "start": 42,
+    "end": 78,
+    "duration": 36,
     "title": "Batteries, Drift Station-Keeping & Failure Gap Closure",
     "phases": [
       {
-        "t": 35,
+        "t": 42,
         "action": "battery_bottleneck_focus",
         "overlay": "CONVENTIONAL BOATS DRAIN POWER IN HOURS"
       },
       {
-        "t": 45,
+        "t": 49,
         "action": "drift_station_keeping",
         "overlay": "MOTORS OFF · SENSORS ON (Drift Station-Keeping)"
       },
       {
-        "t": 55,
+        "t": 58,
         "action": "energy_comparison",
         "overlay": "10× LESS POWER · DAYS AT SEA INSTEAD OF HOURS"
       },
       {
-        "t": 63,
+        "t": 66,
         "action": "usv01_failure_trigger",
         "overlay": "SIMULATED FAILURE: USV-01 OFFLINE"
       },
       {
-        "t": 67,
+        "t": 70,
         "action": "autonomous_gap_coverage",
         "overlay": "AUTONOMOUS REDISTRIBUTION · USV-04 COVERS GAP"
       },
       {
-        "t": 72,
+        "t": 74,
         "action": "test_scorecard",
         "overlay": "30 TESTS · 0 RESERVE VIOLATIONS"
       }
@@ -67,23 +67,23 @@
   {
     "id": "scene_3",
     "speaker": "JAVIER",
-    "start": 75,
-    "end": 118,
-    "duration": 43,
+    "start": 78,
+    "end": 116,
+    "duration": 38,
     "title": "Autonomous Decision, Relay Loss & Shore Disruption",
     "phases": [
       {
-        "t": 75,
+        "t": 78,
         "action": "explainable_reason_callout",
-        "overlay": "USV-04 ASSIGNED: CHEAPEST OF 2 BIDS [BATTERY RETURN]"
+        "overlay": "USV-04 ASSIGNED: OPTIMAL MULTI-FACTOR ALLOCATION"
       },
       {
-        "t": 90,
+        "t": 92,
         "action": "relay_failure_trigger",
         "overlay": "RELAY BOAT USV-05 LOST · USV-03 ELECTED AS RELAY"
       },
       {
-        "t": 102,
+        "t": 104,
         "action": "shore_link_cut",
         "overlay": "SHORE LINK CUT · STORE & FORWARD BUFFERS ACTIVE"
       },
@@ -102,23 +102,23 @@
   {
     "id": "scene_4",
     "speaker": "ALEX",
-    "start": 118,
-    "end": 154,
+    "start": 116,
+    "end": 152,
     "duration": 36,
-    "title": "Distributed Auction & ArduPilot Hardware",
+    "title": "Distributed Auction & Native ArduPilot Integration",
     "phases": [
       {
-        "t": 118,
+        "t": 116,
         "action": "slotted_auction_bids",
         "overlay": "DECENTRALIZED AUCTION ENGINE · NO CENTRAL SERVER"
       },
       {
-        "t": 128,
+        "t": 126,
         "action": "fractal_path_planning",
         "overlay": "SMART FRACTAL SYSTEM MANAGEMENT & ADAPTIVE PATH ROUTING"
       },
       {
-        "t": 144,
+        "t": 142,
         "action": "native_ardupilot",
         "overlay": "NATIVE ARDUPILOT INTEGRATION · ZERO HARDWARE MODIFICATION"
       }
@@ -127,28 +127,28 @@
   {
     "id": "scene_5",
     "speaker": "FRANKO",
-    "start": 154,
+    "start": 152,
     "end": 180,
-    "duration": 26,
+    "duration": 28,
     "title": "Conclusion & Closing Statements",
     "phases": [
       {
-        "t": 154,
+        "t": 152,
         "action": "full_swarm_panorama",
         "overlay": "SWARM COOPERATION AFTER DISRUPTIONS"
       },
       {
-        "t": 163,
+        "t": 162,
         "action": "statement_days_at_sea",
         "overlay": "DAYS AT SEA"
       },
       {
-        "t": 167,
+        "t": 166,
         "action": "statement_one_operator",
         "overlay": "ONE OPERATOR"
       },
       {
-        "t": 171,
+        "t": 170,
         "action": "statement_detection_box",
         "overlay": "A DETECTION BOX"
       }
