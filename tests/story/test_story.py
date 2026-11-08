@@ -171,7 +171,11 @@ def test_s6_rejoin_converges_every_table():
     for peer in others:
         world.inject({"kind": "link_off", "a": 3, "b": peer or "shore"}, start)
         world.inject({"kind": "link_off", "a": peer, "b": 3}, start)
-    world.inject({"kind": "battery_low", "boat": 1}, start + 1000)
+    # the failure must free work for the others to repair: send home the boat (not 3) that holds
+    # the most tasks now (since #141 boat 1 holds none at this moment in seed 3)
+    failing = max((b for b in (1, 2, 4, 5)), key=lambda b: (len(world.nodes[b].table.held_by(b)), -b))
+    assert world.nodes[failing].table.held_by(failing)
+    world.inject({"kind": "battery_low", "boat": failing}, start + 1000)
     while world.next_tick_ms <= start + 120_000:
         world.step()
     assert world.nodes[3].table.recs != world.nodes[2].table.recs  # split: 3 missed the repair
@@ -181,7 +185,7 @@ def test_s6_rejoin_converges_every_table():
         world.inject({"kind": "link_on", "a": peer, "b": 3}, back)
     while world.next_tick_ms <= back + 90_000:
         world.step()
-    live = [world.nodes[b].table.recs for b in (2, 3, 4, 5)]
+    live = [world.nodes[b].table.recs for b in (1, 2, 3, 4, 5) if b != failing]
     assert all(recs == live[0] for recs in live)
     assert world.shore.table.recs == live[0]
     for task in seg_tasks(world):

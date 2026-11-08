@@ -219,6 +219,32 @@ in, and a clicked boat or contact always shows its label.
   `{"coordinates": [[lon,lat] top-left, top-right, bottom-right, bottom-left]}`. Until they exist
   the toggle reads "No satellite image yet".
 
+## Release gate: run before every merge, demo and recording
+
+```bash
+uv run python -m server.gate                 # everything, about 20 min
+uv run python -m server.gate --fast          # no browser suite, no 12 h checks
+```
+
+It prints PASS or FAIL per layer and exits non-zero on any failure (GitHub Actions is blocked,
+so this is the gate). Layers: ruff, all Python tests (including the slow 12 h ones), TypeScript,
+web unit tests, the build, and every Playwright test against the real server. What it covers:
+
+- **Button census** (`tests/census.spec.ts`): every control on every screen state has an
+  accessible name, is listed in `tests/census.json`, and clicking it raises no error. A new
+  control fails the gate until someone tests it and adds it (`CENSUS_WRITE=1` rewrites the list:
+  review the diff).
+- **User flows** (`tests/flows.spec.ts`), real simulator: exercises with Undo all; battery low →
+  home → battery swap → back to work; escalation → badge and timeline; settings and keys; the
+  evidence dialog without a run log; Restart back to the first state, with no FEED LOST.
+- **Server robustness** (`tests/server/test_robustness.py`): hundreds of fuzzed commands always get
+  an answer, never crash the feed, and a refused one changes nothing; every frame matches the
+  contract; a restart keeps frames flowing.
+- **Hard rules** (`tests/world/test_hard_rules.py`): 12 h of the video run and of the live run with
+  no empty battery at sea, no boat on land, no loop, no task held twice for over 2 min.
+- **Wording** (`tests/server/test_wording.py`): no "suspicious", "hostile" or "coverage restored"
+  in anything the officer or a report shows.
+
 ## Tests
 
 ```bash

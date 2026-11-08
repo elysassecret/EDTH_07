@@ -126,6 +126,7 @@ class Feed:
         self.start_paused = start_paused  # demo: every (re)start waits for "Run"
         self.paused = start_paused
         self.speed_override: float | None = None
+        self.resetting = False  # a restart is being built in a worker thread
 
     def handle_command(self, msg: dict) -> dict:
         log.info("command t=%.1f %s", self.world.t, json.dumps(msg, sort_keys=True))
@@ -157,6 +158,35 @@ class Feed:
             return {"ok": False, "error": f"bad command: {e}"}
         return self.world.command(msg)
 
+    async def reset_async(self, msg: dict) -> dict:
+        """Restart without freezing the feed: the new run is built in a worker thread (the demo
+        preset replays its first 6900 sim-seconds, several seconds of work) while the old picture
+        keeps going out, paused. Before this the loop blocked and every console showed FEED LOST.
+        One restart at a time."""
+        try:
+            seed = int(msg.get("seed", self.seed))
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "error": f"bad command: {e}"}
+        if self.resetting:
+            return {"ok": False, "error": "a restart is already under way"}
+        self.resetting, was = True, self.paused
+        self.paused = True  # the old picture stays on screen, frozen, while the new run is built
+        try:
+            world = await asyncio.to_thread(self.factory, seed)
+        except Exception as e:  # noqa: BLE001 - report it; the old run stays
+            self.paused = was
+            return {"ok": False, "error": f"restart failed: {e}"}
+        finally:
+            self.resetting = False
+        getattr(self.world, "close", lambda: None)()  # e.g. finish the run log
+        self.seed, self.world = seed, world
+        self.narrator = self._new_narrator()
+        self.history = History()  # a new run: its replay starts again
+        self.history.add(self.world.snapshot("shore", 0))
+        self.paused = was or self.start_paused
+        log.info("command reset done: seed %d", seed)
+        return {"ok": True}
+
     async def handler(self, ws) -> None:
         path = ws.request.path.split("?")[0].rstrip("/") or "/shore"
         if path not in ("/shore", "/truth"):
@@ -173,7 +203,8 @@ class Feed:
                     msg = json.loads(raw)
                     if not isinstance(msg, dict):
                         raise TypeError("command must be a JSON object")
-                    res = self.handle_command(msg)
+                    res = (await self.reset_async(msg) if msg.get("cmd") == "reset"
+                           else self.handle_command(msg))
                 except (ValueError, TypeError) as e:
                     msg, res = {}, {"ok": False, "error": f"bad JSON: {e}"}
                 if not res["ok"]:
