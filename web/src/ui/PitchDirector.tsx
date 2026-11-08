@@ -68,7 +68,7 @@ export function PitchDirector() {
 
   // Permanently dismiss Gulf of Finland once transition completes (one-way latch)
   useEffect(() => {
-    if (t >= 26.8 && !gulfDismissed) {
+    if (t >= 21.8 && !gulfDismissed) {
       setGulfDismissed(true);
     }
   }, [t, gulfDismissed]);
@@ -91,9 +91,9 @@ export function PitchDirector() {
       }
     };
 
-    // T = 26s: Transition into Great Belt live dashboard
-    if (t >= 26.0) {
-      fireOnce("t_26_unpause", () => {
+    // T = 21s: Transition into Great Belt live dashboard (5s earlier per user request)
+    if (t >= 21.0) {
+      fireOnce("t_21_unpause", () => {
         send({ cmd: "pause", on: false });
         if (map) {
           map.flyTo({ center: [10.98, 55.35], zoom: 10.6, duration: 2500, essential: true });
@@ -101,9 +101,9 @@ export function PitchDirector() {
       });
     }
 
-    // T = 34s: Smooth zoom into active patrol formation
-    if (t >= 34.0) {
-      fireOnce("t_34_zoom_fleet", () => {
+    // T = 29s: Smooth zoom into active patrol formation
+    if (t >= 29.0) {
+      fireOnce("t_29_zoom_fleet", () => {
         if (map) {
           map.flyTo({ center: [10.96, 55.42], zoom: 12.0, duration: 3500, essential: true });
         }
@@ -176,14 +176,14 @@ export function PitchDirector() {
         fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
-      {/* 1. SCENE 1 (0:00 - 0:26): HISTORICAL GULF OF FINLAND INCIDENT RECONSTRUCTION */}
+      {/* 1. SCENE 1 (0:00 - 0:21): HISTORICAL GULF OF FINLAND INCIDENT RECONSTRUCTION */}
       {!gulfDismissed && (
         <div
           style={{
             position: "absolute",
             inset: 0,
             background: "#04090f",
-            opacity: t > 26.0 ? Math.max(0, 1 - (t - 26.0) / 0.8) : 1,
+            opacity: t > 21.0 ? Math.max(0, 1 - (t - 21.0) / 0.8) : 1,
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
@@ -334,8 +334,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 2. PERSISTENT UPPER-LEFT HUD BANNER (0:26 - 2:32) */}
-      {t >= 26.0 && t < 152.0 && (
+      {/* 2. PERSISTENT UPPER-LEFT HUD BANNER (0:21 - 2:32) */}
+      {t >= 21.0 && t < 152.0 && (
         <div
           style={{
             position: "absolute",

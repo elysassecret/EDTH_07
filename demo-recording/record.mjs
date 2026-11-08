@@ -176,8 +176,8 @@ try {
   // 8. Extract representative scene snapshot frames for review
   console.log('\nExtracting representative scene frames for verification...');
   const keyframes = [
-    { name: 'scene1_01_gulf_reconstruction.png', ss: '12.0' },
-    { name: 'scene1_02_great_belt_swarm.png', ss: '32.0' },
+    { name: 'scene1_01_gulf_reconstruction.png', ss: '10.0' },
+    { name: 'scene1_02_great_belt_swarm.png', ss: '27.0' },
     { name: 'scene2_01_drift_station_keeping.png', ss: '52.0' },
     { name: 'scene2_02_boat_failure_coverage.png', ss: '69.0' },
     { name: 'scene2_03_endurance_scorecard.png', ss: '75.0' },

@@ -13,12 +13,12 @@
         "overlay": "DECEMBER 2024: 90 KM DRAGGED ANCHOR · 5 CABLES SEVERED"
       },
       {
-        "t": 26,
+        "t": 21,
         "action": "transition_to_dashboard",
         "overlay": "PHAROS AUTONOMOUS USV SWARM · SINGLE HIVE MIND"
       },
       {
-        "t": 34,
+        "t": 29,
         "action": "zoom_patrol_fleet",
         "overlay": "CONTINUOUS CABLE INFRASTRUCTURE PATROL"
       }
