@@ -80,9 +80,9 @@ export function PitchDirector() {
       }
     };
 
-    // T = 12s: Transition into Great Belt live dashboard
-    if (t >= 12.0 && t < 13.0) {
-      fireOnce("t_12_unpause", () => {
+    // T = 16s: Transition into Great Belt live dashboard
+    if (t >= 16.0 && t < 17.0) {
+      fireOnce("t_16_unpause", () => {
         send({ cmd: "pause", on: false });
         if (map) {
           map.flyTo({ center: [10.98, 55.35], zoom: 10.6, duration: 2500, essential: true });
@@ -165,15 +165,14 @@ export function PitchDirector() {
         fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
-      {/* 1. SCENE 1 (0:00 - 0:12): HISTORICAL GULF OF FINLAND INCIDENT RECONSTRUCTION */}
-      {t < 12.2 && (
+      {/* 1. SCENE 1 (0:00 - 0:16): HISTORICAL GULF OF FINLAND INCIDENT RECONSTRUCTION */}
+      {t < 16.8 && (
         <div
           style={{
             position: "absolute",
             inset: 0,
             background: "#04090f",
-            opacity: t > 11.2 ? Math.max(0, 1 - (t - 11.2)) : 1,
-            transition: "opacity 0.6s ease-out",
+            opacity: t > 16.0 ? Math.max(0, 1 - (t - 16.0) / 0.8) : 1,
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
@@ -324,8 +323,8 @@ export function PitchDirector() {
         </div>
       )}
 
-      {/* 2. PERSISTENT UPPER-LEFT HUD BANNER (0:12 - 2:34) */}
-      {t >= 12.0 && t < 154.0 && (
+      {/* 2. PERSISTENT UPPER-LEFT HUD BANNER (0:16 - 2:34) */}
+      {t >= 16.0 && t < 154.0 && (
         <div
           style={{
             position: "absolute",
