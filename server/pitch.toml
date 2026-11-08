@@ -1,0 +1,9 @@
+# Pitch demo preset: smooth, continuous patrol with zero conflicting tape events
+# All fault events (battery_low at 66s, relay loss at 92s, link cut at 104s)
+# are orchestrated precisely by PitchDirector.tsx
+seed = 1
+start_s = 6900
+start_paused = true
+scenario = "scenarios/quiet.toml"
+warp_between = 20
+warp_near = 10

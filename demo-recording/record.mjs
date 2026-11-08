@@ -41,7 +41,7 @@ console.log(`\nStarting PHAROS server on port ${PORT}...`);
 let serverLogs = '';
 const server = spawn(
   'uv',
-  ['run', 'python', '-m', 'server', '--serve-web', '--demo', '--host', '127.0.0.1', '--port', String(PORT)],
+  ['run', 'python', '-m', 'server', '--serve-web', '--demo', 'server/pitch.toml', '--host', '127.0.0.1', '--port', String(PORT)],
   { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] }
 );
 server.stdout.on('data', (b) => { serverLogs += b; });

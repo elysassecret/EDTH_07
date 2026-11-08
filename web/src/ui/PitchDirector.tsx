@@ -91,13 +91,10 @@ export function PitchDirector() {
       }
     };
 
-    // T = 21s: Transition into Great Belt live dashboard (5s earlier per user request)
+    // T = 21s: Transition into Great Belt live dashboard
     if (t >= 21.0) {
       fireOnce("t_21_unpause", () => {
         send({ cmd: "pause", on: false });
-        if (map) {
-          map.flyTo({ center: [10.98, 55.35], zoom: 10.6, duration: 2500, essential: true });
-        }
       });
     }
 
@@ -183,7 +180,8 @@ export function PitchDirector() {
             position: "absolute",
             inset: 0,
             background: "#04090f",
-            opacity: t > 21.0 ? Math.max(0, 1 - (t - 21.0) / 0.8) : 1,
+            transition: "opacity 0.8s ease-out",
+            opacity: t >= 21.0 ? 0 : 1,
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
